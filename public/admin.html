@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Administrador Karaoke</title>
+</head>
+<body>
+  <h1>Panel de administrador</h1>
+
+  <div id="admin-login">
+    <input id="admin-pass" type="password" placeholder="Contraseña admin" />
+    <button id="btn-admin-login">Entrar</button>
+  </div>
+
+  <div id="admin-panel" style="display:none;">
+
+    <h2>Cambiar contraseña de administrador</h2>
+    <div>
+      <input id="old-admin-pass" type="password" placeholder="Contraseña actual" />
+      <input id="new-admin-pass" type="password" placeholder="Nueva contraseña" />
+      <button id="btn-change-admin-pass">Cambiar contraseña</button>
+    </div>
+
+    <h2>Cola de canciones</h2>
+    <button id="btn-clear-all">Limpiar toda la cola</button>
+    <div id="queue-admin"></div>
+
+    <h2>Cargar canciones desde Excel</h2>
+    <form id="form-upload">
+      <input type="file" id="excel-file" name="excel" accept=".xlsx,.xls" />
+      <button type="submit">Subir Excel</button>
+    </form>
+
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>
