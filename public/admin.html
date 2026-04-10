@@ -3,34 +3,288 @@
 <head>
   <meta charset="UTF-8" />
   <title>Administrador Karaoke</title>
+
+  <!-- Hace que la página se adapte al ancho del móvil -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Estilos básicos responsive compartidos con la pantalla de usuario -->
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      background: #050816;
+      color: #f9fafb;
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    h2 {
+      font-size: 1.1rem;
+      margin: 20px 0 8px;
+    }
+
+    h3 {
+      font-size: 1rem;
+      margin: 16px 0 8px;
+    }
+
+    .card {
+      background: #111827;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 10px 15px rgba(0,0,0,0.3);
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    label {
+      font-size: 0.85rem;
+      color: #9ca3af;
+    }
+
+    input,
+    button[type="submit"],
+    input[type="file"] {
+      width: 100%;
+      font-size: 0.95rem;
+    }
+
+    input {
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #4b5563;
+      background: #020617;
+      color: #f9fafb;
+    }
+
+    input::placeholder {
+      color: #6b7280;
+    }
+
+    button {
+      padding: 10px 16px;
+      border-radius: 999px;
+      border: none;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #4f46e5, #a855f7);
+      color: #f9fafb;
+    }
+
+    .btn-secondary {
+      background: #f9fafb;
+      color: #111827;
+    }
+
+    .btn-danger {
+      background: #dc2626;
+      color: #f9fafb;
+    }
+
+    .section-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .badge {
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid #4b5563;
+      color: #9ca3af;
+    }
+
+    /* Cola admin: ahora con scroll horizontal y cada canción en una línea */
+    #queue-admin {
+      margin-top: 8px;
+      max-height: 45vh;
+      overflow-y: auto;
+      padding-right: 4px;
+
+      overflow-x: auto;      /* scroll horizontal en smartphone */
+      white-space: nowrap;   /* no rompas en varias líneas */
+    }
+
+    /* Cada ítem de la cola en una sola línea desplazable */
+    .queue-item-line {
+      display: inline-block;
+      padding: 8px 12px;
+      margin-right: 8px;
+      margin-bottom: 4px;
+      border-radius: 8px;
+      background: #020617;
+      font-size: 0.9rem;
+    }
+
+    /* Si en algún momento usas la estructura anterior tipo tarjeta,
+       seguirá viéndose bien, pero no es obligatoria para la cola horizontal */
+    .queue-item {
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: #020617;
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .queue-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .queue-item-main {
+      font-weight: 600;
+      color: #e5e7eb;
+    }
+
+    .queue-item-meta {
+      font-size: 0.8rem;
+      color: #9ca3af;
+    }
+
+    .queue-item-actions {
+      margin-top: 6px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .queue-item-actions button {
+      flex: 1;
+      padding: 8px;
+      font-size: 0.85rem;
+      border-radius: 999px;
+    }
+
+    .file-input-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .file-input-wrapper input[type="file"] {
+      padding: 8px 0;
+      background: transparent;
+      border: none;
+      color: #e5e7eb;
+    }
+
+    .hint {
+      font-size: 0.8rem;
+      color: #9ca3af;
+      margin-top: 4px;
+    }
+
+    @media (min-width: 768px) {
+      body {
+        display: flex;
+        justify-content: center;
+      }
+      .container {
+        width: 900px; /* más ancho para ver más texto en una línea en pantallas grandes */
+      }
+    }
+  </style>
 </head>
 <body>
-  <h1>Panel de administrador</h1>
+  <div class="container">
+    <h1>Panel de administrador</h1>
 
-  <div id="admin-login">
-    <input id="admin-pass" type="password" placeholder="Contraseña admin" />
-    <button id="btn-admin-login">Entrar</button>
-  </div>
+    <!-- Login admin -->
+    <div class="card" id="admin-login">
+      <div class="section-title-row">
+        <h2>Inicio de sesión</h2>
+        <span class="badge">Admin</span>
+      </div>
 
-  <div id="admin-panel" style="display:none;">
-
-    <h2>Cambiar contraseña de administrador</h2>
-    <div>
-      <input id="old-admin-pass" type="password" placeholder="Contraseña actual" />
-      <input id="new-admin-pass" type="password" placeholder="Nueva contraseña" />
-      <button id="btn-change-admin-pass">Cambiar contraseña</button>
+      <div class="form-group">
+        <div>
+          <label for="admin-pass">Contraseña de administrador</label>
+          <input id="admin-pass" type="password" placeholder="Contraseña admin" />
+        </div>
+        <button id="btn-admin-login" class="btn-primary">Entrar</button>
+      </div>
     </div>
 
-    <h2>Cola de canciones</h2>
-    <button id="btn-clear-all">Limpiar toda la cola</button>
-    <div id="queue-admin"></div>
+    <!-- Panel admin (se muestra solo si está logueado) -->
+    <div id="admin-panel" style="display:none;">
 
-    <h2>Cargar canciones desde Excel</h2>
-    <form id="form-upload">
-      <input type="file" id="excel-file" name="excel" accept=".xlsx,.xls" />
-      <button type="submit">Subir Excel</button>
-    </form>
+      <!-- Cambiar contraseña -->
+      <div class="card">
+        <h2>Cambiar contraseña de administrador</h2>
+        <div class="form-group">
+          <div>
+            <label for="old-admin-pass">Contraseña actual</label>
+            <input id="old-admin-pass" type="password" placeholder="Contraseña actual" />
+          </div>
 
+          <div>
+            <label for="new-admin-pass">Nueva contraseña</label>
+            <input id="new-admin-pass" type="password" placeholder="Nueva contraseña" />
+          </div>
+
+          <button id="btn-change-admin-pass" class="btn-secondary">Cambiar contraseña</button>
+        </div>
+      </div>
+
+      <!-- Cola de canciones -->
+      <div class="card">
+        <div class="section-title-row">
+          <h2>Cola de canciones</h2>
+          <button id="btn-clear-all" class="btn-danger">Limpiar toda la cola</button>
+        </div>
+        <p class="hint">Desliza horizontalmente para ver todas las canciones.</p>
+        <div id="queue-admin"></div>
+      </div>
+
+      <!-- Cargar canciones desde Excel -->
+      <div class="card">
+        <h2>Cargar canciones desde Excel</h2>
+        <form id="form-upload" class="form-group">
+          <div class="file-input-wrapper">
+            <label for="excel-file">Archivo Excel (.xlsx, .xls)</label>
+            <input
+              type="file"
+              id="excel-file"
+              name="excel"
+              accept=".xlsx,.xls"
+            />
+            <p class="hint">Asegúrate de que el archivo tenga las columnas correctas (por ejemplo: artista, título, etc.).</p>
+          </div>
+
+          <button type="submit" class="btn-secondary">Subir Excel</button>
+        </form>
+      </div>
+    </div>
   </div>
 
   <script src="admin.js"></script>
