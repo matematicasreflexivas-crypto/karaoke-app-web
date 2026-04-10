@@ -4,10 +4,8 @@
   <meta charset="UTF-8" />
   <title>Karaoke - Usuario</title>
 
-  <!-- Hace que la página se adapte al ancho del móvil -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 
-  <!-- Estilos básicos responsive -->
   <style>
     * {
       box-sizing: border-box;
@@ -20,47 +18,54 @@
       background: #050816;
       color: #f9fafb;
       min-height: 100vh;
-      padding: 16px;
+      padding: 8px;
     }
 
+    .container {
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    /* Título principal */
     h1 {
-      font-size: 1.4rem;
+      font-size: 1.1rem;
       text-align: center;
-      margin-bottom: 16px;
+      margin-bottom: 10px;
     }
 
+    /* Títulos secundarios */
     h2 {
-      font-size: 1.1rem;
-      margin: 20px 0 8px;
+      font-size: 1.05rem;
+      margin: 8px 0 6px;
     }
 
     h3 {
       font-size: 1rem;
-      margin: 16px 0 8px;
+      margin: 6px 0 4px;
     }
 
     .card {
       background: #111827;
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 16px;
-      box-shadow: 0 10px 15px rgba(0,0,0,0.3);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.25);
     }
 
     .form-group {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
     }
 
     label {
-      font-size: 0.85rem;
-      color: #9ca3af;
+      font-size: 0.95rem;
+      color: #e5e7eb;
     }
 
     input {
       width: 100%;
-      padding: 10px 12px;
+      padding: 8px 10px;
       border-radius: 8px;
       border: 1px solid #4b5563;
       background: #020617;
@@ -70,10 +75,11 @@
 
     input::placeholder {
       color: #6b7280;
+      font-size: 0.9rem;
     }
 
     button {
-      padding: 10px 16px;
+      padding: 9px 12px;
       border-radius: 999px;
       border: none;
       font-size: 0.95rem;
@@ -91,62 +97,55 @@
       width: 100%;
     }
 
-    .btn-secondary {
-      background: #f9fafb;
-      color: #111827;
-      width: 100%;
-    }
-
     .section-title-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      gap: 6px;
     }
 
     .badge {
-      font-size: 0.75rem;
-      padding: 4px 8px;
+      font-size: 0.8rem;
+      padding: 3px 7px;
       border-radius: 999px;
       border: 1px solid #4b5563;
       color: #9ca3af;
     }
 
+    /* Resultados de búsqueda */
     #songs {
-      margin-top: 8px;
-      max-height: 45vh;
+      margin-top: 4px;
+      max-height: 22vh;
       overflow-y: auto;
       padding-right: 4px;
     }
 
-    /* Cola: scroll horizontal y una línea por canción */
+    /* Cola: scroll vertical + horizontal para toda la lista */
     #queue {
-      margin-top: 8px;
-      max-height: 20vh;
+      margin-top: 4px;
+      max-height: 46vh;
       padding-right: 4px;
-
-      overflow-x: auto;      /* scroll horizontal */
-      white-space: nowrap;   /* no partir en varias líneas */
+      overflow-y: auto;
+      overflow-x: auto;
+      white-space: nowrap;
     }
 
-    /* Cada canción de la cola como bloque en una sola línea */
     .queue-item-line {
-      display: inline-block;
-      padding: 8px 12px;
-      margin-right: 8px;
-      margin-bottom: 4px;
-      border-radius: 8px;
+      display: block;
+      padding: 4px 8px;
+      margin-bottom: 3px;
+      border-radius: 6px;
       background: #020617;
-      font-size: 0.9rem;
+      font-size: 0.95rem;
+      white-space: nowrap;
     }
 
-    /* Tarjetas de canción (resultados de búsqueda, si las usas así en main.js) */
     .song-item, .queue-item {
-      padding: 10px 12px;
+      padding: 8px 10px;
       border-radius: 8px;
       background: #020617;
-      margin-bottom: 8px;
-      font-size: 0.9rem;
+      margin-bottom: 6px;
+      font-size: 0.95rem;
       display: flex;
       flex-direction: column;
       gap: 4px;
@@ -158,23 +157,22 @@
     }
 
     .song-artist {
-      font-size: 0.8rem;
+      font-size: 0.9rem;
       color: #9ca3af;
     }
 
     .song-actions {
-      margin-top: 6px;
+      margin-top: 4px;
       display: flex;
-      gap: 8px;
+      gap: 6px;
     }
 
     .song-actions button {
       flex: 1;
-      padding: 8px;
-      font-size: 0.85rem;
+      padding: 7px;
+      font-size: 0.9rem;
     }
 
-    /* Layout un poco más ancho en tablets/desktop */
     @media (min-width: 768px) {
       body {
         display: flex;
@@ -190,8 +188,13 @@
   <div class="container">
     <h1>Karaoke - Pantalla de usuario</h1>
 
+    <!-- Botón para mostrar/ocultar ficha de registro -->
+    <button id="btn-toggle-login-card" class="btn-primary" style="display:none;">
+      Ver datos de registro
+    </button>
+
     <!-- Inicio de sesión -->
-    <div class="card">
+    <div class="card" id="login-card">
       <div class="section-title-row">
         <h2>Inicio de sesión</h2>
         <span class="badge">Cliente</span>
@@ -205,7 +208,11 @@
 
         <div>
           <label for="table">Mesa</label>
-          <input id="table" type="number" placeholder="Ej. 5" inputmode="numeric" />
+          <input
+            id="table"
+            type="text"
+            placeholder="Ej. 5, VIP 1, VIP-1"
+          />
         </div>
 
         <div>
@@ -217,39 +224,43 @@
       </div>
     </div>
 
-    <!-- Buscar canción -->
-    <div class="card">
-      <h2>Buscar canción</h2>
+    <!-- CONTENIDO SOLO PARA USUARIOS LOGUEADOS -->
+    <div id="user-content" style="display:none;">
 
-      <div class="form-group">
-        <div>
-          <label for="artist">Intérprete</label>
-          <input id="artist" type="text" placeholder="Nombre del artista" />
+      <!-- Buscar canción -->
+      <div class="card">
+        <h2>Buscar canción</h2>
+
+        <div class="form-group">
+          <div>
+            <label for="artist">Intérprete</label>
+            <input id="artist" type="text" placeholder="Nombre del artista" />
+          </div>
+
+          <div>
+            <label for="title">Título</label>
+            <input id="title" type="text" placeholder="Nombre de la canción" />
+          </div>
+
+          <button id="btn-search" class="btn-primary">Buscar</button>
         </div>
-
-        <div>
-          <label for="title">Título</label>
-          <input id="title" type="text" placeholder="Nombre de la canción" />
-        </div>
-
-        <button id="btn-search" class="btn-secondary">Buscar</button>
       </div>
-    </div>
 
-    <!-- Resultados -->
-    <div class="card">
-      <h3>Resultados de búsqueda</h3>
-      <div id="songs"></div>
-    </div>
+      <!-- Resultados -->
+      <div class="card">
+        <h3>Resultados de búsqueda</h3>
+        <div id="songs"></div>
+      </div>
 
-    <!-- Cola -->
-    <div class="card">
-      <h3>Cola de canciones</h3>
-      <div id="queue"></div>
+      <!-- Cola -->
+      <div class="card">
+        <h3>Cola de canciones</h3>
+        <div id="queue"></div>
+      </div>
+
     </div>
   </div>
 
-  <!-- El script va al final para que los elementos ya existan -->
   <script src="main.js"></script>
 </body>
 </html>

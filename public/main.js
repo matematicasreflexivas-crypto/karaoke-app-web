@@ -11,7 +11,6 @@ document.getElementById('btn-login').onclick = async () => {
     return;
   }
 
-  // 1) Validar la contraseña contra el servidor
   let res;
   try {
     res = await fetch('/api/user/login', {
@@ -43,16 +42,66 @@ document.getElementById('btn-login').onclick = async () => {
     return;
   }
 
-  // 2) Si todo bien, guardamos al usuario en memoria
+  // Si todo bien, guardamos al usuario en memoria
   loggedUser = { name, table, pass };
   alert('Ingresaste como ' + name);
+
+  const loginCard = document.getElementById('login-card');
+  const userContent = document.getElementById('user-content');
+  const toggleLoginBtn = document.getElementById('btn-toggle-login-card');
+
+  // Ocultar ficha de login para dar espacio a la cola
+  if (loginCard) loginCard.style.display = 'none';
+
+  // Mostrar secciones de usuario (buscar / resultados / cola)
+  if (userContent) userContent.style.display = 'block';
+
+  // Mostrar botón para volver a ver/ocultar la ficha de registro
+  if (toggleLoginBtn) {
+    toggleLoginBtn.style.display = 'block';
+    toggleLoginBtn.textContent = 'Ver datos de registro';
+  }
+
+  // Asegurarnos de que la tarjeta de "Resultados de búsqueda" esté OCULTA al entrar
+  const resultsCard = getResultsCard();
+  if (resultsCard) {
+    resultsCard.style.display = 'none';
+  }
+
+  // Cargar la cola inicial
   loadQueue();
 };
 
+// Toggle de ficha de registro
+const toggleLoginBtn = document.getElementById('btn-toggle-login-card');
+if (toggleLoginBtn) {
+  toggleLoginBtn.onclick = () => {
+    const loginCard = document.getElementById('login-card');
+    if (!loginCard) return;
+
+    const visible = loginCard.style.display !== 'none';
+    if (visible) {
+      loginCard.style.display = 'none';
+      toggleLoginBtn.textContent = 'Ver datos de registro';
+    } else {
+      loginCard.style.display = 'block';
+      toggleLoginBtn.textContent = 'Ocultar datos de registro';
+    }
+  };
+}
+
 // Buscar canciones
 document.getElementById('btn-search').onclick = async () => {
-  const artist = document.getElementById('artist').value.trim();
-  const title  = document.getElementById('title').value.trim();
+  if (!loggedUser) {
+    alert('Primero inicia sesión');
+    return;
+  }
+
+  const artistInput = document.getElementById('artist');
+  const titleInput  = document.getElementById('title');
+
+  const artist = artistInput.value.trim();
+  const title  = titleInput.value.trim();
 
   const params = new URLSearchParams();
   if (artist) params.append('artist', artist);
@@ -80,6 +129,9 @@ document.getElementById('btn-search').onclick = async () => {
 
   if (!res.ok || !data.ok) {
     alert(data.message || 'Error buscando canciones');
+    // limpiar campos aunque haya error en la búsqueda
+    artistInput.value = '';
+    titleInput.value  = '';
     return;
   }
 
@@ -88,8 +140,16 @@ document.getElementById('btn-search').onclick = async () => {
 
   div.innerHTML = '';
 
+  const resultsCard = getResultsCard();
+  if (resultsCard) {
+    resultsCard.style.display = 'block';
+  }
+
   if (!songs.length) {
     div.textContent = 'No se encontraron canciones';
+    // limpiar campos aunque no haya resultados
+    artistInput.value = '';
+    titleInput.value  = '';
     return;
   }
 
@@ -109,13 +169,16 @@ document.getElementById('btn-search').onclick = async () => {
     btn.style.width = '100%';
     btn.textContent = label;
 
-    // Al hacer clic, pedimos confirmación antes de registrar
     btn.onclick = () => chooseSong(label);
 
     list.appendChild(btn);
   });
 
   div.appendChild(list);
+
+  // Al finalizar la búsqueda (con resultados) limpiamos los campos
+  artistInput.value = '';
+  titleInput.value  = '';
 };
 
 async function chooseSong(songLabel) {
@@ -124,12 +187,10 @@ async function chooseSong(songLabel) {
     return;
   }
 
-  // Confirmar con el usuario antes de registrar
   const confirmar = confirm(
     `¿Confirmas que quieres registrar esta canción?\n\n${songLabel}`
   );
   if (!confirmar) {
-    // Si el usuario dice NO, no registramos nada
     return;
   }
 
@@ -160,20 +221,26 @@ async function chooseSong(songLabel) {
   }
 
   if (!res.ok || !data.ok) {
-    // Si hubo error (por ejemplo mesa repetida), limpiamos los resultados de búsqueda
     document.getElementById('songs').innerHTML = '';
     alert(data.message || 'No se pudo registrar');
     return;
   }
 
-  // Aquí ANTES estaba: alert('Registro creado correctamente');
-  // Lo quitamos para no molestar con otra ventana.
-
   document.getElementById('songs').innerHTML = '';
+
+  const resultsCard = getResultsCard();
+  if (resultsCard) {
+    resultsCard.style.display = 'none';
+  }
+
   loadQueue();
 }
 
 async function loadQueue() {
+  if (!loggedUser) {
+    return;
+  }
+
   let res;
   try {
     res = await fetch('/api/queue');
@@ -200,10 +267,20 @@ async function loadQueue() {
 
   data.queue.forEach((item, idx) => {
     const p = document.createElement('p');
+    p.className = 'queue-item-line';
     p.textContent = `${idx + 1}. Mesa ${item.tableNumber} - ${item.userName} - ${item.songTitle}`;
     div.appendChild(p);
   });
 }
 
-// Auto‑refresco de la cola cada 5 segundos
+// Helper para localizar la tarjeta de "Resultados de búsqueda"
+function getResultsCard() {
+  return Array.from(document.querySelectorAll('.card'))
+    .find(card => {
+      const h3 = card.querySelector('h3');
+      return h3 && h3.textContent.includes('Resultados de búsqueda');
+    }) || null;
+}
+
+// Auto‑refresco de la cola cada 5 segundos (solo si hay usuario logueado)
 setInterval(loadQueue, 5000);

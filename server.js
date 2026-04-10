@@ -47,9 +47,80 @@ function saveAdminConfig() {
   );
 }
 
+// ========== SISTEMA DE MESAS PERMITIDAS ==========
+
+const tablesPath = path.join(__dirname, 'tables.json');
+
+function readTables() {
+  try {
+    const raw = fs.readFileSync(tablesPath, 'utf8');
+    return JSON.parse(raw);
+  } catch (e) {
+    // Si no existe, arrancamos con arreglo vacío
+    return [];
+  }
+}
+
+function writeTables(tables) {
+  fs.writeFileSync(tablesPath, JSON.stringify(tables, null, 2), 'utf8');
+}
+
+// Listar mesas permitidas
+app.get('/api/tables', (req, res) => {
+  const tables = readTables();
+  res.json({ ok: true, tables });
+});
+
+// Agregar mesa permitida
+app.post('/api/tables', (req, res) => {
+  const { tableNumber } = req.body;
+  if (!tableNumber) {
+    return res.status(400).json({ ok: false, message: 'Falta el número de mesa' });
+  }
+
+  const tables = readTables();
+  const mesaStr = String(tableNumber).trim();
+
+  // Ver si ya existe esa mesa
+  const exists = tables.some(t => String(t.tableNumber).trim() === mesaStr);
+  if (exists) {
+    return res
+      .status(400)
+      .json({ ok: false, message: `La mesa ${mesaStr} ya está registrada` });
+  }
+
+  const id = tables.length ? tables[tables.length - 1].id + 1 : 1;
+  tables.push({ id, tableNumber: mesaStr });
+  writeTables(tables);
+
+  res.json({ ok: true, id });
+});
+
+// Eliminar mesa permitida (una sola)
+app.delete('/api/tables/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const tables = readTables();
+  const newTables = tables.filter(t => t.id !== id);
+  writeTables(newTables);
+  res.json({ ok: true });
+});
+
+// Eliminar TODAS las mesas
+app.delete('/api/tables', (req, res) => {
+  writeTables([]);
+  res.json({ ok: true });
+});
+
+// Helper: verificar si una mesa está permitida
+function isTableAllowed(tableNumber) {
+  const tables = readTables();
+  const mesaStr = String(tableNumber).trim();
+  return tables.some(t => String(t.tableNumber).trim() === mesaStr);
+}
+
 // ========== ENDPOINTS ADMIN ==========
 
-// Login admin (usa adminPassword)
+// Login admin
 app.post('/api/admin/login', (req, res) => {
   const { password } = req.body;
   console.log(
@@ -87,21 +158,18 @@ app.post('/api/admin/change-password', (req, res) => {
   }
 });
 
-// Cambiar contraseña de usuario (desde el panel admin)
+// Cambiar contraseña de usuario
 app.post('/api/admin/change-user-password', (req, res) => {
   const { adminPassword, newUserPassword } = req.body;
 
-  // 1) Validar que vengan los datos
   if (!adminPassword || !newUserPassword) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
   }
 
-  // 2) Verificar que la contraseña de admin sea correcta
   if (adminPassword !== adminConfig.adminPassword) {
     return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
   }
 
-  // 3) Actualizar la contraseña de usuario
   adminConfig.userPassword = newUserPassword;
 
   try {
@@ -114,7 +182,7 @@ app.post('/api/admin/change-user-password', (req, res) => {
 });
 
 // ========== LOGIN USUARIO ==========
-// Valida la contraseña de usuario contra adminConfig.userPassword
+
 app.post('/api/user/login', (req, res) => {
   const { name, table, password } = req.body;
 
@@ -124,13 +192,23 @@ app.post('/api/user/login', (req, res) => {
       .json({ ok: false, message: 'Faltan datos para iniciar sesión' });
   }
 
+  // Validar contraseña de usuario
   if (password !== adminConfig.userPassword) {
     return res
       .status(401)
       .json({ ok: false, message: 'Contraseña de usuario incorrecta' });
   }
 
-  // Si la contraseña es correcta, devolvemos ok
+  // Validar que la mesa exista en la lista de mesas permitidas
+  if (!isTableAllowed(table)) {
+    return res
+      .status(400)
+      .json({
+        ok: false,
+        message: `La mesa ${table} no está registrada. Pide al administrador que la dé de alta.`
+      });
+  }
+
   return res.json({ ok: true });
 });
 
@@ -175,24 +253,20 @@ app.post('/api/songs/upload', upload.single('excel'), (req, res) => {
     const sheetName = workbook.SheetNames[0];
     const sheet     = workbook.Sheets[sheetName];
 
-    // Leemos el Excel como matriz de filas, sin usar encabezados.
     const rows = xlsx.utils.sheet_to_json(sheet, { header: 1 });
 
-    // La fila 0 tiene los encabezados: A, B
-    // Las filas siguientes tienen datos: [titulo, interprete]
     const songs = [];
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
       if (!row) continue;
 
-      const colA = row[0]; // columna A: AGUSTIN LARA (compositor)
-      const colB = row[1]; // columna B: AVENTURERA (canción)
+      const colA = row[0]; // compositor
+      const colB = row[1]; // canción
 
-      if (!colA && !colB) continue; // fila vacía
+      if (!colA && !colB) continue;
 
       songs.push({
-        // title = canción (B), artist = compositor (A)
         title:  (colB || '').toString(),
         artist: (colA || '').toString()
       });
@@ -231,19 +305,27 @@ app.get('/api/queue', (req, res) => {
   res.json({ ok: true, queue: q });
 });
 
-// Agregar a cola (no permitir misma mesa repetida)
+// Agregar a cola
 app.post('/api/queue', (req, res) => {
   const { userName, tableNumber, songTitle } = req.body;
   if (!userName || !tableNumber || !songTitle) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
   }
 
+  // Validar que la mesa exista
+  if (!isTableAllowed(tableNumber)) {
+    return res
+      .status(400)
+      .json({
+        ok: false,
+        message: `La mesa ${tableNumber} no está registrada. Pide al administrador que la dé de alta.`
+      });
+  }
+
   const q = readQueue();
 
-  // Normalizamos a string para evitar problemas de tipo
   const mesaStr = String(tableNumber).trim();
 
-  // Ver si ya existe esa mesa en la cola
   const existeMesa = q.some(item => String(item.tableNumber).trim() === mesaStr);
   console.log('Intento mesa:', mesaStr, 'Existe ya:', existeMesa);
 
@@ -261,7 +343,7 @@ app.post('/api/queue', (req, res) => {
   res.json({ ok: true, id });
 });
 
-// Editar SOLO la canción de un registro de la cola (no mueve su lugar)
+// Editar SOLO la canción de un registro de la cola
 app.put('/api/queue/:id', (req, res) => {
   const id = Number(req.params.id);
   const { songTitle } = req.body;
@@ -281,7 +363,6 @@ app.put('/api/queue/:id', (req, res) => {
       .json({ ok: false, message: 'Registro no encontrado en la cola' });
   }
 
-  // Actualizamos solo el título de la canción
   q[index].songTitle = songTitle;
   writeQueue(q);
 
