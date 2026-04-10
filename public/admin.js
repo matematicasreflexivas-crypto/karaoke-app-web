@@ -93,14 +93,58 @@ async function loadQueueAdmin() {
     const row = document.createElement('div');
     row.textContent = `${idx + 1}. Mesa ${item.tableNumber} - ${item.userName} - ${item.songTitle} `;
 
+    // Botón Eliminar
     const btnDel = document.createElement('button');
     btnDel.textContent = 'Eliminar';
     btnDel.onclick = async () => {
       await fetch(`/api/queue/${item.id}`, { method: 'DELETE' });
       loadQueueAdmin();
     };
-
     row.appendChild(btnDel);
+
+    // NUEVO: Botón Editar canción
+    const btnEdit = document.createElement('button');
+    btnEdit.textContent = 'Editar';
+    btnEdit.style.marginLeft = '8px';
+    btnEdit.onclick = async () => {
+      const nuevoTitulo = prompt(
+        'Escribe el nuevo título de la canción:',
+        item.songTitle
+      );
+      if (nuevoTitulo === null) {
+        // Canceló el prompt
+        return;
+      }
+      const limpio = nuevoTitulo.trim();
+      if (!limpio) {
+        alert('El título no puede quedar vacío');
+        return;
+      }
+
+      const resEdit = await fetch(`/api/queue/${item.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ songTitle: limpio })
+      });
+
+      let dataEdit;
+      try {
+        dataEdit = await resEdit.json();
+      } catch (e) {
+        alert('Respuesta inválida del servidor al editar la canción');
+        return;
+      }
+
+      if (!resEdit.ok || !dataEdit.ok) {
+        alert(dataEdit.message || 'No se pudo actualizar la canción');
+        return;
+      }
+
+      // Recargar la cola para ver el cambio
+      loadQueueAdmin();
+    };
+    row.appendChild(btnEdit);
+
     div.appendChild(row);
   });
 }
@@ -135,6 +179,45 @@ document.getElementById('btn-change-admin-pass').onclick = async () => {
   alert('Contraseña de administrador cambiada correctamente');
   document.getElementById('old-admin-pass').value = '';
   document.getElementById('new-admin-pass').value = '';
+};
+
+// Cambiar contraseña de usuario
+document.getElementById('btn-change-user-pass').onclick = async () => {
+  if (!adminLogged) {
+    alert('Primero inicia sesión como admin');
+    return;
+  }
+
+  const adminPassForChange = document
+    .getElementById('admin-pass-user-change')
+    .value.trim();
+  const newUserPass = document.getElementById('new-user-pass').value.trim();
+
+  if (!adminPassForChange || !newUserPass) {
+    alert('Escribe la contraseña de administrador y la nueva contraseña de usuario');
+    return;
+  }
+
+  const res = await fetch('/api/admin/change-user-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      adminPassword: adminPassForChange,
+      newUserPassword: newUserPass
+    })
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.ok) {
+    alert(data.message || 'No se pudo cambiar la contraseña de usuario');
+    return;
+  }
+
+  alert('Contraseña de usuario cambiada correctamente');
+
+  // Limpiamos los campos
+  document.getElementById('admin-pass-user-change').value = '';
+  document.getElementById('new-user-pass').value = '';
 };
 
 // Intervalo para auto‑refrescar solo cuando el admin está logueado

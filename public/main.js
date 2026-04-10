@@ -11,6 +11,39 @@ document.getElementById('btn-login').onclick = async () => {
     return;
   }
 
+  // 1) Validar la contraseña contra el servidor
+  let res;
+  try {
+    res = await fetch('/api/user/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        table,
+        password: pass
+      })
+    });
+  } catch (err) {
+    console.error(err);
+    alert('No se pudo conectar con el servidor para iniciar sesión');
+    return;
+  }
+
+  let data;
+  try {
+    data = await res.json();
+  } catch (err) {
+    console.error(err);
+    alert('Respuesta inválida del servidor al iniciar sesión');
+    return;
+  }
+
+  if (!res.ok || !data.ok) {
+    alert(data.message || 'No se pudo iniciar sesión');
+    return;
+  }
+
+  // 2) Si todo bien, guardamos al usuario en memoria
   loggedUser = { name, table, pass };
   alert('Ingresaste como ' + name);
   loadQueue();
@@ -70,11 +103,15 @@ document.getElementById('btn-search').onclick = async () => {
     const artistText = (song.artist || '').toString();
 
     const label = `${titleText.toUpperCase()}_${artistText.toUpperCase()}`;
+
     const btn = document.createElement('button');
     btn.style.display = 'block';
     btn.style.width = '100%';
     btn.textContent = label;
+
+    // Al hacer clic, pedimos confirmación antes de registrar
     btn.onclick = () => chooseSong(label);
+
     list.appendChild(btn);
   });
 
@@ -84,6 +121,15 @@ document.getElementById('btn-search').onclick = async () => {
 async function chooseSong(songLabel) {
   if (!loggedUser) {
     alert('Primero inicia sesión');
+    return;
+  }
+
+  // Confirmar con el usuario antes de registrar
+  const confirmar = confirm(
+    `¿Confirmas que quieres registrar esta canción?\n\n${songLabel}`
+  );
+  if (!confirmar) {
+    // Si el usuario dice NO, no registramos nada
     return;
   }
 
@@ -120,7 +166,9 @@ async function chooseSong(songLabel) {
     return;
   }
 
-  alert('Registro creado correctamente');
+  // Aquí ANTES estaba: alert('Registro creado correctamente');
+  // Lo quitamos para no molestar con otra ventana.
+
   document.getElementById('songs').innerHTML = '';
   loadQueue();
 }

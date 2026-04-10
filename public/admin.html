@@ -142,8 +142,7 @@
       font-size: 0.9rem;
     }
 
-    /* Si en algún momento usas la estructura anterior tipo tarjeta,
-       seguirá viéndose bien, pero no es obligatoria para la cola horizontal */
+    /* Estructura tipo tarjeta (opcional) */
     .queue-item {
       padding: 10px 12px;
       border-radius: 8px;
@@ -238,7 +237,7 @@
     <!-- Panel admin (se muestra solo si está logueado) -->
     <div id="admin-panel" style="display:none;">
 
-      <!-- Cambiar contraseña -->
+      <!-- Cambiar contraseña de administrador -->
       <div class="card">
         <h2>Cambiar contraseña de administrador</h2>
         <div class="form-group">
@@ -256,13 +255,44 @@
         </div>
       </div>
 
+      <!-- NUEVO: Cambiar contraseña de usuario -->
+      <div class="card">
+        <h2>Cambiar contraseña de usuario</h2>
+        <div class="form-group">
+          <div>
+            <label for="admin-pass-user-change">Contraseña de administrador (para autorizar)</label>
+            <input
+              id="admin-pass-user-change"
+              type="password"
+              placeholder="Contraseña admin actual"
+            />
+          </div>
+
+          <div>
+            <label for="new-user-pass">Nueva contraseña de usuario</label>
+            <input
+              id="new-user-pass"
+              type="password"
+              placeholder="Nueva clave que usarán los clientes"
+            />
+          </div>
+
+          <button id="btn-change-user-pass" class="btn-secondary">
+            Cambiar contraseña de usuario
+          </button>
+        </div>
+        <p class="hint">
+          Esta contraseña será la que se pedirá en la pantalla de usuario para que los clientes puedan entrar.
+        </p>
+      </div>
+
       <!-- Cola de canciones -->
       <div class="card">
         <div class="section-title-row">
           <h2>Cola de canciones</h2>
           <button id="btn-clear-all" class="btn-danger">Limpiar toda la cola</button>
         </div>
-        <p class="hint">Desliza horizontalmente para ver todas las canciones.</p>
+        <p class="hint">Desliza verticalmente para ver todas las canciones.</p>
         <div id="queue-admin"></div>
       </div>
 

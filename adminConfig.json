@@ -1,3 +1,4 @@
 {
-  "password": "4321"
+  "adminPassword": "1234",
+  "userPassword": "usuario"
 }
