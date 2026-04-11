@@ -8,26 +8,16 @@ const xlsx = require('xlsx');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ===== CORS PARA NETLIFY Y LOCAL =====
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'http://localhost:5500',
-  'https://inquisitive-kleicha-9811a1.netlify.app'
-];
-
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error('Not allowed by CORS'), false);
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type'],
-  credentials: false
-}));
-
-app.options('*', cors());
+// ===== CORS MUY PERMISIVO PARA NETLIFY =====
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'https://inquisitive-kleicha-9811a1.netlify.app');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 // ===== MIDDLEWARES BÁSICOS =====
 app.use(express.json());
