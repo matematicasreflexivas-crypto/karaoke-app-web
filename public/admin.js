@@ -1,3 +1,10 @@
+// ===== CONFIGURACIÓN API =====
+// Para trabajar LOCALMENTE (usando tu backend local en http://localhost:3000),
+// deja API_BASE vacío: '' → los fetch irán a /api/... en el mismo origen.
+// Cuando vayas a PRODUCCIÓN (Netlify + Render), cambia esta línea a:
+// const API_BASE = 'https://karaoke-backend-84e3.onrender.com';
+const API_BASE = '';
+
 let adminLogged = false;
 
 // Login de administrador
@@ -8,7 +15,7 @@ document.getElementById('btn-admin-login').onclick = async () => {
     return;
   }
 
-  const res = await fetch('/api/admin/login', {
+  const res = await fetch(`${API_BASE}/api/admin/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ password: pass })
@@ -35,7 +42,7 @@ document.getElementById('btn-clear-all').onclick = async () => {
   const ok = confirm('¿Seguro que quieres eliminar todos los registros?');
   if (!ok) return;
 
-  await fetch('/api/queue', { method: 'DELETE' });
+  await fetch(`${API_BASE}/api/queue`, { method: 'DELETE' });
   loadQueueAdmin();
 };
 
@@ -56,7 +63,7 @@ document.getElementById('form-upload').onsubmit = async (e) => {
   const formData = new FormData();
   formData.append('excel', fileInput.files[0]);
 
-  const res = await fetch('/api/songs/upload', {
+  const res = await fetch(`${API_BASE}/api/songs/upload`, {
     method: 'POST',
     body: formData
   });
@@ -82,7 +89,7 @@ document.getElementById('form-upload').onsubmit = async (e) => {
 // ========== COLA ADMIN: UNA LÍNEA POR REGISTRO ==========
 
 async function loadQueueAdmin() {
-  const res = await fetch('/api/queue');
+  const res = await fetch(`${API_BASE}/api/queue`);
   const data = await res.json();
   const div = document.getElementById('queue-admin');
   div.innerHTML = '';
@@ -93,11 +100,9 @@ async function loadQueueAdmin() {
   }
 
   data.queue.forEach((item, idx) => {
-    // Contenedor de la línea completa (texto + botones)
     const row = document.createElement('div');
     row.className = 'queue-admin-item-line';
 
-    // Contenido interno: texto a la izquierda, botones a la derecha
     const content = document.createElement('div');
     content.className = 'queue-admin-item-content';
 
@@ -106,21 +111,18 @@ async function loadQueueAdmin() {
     textSpan.textContent = `${idx + 1}. Mesa ${item.tableNumber} - ${item.userName} - ${item.songTitle}`;
     content.appendChild(textSpan);
 
-    // Contenedor de botones
     const actions = document.createElement('div');
     actions.className = 'queue-admin-item-actions';
 
-    // Botón Eliminar
     const btnDel = document.createElement('button');
     btnDel.textContent = 'Eliminar';
     btnDel.className = 'btn-danger btn-queue-admin';
     btnDel.onclick = async () => {
-      await fetch(`/api/queue/${item.id}`, { method: 'DELETE' });
+      await fetch(`${API_BASE}/api/queue/${item.id}`, { method: 'DELETE' });
       loadQueueAdmin();
     };
     actions.appendChild(btnDel);
 
-    // Botón Editar canción
     const btnEdit = document.createElement('button');
     btnEdit.textContent = 'Editar';
     btnEdit.className = 'btn-secondary btn-queue-admin';
@@ -129,16 +131,15 @@ async function loadQueueAdmin() {
         'Escribe el nuevo título de la canción:',
         item.songTitle
       );
-      if (nuevoTitulo === null) {
-        return;
-      }
+      if (nuevoTitulo === null) return;
+
       const limpio = nuevoTitulo.trim();
       if (!limpio) {
         alert('El título no puede quedar vacío');
         return;
       }
 
-      const resEdit = await fetch(`/api/queue/${item.id}`, {
+      const resEdit = await fetch(`${API_BASE}/api/queue/${item.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ songTitle: limpio })
@@ -178,7 +179,7 @@ async function loadTablesAdmin() {
 
   let res;
   try {
-    res = await fetch('/api/tables');
+    res = await fetch(`${API_BASE}/api/tables`);
   } catch (e) {
     console.error(e);
     div.textContent = 'No se pudo conectar para cargar mesas';
@@ -217,11 +218,12 @@ async function loadTablesAdmin() {
 
     const btnDelete = document.createElement('button');
     btnDelete.textContent = 'Eliminar';
+    btnDelete.className = 'btn-danger btn-queue-admin';
     btnDelete.onclick = async () => {
       const ok = confirm(`¿Seguro que quieres eliminar la mesa ${t.tableNumber}?`);
       if (!ok) return;
 
-      const resDel = await fetch(`/api/tables/${t.id}`, {
+      const resDel = await fetch(`${API_BASE}/api/tables/${t.id}`, {
         method: 'DELETE'
       });
 
@@ -246,7 +248,7 @@ async function loadTablesAdmin() {
   });
 }
 
-// Alta de nueva mesa (enganchada al cargar el DOM)
+// Alta de nueva mesa
 function setupAddTableButton() {
   const btnAddTable = document.getElementById('btn-add-table');
   if (!btnAddTable) return;
@@ -268,7 +270,7 @@ function setupAddTableButton() {
 
     let res;
     try {
-      res = await fetch('/api/tables', {
+      res = await fetch(`${API_BASE}/api/tables`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tableNumber: value })
@@ -314,7 +316,7 @@ function setupClearTablesButton() {
 
     let res;
     try {
-      res = await fetch('/api/tables', {
+      res = await fetch(`${API_BASE}/api/tables`, {
         method: 'DELETE'
       });
     } catch (e) {
@@ -344,12 +346,12 @@ function setupClearTablesButton() {
 // Mostrar/ocultar LISTADOS e INICIO (sin ocultar botones ni cards)
 function setupToggleSections() {
   const tablesContainer = document.getElementById('tables-admin');
-  const queueContainer = document.getElementById('queue-admin');
-  const inicioSection = document.getElementById('inicio-admin-section');
-  const loginCard = document.getElementById('admin-login');
+  const queueContainer  = document.getElementById('queue-admin');
+  const inicioSection   = document.getElementById('inicio-admin-section');
+  const loginCard       = document.getElementById('admin-login');
 
   const btnToggleTables = document.getElementById('btn-toggle-tables');
-  const btnToggleQueue = document.getElementById('btn-toggle-queue');
+  const btnToggleQueue  = document.getElementById('btn-toggle-queue');
   const btnToggleInicio = document.getElementById('btn-toggle-inicio');
 
   if (btnToggleTables && tablesContainer) {
@@ -397,7 +399,7 @@ document.getElementById('btn-change-admin-pass').onclick = async () => {
     return;
   }
 
-  const res = await fetch('/api/admin/change-password', {
+  const res = await fetch(`${API_BASE}/api/admin/change-password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ oldPassword: oldPass, newPassword: newPass })
@@ -431,7 +433,7 @@ document.getElementById('btn-change-user-pass').onclick = async () => {
     return;
   }
 
-  const res = await fetch('/api/admin/change-user-password', {
+  const res = await fetch(`${API_BASE}/api/admin/change-user-password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

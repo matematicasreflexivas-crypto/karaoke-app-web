@@ -1,5 +1,13 @@
-let loggedUser = null;
+// ===== CONFIGURACIÓN API =====
+// Para trabajar LOCALMENTE (usando tu backend local en http://localhost:3000),
+// deja API_BASE vacío: ''  → los fetch irán a /api/... en el mismo origen.
+// Cuando vayas a PRODUCCIÓN (Netlify + Render), cambia esta línea a:
+// const API_BASE = 'https://karaoke-backend-84e3.onrender.com';
+// ===== CONFIGURACIÓN API =====
+// ===== CONFIGURACIÓN API =====
+const API_BASE = '';
 
+let loggedUser = null;
 
 // ========== LOGIN DE USUARIO ==========
 
@@ -15,14 +23,10 @@ document.getElementById('btn-login').onclick = async () => {
 
   let res;
   try {
-    res = await fetch('/api/user/login', {
+    res = await fetch(`${API_BASE}/api/user/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name,
-        table,
-        password: pass
-      })
+      body: JSON.stringify({ name, table, password: pass })
     });
   } catch (err) {
     console.error(err);
@@ -44,72 +48,59 @@ document.getElementById('btn-login').onclick = async () => {
     return;
   }
 
-  // Guardamos al usuario en memoria
   loggedUser = { name, table, pass };
   alert('Ingresaste como ' + name);
 
-  const loginCard      = document.getElementById('login-card');
-  const userContent    = document.getElementById('user-content');
-  const toggleLoginBtn = document.getElementById('btn-toggle-login-card');
-  const searchCard     = document.getElementById('search-card');
+  const loginCard           = document.getElementById('login-card');
+  const userContent         = document.getElementById('user-content');
+  const toggleLoginBtn      = document.getElementById('btn-toggle-login-card');
+  const searchCard          = document.getElementById('search-card');
   const btnToggleSearchCard = document.getElementById('btn-toggle-search-card');
-  const btnSearch      = document.getElementById('btn-search');
-  const queueDiv       = document.getElementById('queue');
-  const btnToggleQueueCard = document.getElementById('btn-toggle-queue-card');
+  const btnSearch           = document.getElementById('btn-search');
+  const queueDiv            = document.getElementById('queue');
+  const btnToggleQueueCard  = document.getElementById('btn-toggle-queue-card');
 
-  // Ocultar ficha de login
   if (loginCard) loginCard.style.display = 'none';
-
-  // Mostrar contenido de usuario
   if (userContent) userContent.style.display = 'block';
 
-  // Mostrar botón para ver/ocultar ficha de registro
   if (toggleLoginBtn) {
     toggleLoginBtn.style.display = 'block';
     toggleLoginBtn.textContent = 'Mostrar datos de registro';
   }
 
-  // Al entrar, tarjeta de búsqueda visible
   if (searchCard) {
     searchCard.style.display = 'block';
   }
 
-  // Botón Mostrar/Ocultar buscar canción visible
   if (btnToggleSearchCard) {
     btnToggleSearchCard.style.display = 'block';
     btnToggleSearchCard.textContent = 'Ocultar "Buscar canción"';
   }
 
-  // Ocultar visualmente el botón Buscar
   if (btnSearch) {
     btnSearch.style.display = 'none';
   }
 
-  // Ocultar tarjeta de resultados inicialmente
   const resultsCard = getResultsCard();
   if (resultsCard) {
     resultsCard.style.display = 'none';
   }
 
-  // Mostrar tarjeta de cola por defecto
   const queueCard = getQueueCard();
   if (queueCard) {
     queueCard.style.display = 'block';
   }
   if (queueDiv) {
-    queueDiv.style.maxHeight = '46vh'; // valor por defecto de tu CSS
+    queueDiv.style.maxHeight = '46vh';
   }
 
-  // Mostrar botón Mostrar/Ocultar cola con texto completo
   if (btnToggleQueueCard) {
     btnToggleQueueCard.style.display = 'block';
-    btnToggleQueueCard.textContent = 'Ocultar cola de canciones';
+    btnToggleQueueCard.textContent = 'Ocultar cola de participantes';
   }
 
-  // Cargar cola inicial
   loadQueue();
 };
-
 
 // ========== TOGGLE DE FICHA DE REGISTRO ==========
 
@@ -130,8 +121,7 @@ if (toggleLoginBtn) {
   };
 }
 
-
-// ========== HELPER: DEBOUNCE PARA BÚSQUEDA EN VIVO ==========
+// ========== HELPER: DEBOUNCE ==========
 
 function debounce(fn, delay = 400) {
   let timerId = null;
@@ -141,8 +131,24 @@ function debounce(fn, delay = 400) {
   };
 }
 
+// ========== HELPER: SCROLL BÚSQUEDA ARRIBA ==========
 
-// ========== LÓGICA CENTRAL DE BÚSQUEDA ==========
+function ensureResultsVisible() {
+  const searchCard = document.getElementById('search-card');
+  if (!searchCard) return;
+
+  setTimeout(() => {
+    const rect = searchCard.getBoundingClientRect();
+    const offsetTop = window.scrollY + rect.top;
+
+    window.scrollTo({
+      top: offsetTop,
+      behavior: 'smooth'
+    });
+  }, 100);
+}
+
+// ========== BÚSQUEDA ==========
 
 async function performSearch() {
   if (!loggedUser) return;
@@ -159,14 +165,12 @@ async function performSearch() {
 
   const hayTextoBusqueda = !!(artist || title);
 
-  // Ajustar altura de resultados
   if (hayTextoBusqueda) {
     div.style.maxHeight = '60vh';
   } else {
     div.style.maxHeight = '22vh';
   }
 
-  // Si no hay texto, limpiar resultados y ocultar card
   if (!hayTextoBusqueda) {
     div.innerHTML = '';
     if (resultsCard) resultsCard.style.display = 'none';
@@ -177,7 +181,7 @@ async function performSearch() {
   if (artist) params.append('artist', artist);
   if (title)  params.append('title', title);
 
-  const url = '/api/songs' + (params.toString() ? '?' + params.toString() : '');
+  const url = `${API_BASE}/api/songs` + (params.toString() ? '?' + params.toString() : '');
 
   let res;
   try {
@@ -213,11 +217,6 @@ async function performSearch() {
     return;
   }
 
-  const list = document.createElement('div');
-  list.style.display = 'flex';
-  list.style.flexDirection = 'column';
-  list.style.gap = '4px';
-
   songs.forEach(song => {
     const titleText  = (song.title  || '').toString();
     const artistText = (song.artist || '').toString();
@@ -225,22 +224,19 @@ async function performSearch() {
     const label = `${titleText.toUpperCase()}_${artistText.toUpperCase()}`;
 
     const btn = document.createElement('button');
-    btn.style.display = 'block';
-    btn.style.width = '100%';
+    btn.className = 'song-result';
     btn.textContent = label;
-
     btn.onclick = () => chooseSong(label);
 
-    list.appendChild(btn);
+    div.appendChild(btn);
   });
 
-  div.appendChild(list);
+  ensureResultsVisible();
 }
 
 const debouncedSearch = debounce(performSearch, 400);
 
-
-// ========== BOTÓN BUSCAR (OCULTO PERO FUNCIONAL) ==========
+// ========== BOTÓN BUSCAR ==========
 
 const btnSearch = document.getElementById('btn-search');
 if (btnSearch) {
@@ -254,36 +250,30 @@ if (btnSearch) {
   };
 }
 
-
-// ========== BOTÓN MOSTRAR/OCULTAR "BUSCAR CANCIÓN" ==========
+// ========== TOGGLE "BUSCAR CANCIÓN" ==========
 
 const btnToggleSearchCard = document.getElementById('btn-toggle-search-card');
 if (btnToggleSearchCard) {
   btnToggleSearchCard.onclick = () => {
     const searchCard = document.getElementById('search-card');
-    const queueDiv  = document.getElementById('queue');
+    const queueDiv   = document.getElementById('queue');
     if (!searchCard) return;
 
     const visible = searchCard.style.display !== 'none';
 
     if (visible) {
-      // Ocultar tarjeta de búsqueda
       searchCard.style.display = 'none';
       btnToggleSearchCard.textContent = 'Mostrar "Buscar canción"';
-      // Aumentar espacio para la cola (solo altura)
       if (queueDiv) queueDiv.style.maxHeight = '70vh';
     } else {
-      // Mostrar tarjeta de búsqueda
       searchCard.style.display = 'block';
       btnToggleSearchCard.textContent = 'Ocultar "Buscar canción"';
-      // Volver a altura normal de la cola
       if (queueDiv) queueDiv.style.maxHeight = '46vh';
     }
   };
 }
 
-
-// ========== BOTÓN MOSTRAR/OCULTAR "COLA DE CANCIONES" ==========
+// ========== TOGGLE "COLA DE PARTICIPANTES" ==========
 
 const btnToggleQueueCard = document.getElementById('btn-toggle-queue-card');
 if (btnToggleQueueCard) {
@@ -295,15 +285,12 @@ if (btnToggleQueueCard) {
     const visible = queueCard.style.display !== 'none';
 
     if (visible) {
-      // Ocultar tarjeta de cola
       queueCard.style.display = 'none';
-      btnToggleQueueCard.textContent = 'Mostrar cola de canciones';
+      btnToggleQueueCard.textContent = 'Mostrar cola de participantes';
     } else {
-      // Mostrar tarjeta de cola
       queueCard.style.display = 'block';
-      btnToggleQueueCard.textContent = 'Ocultar cola de canciones';
+      btnToggleQueueCard.textContent = 'Ocultar cola de participantes';
 
-      // Ajustar maxHeight según si la búsqueda está visible o no
       const searchCard = document.getElementById('search-card');
       const searchVisible = searchCard && searchCard.style.display !== 'none';
       queueDiv.style.maxHeight = searchVisible ? '46vh' : '70vh';
@@ -311,8 +298,7 @@ if (btnToggleQueueCard) {
   };
 }
 
-
-// ========== BÚSQUEDA EN VIVO AL ESCRIBIR ==========
+// ========== BÚSQUEDA EN VIVO ==========
 
 const artistInput = document.getElementById('artist');
 const titleInput  = document.getElementById('title');
@@ -331,7 +317,6 @@ if (titleInput) {
   });
 }
 
-
 // ========== ELECCIÓN DE CANCIÓN ==========
 
 async function chooseSong(songLabel) {
@@ -347,7 +332,7 @@ async function chooseSong(songLabel) {
 
   let res;
   try {
-    res = await fetch('/api/queue', {
+    res = await fetch(`${API_BASE}/api/queue`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -371,77 +356,62 @@ async function chooseSong(songLabel) {
     return;
   }
 
-  // Referencias a inputs/resultados para limpiar SIEMPRE
   const artistInput = document.getElementById('artist');
   const titleInput  = document.getElementById('title');
   const songsDiv    = document.getElementById('songs');
 
-  // Siempre limpiar campos y resultados después de la respuesta (éxito o error)
   if (artistInput) artistInput.value = '';
   if (titleInput)  titleInput.value  = '';
   if (songsDiv)    songsDiv.innerHTML = '';
 
   if (!res.ok || !data.ok) {
-    // Caso: no se pudo registrar (incluye "ya tienes turno")
     alert(data.message || 'No se pudo registrar');
 
-    // Ocultar tarjeta de resultados si estaba visible
     const resultsCard = getResultsCard();
     if (resultsCard) {
       resultsCard.style.display = 'none';
     }
 
-    // Mantener la tarjeta de búsqueda visible para que pueda intentar otra canción
     const searchCard = document.getElementById('search-card');
     if (searchCard) {
       searchCard.style.display = 'block';
     }
 
-    // Ajustar texto del botón de búsqueda (por si acaso)
     const btnToggle = document.getElementById('btn-toggle-search-card');
     if (btnToggle) {
       btnToggle.textContent = 'Ocultar "Buscar canción"';
       btnToggle.style.display = 'block';
     }
 
-    // NO tocar visibilidad de la cola ni el texto del botón de cola
     const queueDiv = document.getElementById('queue');
     if (queueDiv && searchCard) {
-      // si la búsqueda está visible, altura "normal"
       queueDiv.style.maxHeight = '46vh';
     }
 
     return;
   }
 
-  // Si SÍ se registró correctamente:
-
   const resultsCard = getResultsCard();
   if (resultsCard) {
     resultsCard.style.display = 'none';
   }
 
-  // Ocultar tarjeta de búsqueda tras seleccionar canción
   const searchCard = document.getElementById('search-card');
   const queueDiv   = document.getElementById('queue');
   if (searchCard) {
     searchCard.style.display = 'none';
   }
 
-  // Ajustar texto del botón toggle de búsqueda
   const btnToggle = document.getElementById('btn-toggle-search-card');
   if (btnToggle) {
     btnToggle.textContent = 'Mostrar "Buscar canción"';
     btnToggle.style.display = 'block';
   }
 
-  // NO tocar visibilidad de la cola ni el texto de btn-toggle-queue-card:
-  // solo ajustar altura para aprovechar el espacio si la cola está visible.
   if (queueDiv) {
     queueDiv.style.maxHeight = '70vh';
   }
 
-  // Restablecer altura normal de resultados
   if (songsDiv) {
     songsDiv.style.maxHeight = '22vh';
   }
@@ -449,15 +419,14 @@ async function chooseSong(songLabel) {
   loadQueue();
 }
 
-
-// ========== COLA DE CANCIONES ==========
+// ========== COLA DE PARTICIPANTES ==========
 
 async function loadQueue() {
   if (!loggedUser) return;
 
   let res;
   try {
-    res = await fetch('/api/queue');
+    res = await fetch(`${API_BASE}/api/queue`);
   } catch (err) {
     console.error(err);
     return;
@@ -489,7 +458,6 @@ async function loadQueue() {
   });
 }
 
-
 // Helpers
 
 function getResultsCard() {
@@ -504,10 +472,9 @@ function getQueueCard() {
   return Array.from(document.querySelectorAll('.card'))
     .find(card => {
       const h3 = card.querySelector('h3');
-      return h3 && h3.textContent.includes('Cola de canciones');
+      return h3 && h3.textContent.includes('Cola de participantes');
     }) || null;
 }
-
 
 // Auto‑refresco de la cola
 setInterval(loadQueue, 5000);

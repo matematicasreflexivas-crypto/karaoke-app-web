@@ -226,6 +226,7 @@ app.post('/api/user/login', (req, res) => {
 });
 
 // ========== CANCIONES ==========
+
 const songsPath = path.join(__dirname, 'songs.json');
 
 function readSongs() {
@@ -237,18 +238,36 @@ function readSongs() {
   }
 }
 
-// Buscar canciones
+// >>> FUNCIÓN NUEVA: normalizar texto (quitar acentos y minúsculas) <<<
+function normalizeText(str) {
+  return str
+    ? str
+        .toString()
+        .normalize('NFD')              // separa letras y acentos [web:396]
+        .replace(/[\u0300-\u036f]/g, '') // quita los acentos [web:395]
+        .toLowerCase()
+    : '';
+}
+
+// Buscar canciones (ignorando acentos en artista y título)
 app.get('/api/songs', (req, res) => {
   const { artist = '', title = '' } = req.query;
   const all = readSongs();
 
-  const termArtist = artist.toLowerCase();
-  const termTitle  = title.toLowerCase();
+  const termArtist = normalizeText(artist);
+  const termTitle  = normalizeText(title);
 
-  const filtered = all.filter(s =>
-    (!termArtist || (s.artist && s.artist.toLowerCase().includes(termArtist))) &&
-    (!termTitle  || (s.title  && s.title.toLowerCase().includes(termTitle)))
-  );
+  const filtered = all.filter(s => {
+    const songArtistNorm = normalizeText(s.artist);
+    const songTitleNorm  = normalizeText(s.title);
+
+    const matchArtist =
+      !termArtist || songArtistNorm.includes(termArtist);
+    const matchTitle  =
+      !termTitle  || songTitleNorm.includes(termTitle);
+
+    return matchArtist && matchTitle;
+  });
 
   res.json({ ok: true, songs: filtered });
 });
@@ -297,6 +316,7 @@ app.post('/api/songs/upload', upload.single('excel'), (req, res) => {
 });
 
 // ========== COLA ==========
+
 const queuePath = path.join(__dirname, 'queue.json');
 
 function readQueue() {

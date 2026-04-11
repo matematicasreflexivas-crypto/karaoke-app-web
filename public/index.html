@@ -4,7 +4,11 @@
   <meta charset="UTF-8" />
   <title>Karaoke - Usuario</title>
 
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <!-- Viewport optimizado para móvil y teclado virtual -->
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, interactive-widget=resizes-content"
+  />
 
   <style>
     * {
@@ -56,6 +60,18 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
+    }
+
+    /* Contenedor de los dos campos de búsqueda en una misma línea */
+    .search-fields {
+      display: flex;
+      gap: 8px;
+    }
+
+    /* Cada campo ocupa la mitad del ancho disponible */
+    .search-field {
+      flex: 1;
+      min-width: 0;
     }
 
     label {
@@ -116,24 +132,38 @@
     .top-buttons {
       display: flex;
       flex-direction: column;
-      gap: 16px;          /* espacio vertical entre botones de usuario */
+      gap: 16px;
       margin-bottom: 10px;
     }
 
-    /* Separación entre "Mostrar datos de registro" y los toggles de usuario */
     .top-toggle-login {
-      margin-bottom: 16px; /* mismo valor que gap para armonía */
+      margin-bottom: 16px;
     }
 
-    /* Resultados de búsqueda */
+    /* Resultados de búsqueda: cola vertical, fondo blanco, con scroll horizontal si el texto es largo */
     #songs {
       margin-top: 4px;
       max-height: 22vh;
-      overflow-y: auto;
       padding-right: 4px;
+      overflow-y: auto;     /* cola vertical */
+      overflow-x: auto;     /* y permite desplazar horizontal si la línea es larga */
+      white-space: nowrap;  /* cada registro en una sola línea */
     }
 
-    /* Cola: scroll vertical + horizontal para toda la lista */
+    .song-result {
+      display: block;
+      padding: 4px 8px;
+      margin-bottom: 3px;
+      border-radius: 6px;
+      background: #ffffff;    /* fondo blanco */
+      border: 1px solid #d1d5db;
+      color: #111827;
+      font-size: 0.95rem;
+      white-space: nowrap;    /* no partir el texto en varias líneas */
+      text-align: left;
+    }
+
+    /* Cola de participantes: igual que antes, fondo oscuro */
     #queue {
       margin-top: 4px;
       max-height: 46vh;
@@ -240,16 +270,13 @@
     <!-- CONTENIDO SOLO PARA USUARIOS LOGUEADOS -->
     <div id="user-content" style="display:none;">
 
-      <!-- Grupo de botones de toggles del usuario -->
       <div class="top-buttons">
-        <!-- Botón para mostrar/ocultar la sección de búsqueda -->
         <button id="btn-toggle-search-card" class="btn-primary" style="display:none;">
           Ocultar "Buscar canción"
         </button>
 
-        <!-- Botón mostrar/ocultar cola de canciones -->
         <button id="btn-toggle-queue-card" class="btn-primary" style="display:none;">
-          Ocultar cola de canciones
+          Ocultar cola de participantes
         </button>
       </div>
 
@@ -258,14 +285,16 @@
         <h2>Buscar canción</h2>
 
         <div class="form-group">
-          <div>
-            <label for="artist">Intérprete</label>
-            <input id="artist" type="text" placeholder="Nombre del artista" />
-          </div>
+          <div class="search-fields">
+            <div class="search-field">
+              <label for="artist">Intérprete</label>
+              <input id="artist" type="text" placeholder="Nombre del artista" />
+            </div>
 
-          <div>
-            <label for="title">Título</label>
-            <input id="title" type="text" placeholder="Nombre de la canción" />
+            <div class="search-field">
+              <label for="title">Título</label>
+              <input id="title" type="text" placeholder="Nombre de la canción" />
+            </div>
           </div>
 
           <button id="btn-search" class="btn-primary">Buscar</button>
@@ -280,14 +309,13 @@
 
       <!-- Cola -->
       <div class="card">
-        <h3>Cola de canciones</h3>
+        <h3>Cola de participantes</h3>
         <div id="queue"></div>
       </div>
 
     </div>
   </div>
 
-  <!-- Script de la lógica -->
   <script src="main.js"></script>
 </body>
 </html>
