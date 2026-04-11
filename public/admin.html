@@ -110,6 +110,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 8px;
+      flex-wrap: wrap;
     }
 
     .badge {
@@ -120,12 +121,55 @@
       color: #9ca3af;
     }
 
-    /* Cola admin */
+    /* Cola admin: contenedor general con scroll vertical y horizontal */
     #queue-admin {
       margin-top: 8px;
       max-height: 45vh;
-      overflow-y: auto;
       padding-right: 4px;
+
+      overflow-y: auto;   /* scroll vertical */
+      overflow-x: auto;   /* scroll horizontal general para todas las filas */
+      white-space: nowrap; /* todas las filas en una sola línea continua */
+    }
+
+    /* Cada registro de la cola en UNA sola línea */
+    .queue-admin-item-line {
+      display: block;
+      padding: 4px 8px;
+      margin-bottom: 4px;
+      border-radius: 6px;
+      background: #020617;
+      font-size: 0.9rem;
+    }
+
+    /* Contenido interno: texto a la izquierda, botones a la derecha */
+    .queue-admin-item-content {
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-width: 100%;
+    }
+
+    /* Texto que puede desbordarse */
+    .queue-admin-item-text {
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* Contenedor de botones */
+    .queue-admin-item-actions {
+      display: inline-flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    /* Botones de la cola admin un poco más compactos */
+    .btn-queue-admin {
+      padding: 6px 10px;
+      font-size: 0.8rem;
+      border-radius: 999px;
+      white-space: nowrap;
     }
 
     .file-input-wrapper {
@@ -147,20 +191,20 @@
       margin-top: 4px;
     }
 
-    /* Listado de mesas EN UNA LÍNEA HORIZONTAL */
+    /* Listado de mesas VERTICAL */
     #tables-admin {
       margin-top: 8px;
       max-height: 20vh;
       padding-right: 4px;
 
-      overflow-x: auto;
-      white-space: nowrap;
+      overflow-y: auto;
+      overflow-x: hidden;
+      white-space: normal;
     }
 
     .table-item {
-      display: inline-block;
+      display: block;
       padding: 8px 12px;
-      margin-right: 8px;
       margin-bottom: 4px;
       border-radius: 8px;
       background: #020617;
@@ -205,57 +249,70 @@
     <!-- Panel admin (se muestra solo si está logueado) -->
     <div id="admin-panel" style="display:none;">
 
-      <!-- Cambiar contraseña de administrador -->
+      <!-- Botón para mostrar/ocultar secciones de inicio (contraseñas) -->
       <div class="card">
-        <h2>Cambiar contraseña de administrador</h2>
+        <h2>Inicio</h2>
         <div class="form-group">
-          <div>
-            <label for="old-admin-pass">Contraseña actual</label>
-            <input id="old-admin-pass" type="password" placeholder="Contraseña actual" />
-          </div>
-
-          <div>
-            <label for="new-admin-pass">Nueva contraseña</label>
-            <input id="new-admin-pass" type="password" placeholder="Nueva contraseña" />
-          </div>
-
-          <button id="btn-change-admin-pass" class="btn-secondary">Cambiar contraseña</button>
+          <button id="btn-toggle-inicio" class="btn-primary">
+            Mostrar/Ocultar inicio
+          </button>
         </div>
       </div>
 
-      <!-- Cambiar contraseña de usuario -->
-      <div class="card">
-        <h2>Cambiar contraseña de usuario</h2>
-        <div class="form-group">
-          <div>
-            <label for="admin-pass-user-change">Contraseña de administrador (para autorizar)</label>
-            <input
-              id="admin-pass-user-change"
-              type="password"
-              placeholder="Contraseña admin actual"
-            />
-          </div>
+      <!-- Bloque de secciones de inicio (contraseñas) -->
+      <div id="inicio-admin-section">
+        <!-- Cambiar contraseña de administrador -->
+        <div class="card">
+          <h2>Cambiar contraseña de administrador</h2>
+          <div class="form-group">
+            <div>
+              <label for="old-admin-pass">Contraseña actual</label>
+              <input id="old-admin-pass" type="password" placeholder="Contraseña actual" />
+            </div>
 
-          <div>
-            <label for="new-user-pass">Nueva contraseña de usuario</label>
-            <input
-              id="new-user-pass"
-              type="password"
-              placeholder="Nueva clave que usarán los clientes"
-            />
-          </div>
+            <div>
+              <label for="new-admin-pass">Nueva contraseña</label>
+              <input id="new-admin-pass" type="password" placeholder="Nueva contraseña" />
+            </div>
 
-          <button id="btn-change-user-pass" class="btn-secondary">
-            Cambiar contraseña de usuario
-          </button>
+            <button id="btn-change-admin-pass" class="btn-secondary">Cambiar contraseña</button>
+          </div>
         </div>
-        <p class="hint">
-          Esta contraseña será la que se pedirá en la pantalla de usuario para que los clientes puedan entrar.
-        </p>
+
+        <!-- Cambiar contraseña de usuario -->
+        <div class="card">
+          <h2>Cambiar contraseña de usuario</h2>
+          <div class="form-group">
+            <div>
+              <label for="admin-pass-user-change">Contraseña de administrador (para autorizar)</label>
+              <input
+                id="admin-pass-user-change"
+                type="password"
+                placeholder="Contraseña admin actual"
+              />
+            </div>
+
+            <div>
+              <label for="new-user-pass">Nueva contraseña de usuario</label>
+              <input
+                id="new-user-pass"
+                type="password"
+                placeholder="Nueva clave que usarán los clientes"
+              />
+            </div>
+
+            <button id="btn-change-user-pass" class="btn-secondary">
+              Cambiar contraseña de usuario
+            </button>
+          </div>
+          <p class="hint">
+            Esta contraseña será la que se pedirá en la pantalla de usuario para que los clientes puedan entrar.
+          </p>
+        </div>
       </div>
 
       <!-- Gestión de mesas permitidas -->
-      <div class="card">
+      <div class="card" id="card-mesas">
         <div class="section-title-row">
           <h2>Mesas permitidas</h2>
           <button id="btn-clear-tables" class="btn-danger">Limpiar mesas</button>
@@ -278,15 +335,21 @@
         </p>
 
         <h3>Listado de mesas</h3>
+        <button id="btn-toggle-tables" class="btn-primary" style="margin-bottom: 8px;">
+          Mostrar/Ocultar mesas
+        </button>
         <div id="tables-admin"></div>
       </div>
 
       <!-- Cola de canciones -->
-      <div class="card">
+      <div class="card" id="card-cola">
         <div class="section-title-row">
           <h2>Cola de canciones</h2>
           <button id="btn-clear-all" class="btn-danger">Limpiar toda la cola</button>
         </div>
+        <button id="btn-toggle-queue" class="btn-primary" style="margin-top: 8px; margin-bottom: 8px;">
+          Mostrar/Ocultar cola de canciones
+        </button>
         <p class="hint">Desliza para ver todas las canciones registradas.</p>
         <div id="queue-admin"></div>
       </div>

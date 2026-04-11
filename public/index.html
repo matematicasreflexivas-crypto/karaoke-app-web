@@ -112,6 +112,19 @@
       color: #9ca3af;
     }
 
+    /* Contenedor de botones superiores (toggles) */
+    .top-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;          /* espacio vertical entre botones de usuario */
+      margin-bottom: 10px;
+    }
+
+    /* Separación entre "Mostrar datos de registro" y los toggles de usuario */
+    .top-toggle-login {
+      margin-bottom: 16px; /* mismo valor que gap para armonía */
+    }
+
     /* Resultados de búsqueda */
     #songs {
       margin-top: 4px;
@@ -189,8 +202,8 @@
     <h1>Karaoke - Pantalla de usuario</h1>
 
     <!-- Botón para mostrar/ocultar ficha de registro -->
-    <button id="btn-toggle-login-card" class="btn-primary" style="display:none;">
-      Ver datos de registro
+    <button id="btn-toggle-login-card" class="btn-primary top-toggle-login" style="display:none;">
+      Mostrar datos de registro
     </button>
 
     <!-- Inicio de sesión -->
@@ -227,8 +240,21 @@
     <!-- CONTENIDO SOLO PARA USUARIOS LOGUEADOS -->
     <div id="user-content" style="display:none;">
 
+      <!-- Grupo de botones de toggles del usuario -->
+      <div class="top-buttons">
+        <!-- Botón para mostrar/ocultar la sección de búsqueda -->
+        <button id="btn-toggle-search-card" class="btn-primary" style="display:none;">
+          Ocultar "Buscar canción"
+        </button>
+
+        <!-- Botón mostrar/ocultar cola de canciones -->
+        <button id="btn-toggle-queue-card" class="btn-primary" style="display:none;">
+          Ocultar cola de canciones
+        </button>
+      </div>
+
       <!-- Buscar canción -->
-      <div class="card">
+      <div class="card" id="search-card">
         <h2>Buscar canción</h2>
 
         <div class="form-group">
@@ -261,6 +287,7 @@
     </div>
   </div>
 
+  <!-- Script de la lógica -->
   <script src="main.js"></script>
 </body>
 </html>

@@ -23,7 +23,7 @@ document.getElementById('btn-admin-login').onclick = async () => {
   adminLogged = true;
   document.getElementById('admin-panel').style.display = 'block';
   loadQueueAdmin();
-  loadTablesAdmin();      // cargar mesas al entrar
+  loadTablesAdmin(); // cargar mesas al entrar
 
   // Iniciar auto‑refresco de la cola cuando el admin entra
   startAutoRefreshAdmin();
@@ -79,7 +79,8 @@ document.getElementById('form-upload').onsubmit = async (e) => {
   alert('Excel cargado y songs.json actualizado (' + data.count + ' canciones).');
 };
 
-// Cargar cola en panel admin
+// ========== COLA ADMIN: UNA LÍNEA POR REGISTRO ==========
+
 async function loadQueueAdmin() {
   const res = await fetch('/api/queue');
   const data = await res.json();
@@ -92,22 +93,37 @@ async function loadQueueAdmin() {
   }
 
   data.queue.forEach((item, idx) => {
+    // Contenedor de la línea completa (texto + botones)
     const row = document.createElement('div');
-    row.textContent = `${idx + 1}. Mesa ${item.tableNumber} - ${item.userName} - ${item.songTitle} `;
+    row.className = 'queue-admin-item-line';
+
+    // Contenido interno: texto a la izquierda, botones a la derecha
+    const content = document.createElement('div');
+    content.className = 'queue-admin-item-content';
+
+    const textSpan = document.createElement('span');
+    textSpan.className = 'queue-admin-item-text';
+    textSpan.textContent = `${idx + 1}. Mesa ${item.tableNumber} - ${item.userName} - ${item.songTitle}`;
+    content.appendChild(textSpan);
+
+    // Contenedor de botones
+    const actions = document.createElement('div');
+    actions.className = 'queue-admin-item-actions';
 
     // Botón Eliminar
     const btnDel = document.createElement('button');
     btnDel.textContent = 'Eliminar';
+    btnDel.className = 'btn-danger btn-queue-admin';
     btnDel.onclick = async () => {
       await fetch(`/api/queue/${item.id}`, { method: 'DELETE' });
       loadQueueAdmin();
     };
-    row.appendChild(btnDel);
+    actions.appendChild(btnDel);
 
     // Botón Editar canción
     const btnEdit = document.createElement('button');
     btnEdit.textContent = 'Editar';
-    btnEdit.style.marginLeft = '8px';
+    btnEdit.className = 'btn-secondary btn-queue-admin';
     btnEdit.onclick = async () => {
       const nuevoTitulo = prompt(
         'Escribe el nuevo título de la canción:',
@@ -143,8 +159,10 @@ async function loadQueueAdmin() {
 
       loadQueueAdmin();
     };
-    row.appendChild(btnEdit);
+    actions.appendChild(btnEdit);
 
+    content.appendChild(actions);
+    row.appendChild(content);
     div.appendChild(row);
   });
 }
@@ -189,7 +207,7 @@ async function loadTablesAdmin() {
     return;
   }
 
-  tables.forEach(t => {
+  tables.forEach((t) => {
     const row = document.createElement('div');
     row.className = 'table-item';
 
@@ -323,9 +341,45 @@ function setupClearTablesButton() {
   };
 }
 
+// Mostrar/ocultar LISTADOS e INICIO (sin ocultar botones ni cards)
+function setupToggleSections() {
+  const tablesContainer = document.getElementById('tables-admin');
+  const queueContainer = document.getElementById('queue-admin');
+  const inicioSection = document.getElementById('inicio-admin-section');
+  const loginCard = document.getElementById('admin-login');
+
+  const btnToggleTables = document.getElementById('btn-toggle-tables');
+  const btnToggleQueue = document.getElementById('btn-toggle-queue');
+  const btnToggleInicio = document.getElementById('btn-toggle-inicio');
+
+  if (btnToggleTables && tablesContainer) {
+    btnToggleTables.onclick = () => {
+      const isHidden = tablesContainer.style.display === 'none';
+      tablesContainer.style.display = isHidden ? 'block' : 'none';
+    };
+  }
+
+  if (btnToggleQueue && queueContainer) {
+    btnToggleQueue.onclick = () => {
+      const isHidden = queueContainer.style.display === 'none';
+      queueContainer.style.display = isHidden ? 'block' : 'none';
+    };
+  }
+
+  if (btnToggleInicio && inicioSection && loginCard) {
+    btnToggleInicio.onclick = () => {
+      const isHidden = inicioSection.style.display === 'none';
+      const newDisplay = isHidden ? 'block' : 'none';
+      inicioSection.style.display = newDisplay;
+      loginCard.style.display = newDisplay;
+    };
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   setupAddTableButton();
   setupClearTablesButton();
+  setupToggleSections();
 });
 
 // Cambiar contraseña de administrador

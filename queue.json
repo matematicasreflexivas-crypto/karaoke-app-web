@@ -138,12 +138,6 @@
     "songTitle": "DOS CORAZONES DOS HISTORIAS_ALEJANDRO FERNANDEZ Y JULIO IGLESIAS"
   },
   {
-    "id": 30,
-    "userName": "Sara",
-    "tableNumber": "vip 2",
-    "songTitle": "A QUIEN VAS A MAR MAS QUE A MI_VICENTE FERNANDEZ"
-  },
-  {
     "id": 31,
     "userName": "Rogelio",
     "tableNumber": "Especial",
@@ -168,12 +162,6 @@
     "songTitle": "CORRIDO DE CHIHUAHUA_PEPE AGUILAR"
   },
   {
-    "id": 36,
-    "userName": "Guillermo",
-    "tableNumber": "1",
-    "songTitle": "DOS CORAZONES DOS HISTORIAS_ALEJANDRO FERNANDEZ Y JULIO IGLESIAS"
-  },
-  {
     "id": 37,
     "userName": "Laura",
     "tableNumber": "3",
@@ -190,5 +178,23 @@
     "userName": "Titi",
     "tableNumber": "19",
     "songTitle": "AMOR AMOR_JOSE JOSE"
+  },
+  {
+    "id": 40,
+    "userName": "Javier",
+    "tableNumber": "6",
+    "songTitle": "AMAR Y QUERER_JOSE JOSE"
+  },
+  {
+    "id": 43,
+    "userName": "Lupe",
+    "tableNumber": "7",
+    "songTitle": "DIRECTO AL CORAZON_PEPE AGUILAR"
+  },
+  {
+    "id": 44,
+    "userName": "Elena",
+    "tableNumber": "1",
+    "songTitle": "SE LAS VOY A DAR A OTRO_JENNI RIVERA"
   }
 ]
