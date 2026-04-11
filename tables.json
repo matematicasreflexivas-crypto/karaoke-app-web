@@ -76,10 +76,6 @@
     "tableNumber": "19"
   },
   {
-    "id": 20,
-    "tableNumber": "20"
-  },
-  {
     "id": 21,
     "tableNumber": "Vip 1"
   },
@@ -94,5 +90,13 @@
   {
     "id": 24,
     "tableNumber": "Especial"
+  },
+  {
+    "id": 25,
+    "tableNumber": "26"
+  },
+  {
+    "id": 26,
+    "tableNumber": "30"
   }
 ]
