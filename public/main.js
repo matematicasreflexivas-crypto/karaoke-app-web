@@ -5,7 +5,7 @@
 // const API_BASE = 'https://karaoke-backend-84e3.onrender.com';
 // ===== CONFIGURACIÓN API =====
 // ===== CONFIGURACIÓN API =====
-const API_BASE = 'https://karaoke-backend-84e3.onrender.com';
+const API_BASE = '';
 
 let loggedUser = null;
 

@@ -8,9 +8,19 @@ const xlsx = require('xlsx');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ===== CORS MUY PERMISIVO PARA NETLIFY =====
+// ===== CORS PARA NETLIFY Y LOCALHOST =====
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'https://glittery-concha-1b038c.netlify.app');
+  const allowedOrigins = [
+    'https://karaoke-app-web2.netlify.app', // producción (Netlify)
+    'http://localhost:3000',                // backend sirviendo frontend en local
+    'http://localhost:5500'                 // OPCIONAL: si usas Live Server u otro puerto
+  ];
+
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+
   res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') {
