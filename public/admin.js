@@ -2,8 +2,7 @@
 // Para trabajar LOCALMENTE (usando tu backend local en http://localhost:3000),
 // deja API_BASE vacío: '' → los fetch irán a /api/... en el mismo origen.
 // Cuando vayas a PRODUCCIÓN (Netlify + Render), cambia esta línea a:
-// const API_BASE = 'https://karaoke-backend-84e3.onrender.com';
-const API_BASE = '';
+const API_BASE = 'https://karaoke-backend-84e3.onrender.com';
 
 let adminLogged = false;
 
