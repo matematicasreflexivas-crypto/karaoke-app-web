@@ -253,8 +253,8 @@ function normalizeText(str) {
   return str
     ? str
         .toString()
-        .normalize('NFD')              // separa letras y acentos [web:396]
-        .replace(/[\u0300-\u036f]/g, '') // quita los acentos [web:395]
+        .normalize('NFD')              // separa letras y acentos
+        .replace(/[\u0300-\u036f]/g, '') // quita los acentos
         .toLowerCase()
     : '';
 }
