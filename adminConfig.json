@@ -1,5 +1,7 @@
 {
   "adminPassword": "1234",
   "userPassword": "usuario",
-  "qrImageFile": "qr.png"
+  "qrImageFile": "qr.png",
+  "appTitle": "MÉXICO CANTA",
+  "isQueueOpen": true
 }

@@ -5,6 +5,7 @@ const fs = require('fs');
 const multer = require('multer');
 const xlsx = require('xlsx');
 
+
 // ===== SQLITE (NUEVO) =====
 const Database = require('better-sqlite3');
 const dbPath = path.join(__dirname, 'karaoke.db');
@@ -108,7 +109,9 @@ const adminConfigPath = path.join(__dirname, 'adminConfig.json');
 let adminConfig = {
   adminPassword: '1234',
   userPassword: '1234',
-  qrImageFile: 'qr-dia.png' // nombre por defecto del QR (PNG)
+  qrImageFile: 'qr-dia.png',
+  appTitle: 'Karaoke', // título por defecto (nombre del bar)
+  isQueueOpen: true    // NUEVO: controla si se pueden registrar canciones
 };
 
 try {
@@ -117,6 +120,9 @@ try {
   adminConfig.adminPassword = parsed.adminPassword || '1234';
   adminConfig.userPassword  = parsed.userPassword  || '1234';
   adminConfig.qrImageFile   = parsed.qrImageFile   || 'qr-dia.png';
+  adminConfig.appTitle      = parsed.appTitle      || 'Karaoke';
+  adminConfig.isQueueOpen =
+    typeof parsed.isQueueOpen === 'boolean' ? parsed.isQueueOpen : true;
 } catch (e) {}
 
 function saveAdminConfig() {
@@ -127,12 +133,14 @@ function saveAdminConfig() {
   );
 }
 
-// Info pública del día: contraseña de usuario y QR
+// Info pública del día: contraseña de usuario, QR y título
 app.get('/api/public-info', (req, res) => {
   res.json({
     ok: true,
     userPassword: adminConfig.userPassword,
-    qrImageFile: adminConfig.qrImageFile || null
+    qrImageFile: adminConfig.qrImageFile || null,
+    appTitle: adminConfig.appTitle || 'Karaoke',
+    isQueueOpen: adminConfig.isQueueOpen // NUEVO: para que el front pueda saberlo
   });
 });
 
@@ -143,7 +151,9 @@ app.post('/api/admin/set-qr-file', (req, res) => {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
   }
   if (adminPassword !== adminConfig.adminPassword) {
-    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
+    return res
+      .status(401)
+      .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
   }
   adminConfig.qrImageFile = qrImageFile;
 
@@ -152,7 +162,9 @@ app.post('/api/admin/set-qr-file', (req, res) => {
     return res.json({ ok: true });
   } catch (e) {
     console.error('Error guardando nombre de QR', e);
-    return res.status(500).json({ ok: false, message: 'No se pudo guardar el QR' });
+    return res
+      .status(500)
+      .json({ ok: false, message: 'No se pudo guardar el QR' });
   }
 });
 
@@ -179,14 +191,16 @@ const uploadQr = multer({ storage: qrStorage });
 // endpoint protegido lógicamente por el frontend (usa adminLogged en el cliente)
 app.post('/api/admin/upload-qr', uploadQr.single('qr'), (req, res) => {
   try {
-    // opcionalmente actualizamos la config para que /api/public-info sepa que el archivo es qr.png
+    // actualizamos la config para que /api/public-info sepa que el archivo es qr.png
     adminConfig.qrImageFile = 'qr.png';
     saveAdminConfig();
 
     return res.json({ ok: true, message: 'QR actualizado correctamente' });
   } catch (e) {
     console.error('Error actualizando QR', e);
-    return res.status(500).json({ ok: false, message: 'Error actualizando el QR' });
+    return res
+      .status(500)
+      .json({ ok: false, message: 'Error actualizando el QR' });
   }
 });
 
@@ -230,7 +244,9 @@ app.get('/api/tables', (req, res) => {
 app.post('/api/tables', (req, res) => {
   const { tableNumber } = req.body;
   if (!tableNumber) {
-    return res.status(400).json({ ok: false, message: 'Falta el número de mesa' });
+    return res
+      .status(400)
+      .json({ ok: false, message: 'Falta el número de mesa' });
   }
 
   const mesaOriginal = String(tableNumber).trim();
@@ -278,7 +294,9 @@ app.post('/api/admin/login', (req, res) => {
   if (password === adminConfig.adminPassword) {
     return res.json({ ok: true });
   }
-  return res.status(401).json({ ok: false, message: 'Contraseña incorrecta' });
+  return res
+    .status(401)
+    .json({ ok: false, message: 'Contraseña incorrecta' });
 });
 
 app.post('/api/admin/change-password', (req, res) => {
@@ -288,7 +306,9 @@ app.post('/api/admin/change-password', (req, res) => {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
   }
   if (oldPassword !== adminConfig.adminPassword) {
-    return res.status(401).json({ ok: false, message: 'Contraseña actual incorrecta' });
+    return res
+      .status(401)
+      .json({ ok: false, message: 'Contraseña actual incorrecta' });
   }
 
   adminConfig.adminPassword = newPassword;
@@ -298,7 +318,9 @@ app.post('/api/admin/change-password', (req, res) => {
     return res.json({ ok: true });
   } catch (e) {
     console.error('Error guardando nueva contraseña de admin', e);
-    return res.status(500).json({ ok: false, message: 'No se pudo guardar la nueva contraseña' });
+    return res
+      .status(500)
+      .json({ ok: false, message: 'No se pudo guardar la nueva contraseña' });
   }
 });
 
@@ -310,7 +332,9 @@ app.post('/api/admin/change-user-password', (req, res) => {
   }
 
   if (adminPassword !== adminConfig.adminPassword) {
-    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
+    return res
+      .status(401)
+      .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
   }
 
   adminConfig.userPassword = newUserPassword;
@@ -320,7 +344,64 @@ app.post('/api/admin/change-user-password', (req, res) => {
     return res.json({ ok: true });
   } catch (e) {
     console.error('Error guardando nueva contraseña de usuario', e);
-    return res.status(500).json({ ok: false, message: 'No se pudo guardar la nueva contraseña de usuario' });
+    return res.status(500).json({
+      ok: false,
+      message: 'No se pudo guardar la nueva contraseña de usuario'
+    });
+  }
+});
+
+// NUEVO: cambiar título de la aplicación (nombre del bar)
+app.post('/api/admin/change-app-title', (req, res) => {
+  const { adminPassword, newTitle } = req.body;
+
+  if (!adminPassword || !newTitle) {
+    return res.status(400).json({ ok: false, message: 'Faltan datos' });
+  }
+
+  if (adminPassword !== adminConfig.adminPassword) {
+    return res
+      .status(401)
+      .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
+  }
+
+  adminConfig.appTitle = String(newTitle).trim();
+
+  try {
+    saveAdminConfig();
+    return res.json({ ok: true, appTitle: adminConfig.appTitle });
+  } catch (e) {
+    console.error('Error guardando título de la app', e);
+    return res
+      .status(500)
+      .json({ ok: false, message: 'No se pudo guardar el título' });
+  }
+});
+
+// NUEVO: abrir/cerrar el registro de canciones
+app.post('/api/admin/set-queue-open', (req, res) => {
+  const { adminPassword, isQueueOpen } = req.body || {};
+
+  if (!adminPassword || typeof isQueueOpen !== 'boolean') {
+    return res.status(400).json({ ok: false, message: 'Faltan datos' });
+  }
+
+  if (adminPassword !== adminConfig.adminPassword) {
+    return res
+      .status(401)
+      .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
+  }
+
+  adminConfig.isQueueOpen = isQueueOpen;
+
+  try {
+    saveAdminConfig();
+    return res.json({ ok: true, isQueueOpen });
+  } catch (e) {
+    console.error('Error guardando estado de la cola', e);
+    return res
+      .status(500)
+      .json({ ok: false, message: 'No se pudo guardar el estado de la cola' });
   }
 });
 
@@ -341,12 +422,10 @@ app.post('/api/user/login', (req, res) => {
   }
 
   if (!isTableAllowed(table)) {
-    return res
-      .status(400)
-      .json({
-        ok: false,
-        message: `La mesa ${table} no está registrada. Pide al administrador que la dé de alta.`
-      });
+    return res.status(400).json({
+      ok: false,
+      message: `La mesa ${table} no está registrada. Pide al administrador que la dé de alta.`
+    });
   }
 
   return res.json({ ok: true });
@@ -402,7 +481,9 @@ const upload = multer({ dest: 'uploads/' });
 
 app.post('/api/songs/upload', upload.single('excel'), (req, res) => {
   if (!req.file) {
-    return res.status(400).json({ ok: false, message: 'No se envió archivo' });
+    return res
+      .status(400)
+      .json({ ok: false, message: 'No se envió archivo' });
   }
 
   try {
@@ -438,7 +519,9 @@ app.post('/api/songs/upload', upload.single('excel'), (req, res) => {
     res.json({ ok: true, count });
   } catch (e) {
     console.error('Error procesando Excel', e);
-    res.status(500).json({ ok: false, message: 'Error procesando Excel' });
+    res
+      .status(500)
+      .json({ ok: false, message: 'Error procesando Excel' });
   }
 });
 
@@ -523,25 +606,33 @@ app.get('/api/queue', (req, res) => {
 });
 
 app.post('/api/queue', (req, res) => {
+  // NUEVO: bloquear registros si el admin cerró el horario
+  if (!adminConfig.isQueueOpen) {
+    return res.status(403).json({
+      ok: false,
+      message: 'El horario para ingresar canciones ha concluido'
+    });
+  }
+
   const { userName, tableNumber, songTitle } = req.body;
   if (!userName || !tableNumber || !songTitle) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
   }
 
   if (!isTableAllowed(tableNumber)) {
-    return res
-      .status(400)
-      .json({
-        ok: false,
-        message: `La mesa ${tableNumber} no está registrada. Pide al administrador que la dé de alta.`
-      });
+    return res.status(400).json({
+      ok: false,
+      message: `La mesa ${tableNumber} no está registrada. Pide al administrador que la dé de alta.`
+    });
   }
 
   const mesaStr = String(tableNumber).trim();
 
   const currentQueue = readQueueFromDb();
   const existeMesa = currentQueue.some(
-    item => normalizeText(String(item.tableNumber).trim()) === normalizeText(mesaStr)
+    item =>
+      normalizeText(String(item.tableNumber).trim()) ===
+      normalizeText(mesaStr)
   );
   console.log('Intento mesa:', mesaStr, 'Existe ya:', existeMesa);
 
@@ -636,7 +727,8 @@ app.get('/api/history/export', (req, res) => {
   `);
   const rows = stmt.all();
 
-  let csv = 'userName,tableNumber,songTitle,createdAt,playedAt,queuePosition,queueTotal\n';
+  let csv =
+    'userName,tableNumber,songTitle,createdAt,playedAt,queuePosition,queueTotal\n';
   for (const r of rows) {
     const createdDate = r.createdAt ? new Date(r.createdAt) : null;
     const playedDate  = r.playedAt  ? new Date(r.playedAt)  : null;
@@ -648,13 +740,13 @@ app.get('/api/history/export', (req, res) => {
       ? playedDate.toLocaleString('es-MX', { hour12: false })
       : '';
 
-    const user    = `"${(r.userName || '').replace(/"/g, '""')}"`;
-    const table   = `"${(r.tableNumber || '').replace(/"/g, '""')}"`;
-    const song    = `"${(r.songTitle || '').replace(/"/g, '""')}"`;
+    const user   = `"${(r.userName || '').replace(/"/g, '""')}"`;
+    const table  = `"${(r.tableNumber || '').replace(/"/g, '""')}"`;
+    const song   = `"${(r.songTitle || '').replace(/"/g, '""')}"`;
     const created = `"${createdStr.replace(/"/g, '""')}"`;
     const played  = `"${playedStr.replace(/"/g, '""')}"`;
-    const pos     = r.queuePosition != null ? r.queuePosition : '';
-    const total   = r.queueTotal    != null ? r.queueTotal    : '';
+    const pos    = r.queuePosition != null ? r.queuePosition : '';
+    const total  = r.queueTotal    != null ? r.queueTotal    : '';
 
     csv += `${user},${table},${song},${created},${played},${pos},${total}\n`;
   }
@@ -716,7 +808,12 @@ app.post('/api/song-suggestions', (req, res) => {
         .json({ ok: false, message: 'Faltan título o intérprete' });
     }
 
-    const id = insertSongSuggestion(title, artist, userName || null, tableNumber || null);
+    const id = insertSongSuggestion(
+      title,
+      artist,
+      userName || null,
+      tableNumber || null
+    );
 
     console.log('Nueva sugerencia registrada:', {
       id,
@@ -802,7 +899,9 @@ app.get('/api/song-suggestions/export', (req, res) => {
     res.send(csv);
   } catch (e) {
     console.error('Error exportando sugerencias', e);
-    res.status(500).json({ ok: false, message: 'Error al exportar sugerencias' });
+    res
+      .status(500)
+      .json({ ok: false, message: 'Error al exportar sugerencias' });
   }
 });
 

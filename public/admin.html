@@ -95,14 +95,21 @@
       color: #f9fafb;
     }
 
+    /* Opción 1: secundarios con el mismo gradiente que los primarios */
     .btn-secondary {
-      background: #f9fafb;
-      color: #111827;
+      background: linear-gradient(135deg, #4f46e5, #a855f7);
+      color: #f9fafb;
     }
 
     .btn-danger {
       background: #dc2626;
       color: #f9fafb;
+    }
+
+    .btn-primary:hover,
+    .btn-secondary:hover,
+    .btn-danger:hover {
+      filter: brightness(1.1);
     }
 
     .section-title-row {
@@ -234,19 +241,6 @@
       margin-top: 4px;
     }
 
-    /* NUEVO: resaltar el participante en lugar 1 en la cola admin */
-    .queue-admin-item-is-current {
-      background: #f9fafb !important;
-      color: #111827 !important;
-      border: 1px solid #a855f7 !important;
-      box-shadow: 0 0 0 2px rgba(168,85,247,0.6);
-    }
-
-    .queue-admin-item-is-current .queue-admin-item-line {
-      background: transparent;
-      color: inherit;
-    }
-
     @media (min-width: 768px) {
       body {
         display: flex;
@@ -341,6 +335,58 @@
             Esta contraseña será la que se pedirá en la pantalla de usuario para que los clientes puedan entrar.
           </p>
         </div>
+
+        <!-- NUEVO: Cambiar título de la aplicación -->
+        <div class="card">
+          <h2>Título de la aplicación</h2>
+          <div class="form-group">
+            <div>
+              <label for="admin-pass-app-title">Contraseña de administrador</label>
+              <input
+                id="admin-pass-app-title"
+                type="password"
+                placeholder="Contraseña admin actual"
+              />
+            </div>
+
+            <div>
+              <label for="new-app-title">Nuevo título (nombre del bar)</label>
+              <input
+                id="new-app-title"
+                type="text"
+                placeholder="Ej. Bar Karaoke Don Pepe"
+              />
+            </div>
+
+            <button id="btn-change-app-title" class="btn-secondary">
+              Guardar título
+            </button>
+          </div>
+          <p class="hint">
+            Este título se mostrará en la pantalla de usuario y en la pantalla pública en lugar del texto fijo.
+          </p>
+        </div>
+      </div>
+
+      <!-- Control de horario de registro de canciones -->
+      <div class="card">
+        <h2>Control de registros de canciones</h2>
+        <p id="queue-open-status">
+          Estado: se pueden registrar canciones
+        </p>
+        <div class="form-group" style="margin-top:8px;">
+          <button id="btn-close-queue" class="btn-danger">
+            Cerrar registros
+          </button>
+          <button id="btn-open-queue" class="btn-secondary">
+            Abrir registros
+          </button>
+        </div>
+        <p class="hint">
+          Cuando cierres los registros, si un cliente intenta registrar
+          una canción verá el mensaje:
+          "El horario para ingresar canciones ha concluido".
+        </p>
       </div>
 
       <!-- Gestión de mesas permitidas -->

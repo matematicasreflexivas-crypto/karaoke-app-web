@@ -1,9 +1,30 @@
 const API_BASE = '';
 
+// ========== CARGAR TÍTULO PÚBLICO (appTitle) ==========
+async function loadPublicInfo() {
+  try {
+    const res = await fetch(`${API_BASE}/api/public-info`);
+    const data = await res.json();
+    if (!res.ok || !data.ok) return;
+
+    const title = data.appTitle || 'Karaoke';
+    document.title = `${title} - Usuario`;
+    const h1 = document.querySelector('h1');
+    if (h1) h1.textContent = `${title} - Pantalla de usuario`;
+  } catch (e) {
+    console.error('Error cargando info pública', e);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadPublicInfo();
+});
+
 let loggedUser = null;
 window.currentUserName  = null;
 window.currentUserTable = null;
 let hasSuggestedWhileInQueue = false;
+
 
 // ========== LOGIN DE USUARIO ==========
 
@@ -101,6 +122,7 @@ document.getElementById('btn-login').onclick = async () => {
   loadQueue();
 };
 
+
 // ========== TOGGLE DE FICHA DE REGISTRO ==========
 
 const toggleLoginBtn2 = document.getElementById('btn-toggle-login-card');
@@ -120,6 +142,7 @@ if (toggleLoginBtn2) {
   };
 }
 
+
 // ========== HELPER: DEBOUNCE ==========
 
 function debounce(fn, delay = 400) {
@@ -129,6 +152,7 @@ function debounce(fn, delay = 400) {
     timerId = setTimeout(() => fn(...args), delay);
   };
 }
+
 
 // ========== HELPER: SCROLL BÚSQUEDA ARRIBA ==========
 
@@ -146,6 +170,7 @@ function ensureResultsVisible() {
     });
   }, 100);
 }
+
 
 // ========== BÚSQUEDA ==========
 
@@ -234,6 +259,7 @@ async function performSearch() {
 
 const debouncedSearch = debounce(performSearch, 400);
 
+
 // ========== BOTÓN BUSCAR ==========
 
 const btnSearch2 = document.getElementById('btn-search');
@@ -247,6 +273,7 @@ if (btnSearch2) {
     performSearch();
   };
 }
+
 
 // ========== TOGGLE "BUSCAR CANCIÓN" ==========
 
@@ -270,6 +297,7 @@ if (btnToggleSearchCard2) {
     }
   };
 }
+
 
 // ========== TOGGLE "COLA DE PARTICIPANTES" ==========
 
@@ -296,6 +324,7 @@ if (btnToggleQueueCard2) {
   };
 }
 
+
 // ========== TOGGLE "SUGERENCIA DE CANCIÓN" ==========
 
 const btnToggleSuggestCard2 = document.getElementById('btn-toggle-suggest-card');
@@ -311,6 +340,7 @@ if (btnToggleSuggestCard2) {
       : 'Ocultar sugerencia de canción';
   };
 }
+
 
 // ========== BÚSQUEDA EN VIVO ==========
 
@@ -330,6 +360,7 @@ if (titleInput2) {
     debouncedSearch();
   });
 }
+
 
 // ========== ELECCIÓN DE CANCIÓN ==========
 
@@ -433,6 +464,7 @@ async function chooseSong(songLabel) {
   loadQueue();
 }
 
+
 // ========== COLA DE PARTICIPANTES ==========
 
 async function loadQueue() {
@@ -532,6 +564,7 @@ async function loadQueue() {
     hasSuggestedWhileInQueue = false;
   }
 }
+
 
 // ========== ENVÍO DE SUGERENCIA DE CANCIÓN ==========
 
@@ -637,6 +670,7 @@ if (btnSendSuggestion) {
     }
   };
 }
+
 
 // Helpers
 

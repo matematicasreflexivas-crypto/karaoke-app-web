@@ -16,20 +16,20 @@
       background: #050816;
       color: #f9fafb;
       min-height: 100vh;
-      min-width: 1024px;      /* fuerza ancho mínimo de escritorio */
+      min-width: 1024px;      /* ancho mínimo de escritorio */
       display: flex;
       flex-direction: column;
-      padding: 16px 32px;
-      overflow-x: auto;       /* si la pantalla es más chica, que salga scroll horizontal general */
+      padding: 8px 24px;      /* un poco menos padding general */
+      overflow-x: auto;
     }
 
     .container {
       width: 100%;
-      max-width: 1600px;      /* ancho máximo para monitor */
+      max-width: 1600px;
       margin: 0 auto;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 8px;               /* menos separación vertical */
       height: 100vh;
     }
 
@@ -38,19 +38,19 @@
     }
 
     header h1 {
-      font-size: 2.8rem;      /* un poco menor para dejar más alto a la cola */
-      margin-bottom: 4px;
+      font-size: 2.4rem;      /* más compacto */
+      margin-bottom: 2px;
     }
 
     header p {
-      font-size: 1rem;
+      font-size: 0.95rem;
       color: #9ca3af;
     }
 
     .queue-card {
       background: #111827;
       border-radius: 16px;
-      padding: 16px;          /* menos padding para ganar espacio vertical */
+      padding: 10px 14px;     /* menos padding */
       flex: 1;
       display: flex;
       flex-direction: column;
@@ -63,15 +63,15 @@
       align-items: center;
       justify-content: space-between;
       gap: 8px;
-      margin-bottom: 8px;     /* menos separación */
+      margin-bottom: 4px;     /* menos separación */
     }
 
     .queue-header h2 {
-      font-size: 1.4rem;
+      font-size: 1.3rem;
     }
 
     .queue-header span {
-      font-size: 1rem;
+      font-size: 0.95rem;
       color: #9ca3af;
     }
 
@@ -80,25 +80,27 @@
       overflow-y: auto;
       overflow-x: hidden;
       padding-right: 4px;
-      margin-top: 4px;
+      margin-top: 2px;
+      /* Altura efectiva: el flex hace que esta sección use casi todo lo disponible */
     }
 
     .queue-item {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 8px 14px;      /* menos padding vertical y horizontal */
-      margin-bottom: 4px;     /* menos espacio entre filas */
+      justify-content: flex-start;
+      padding: 4px 10px;      /* muy compacto verticalmente */
+      margin-bottom: 2px;
       border-radius: 999px;
       background: #020617;
-      font-size: 1rem;        /* un poco más chico */
+      font-size: 0.95rem;     /* más pequeño */
       border: 1px solid transparent;
+      min-height: 28px;       /* altura mínima controlada */
     }
 
     .queue-item-position {
       font-weight: 700;
-      margin-right: 12px;
-      font-size: 1.3rem;      /* baja un poco, sigue siendo grande */
+      margin-right: 10px;
+      font-size: 1.1rem;
       flex-shrink: 0;
     }
 
@@ -109,7 +111,7 @@
       align-items: center;
     }
 
-    /* Contenedor de toda la línea: scroll horizontal si el texto es largo */
+    /* Contenedor de toda la línea: si el texto es largo, scroll horizontal */
     .queue-item-line {
       white-space: nowrap;
       overflow-x: auto;
@@ -119,7 +121,7 @@
     }
 
     .queue-item-line::-webkit-scrollbar {
-      height: 6px;
+      height: 4px;
     }
     .queue-item-line::-webkit-scrollbar-thumb {
       background: #4b5563;
@@ -142,29 +144,29 @@
     .footer-card {
       background: #111827;
       border-radius: 16px;
-      padding: 14px 20px;     /* menos alto el footer */
+      padding: 8px 16px;      /* footer más bajito */
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
+      gap: 12px;
       box-shadow: 0 10px 15px rgba(0,0,0,0.3);
     }
 
     .footer-info {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 2px;
     }
 
     .footer-info-title {
-      font-size: 0.95rem;
+      font-size: 0.85rem;
       color: #9ca3af;
       text-transform: uppercase;
       letter-spacing: 0.08em;
     }
 
     .footer-password {
-      font-size: 1.8rem;      /* se mantiene grande */
+      font-size: 1.5rem;      /* un poco más pequeño para ganar altura total */
       font-weight: 700;
       letter-spacing: 0.18em;
     }
@@ -173,12 +175,13 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 150px;           /* un poco más compacto */
-      height: 150px;
+      width: 130px;           /* ligeramente más chico */
+      height: 130px;
       background: #020617;
       border-radius: 16px;
       border: 1px dashed #4b5563;
       overflow: hidden;
+      flex-shrink: 0;
     }
 
     .footer-qr img {
@@ -209,7 +212,7 @@
         <span id="queue-count-label">0 en espera</span>
       </div>
       <div id="queue-list" class="queue-list">
-        <div style="font-size:1rem; color:#9ca3af;">
+        <div style="font-size:0.95rem; color:#9ca3af;">
           Aún no hay participantes en la cola.
         </div>
       </div>

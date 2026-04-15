@@ -1,5 +1,6 @@
 const API_BASE = '';
 
+
 // ---------------------- COLA ----------------------
 
 async function fetchQueue() {
@@ -14,6 +15,7 @@ async function fetchQueue() {
   }
 }
 
+
 // ---------------------- INFO PÚBLICA ----------------------
 
 async function fetchPublicInfo() {
@@ -22,14 +24,16 @@ async function fetchPublicInfo() {
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error(data.message || 'Error info pública');
     return {
-      userPassword: data.userPassword || ''
-      // ya no necesitamos qrImageFile aquí
+      userPassword: data.userPassword || '',
+      appTitle: data.appTitle || 'Karaoke',
+      qrImageFile: data.qrImageFile || 'qr.png'
     };
   } catch (e) {
     console.error('Error cargando info pública', e);
     return null;
   }
 }
+
 
 // ---------------------- RENDER COLA ----------------------
 
@@ -98,14 +102,17 @@ function renderQueue(queue) {
   });
 }
 
+
 // ---------------------- RENDER INFO PÚBLICA + QR ----------------------
 
 function renderPublicInfo(info) {
   const passEl = document.getElementById('public-password');
   const qrEl = document.getElementById('public-qr');
-  if (!passEl || !qrEl) return;
+  const headerTitle = document.querySelector('header h1');
+  if (!passEl || !qrEl || !headerTitle) return;
 
   if (!info) {
+    headerTitle.textContent = 'Turnos para el Karaoke';
     passEl.textContent = '••••';
     qrEl.innerHTML = `
       <div class="footer-qr-placeholder">
@@ -115,27 +122,32 @@ function renderPublicInfo(info) {
     return;
   }
 
+  // título dinámico (nombre del bar)
+  headerTitle.textContent = `TURNOS  ${info.appTitle}`;
+  document.title = `Pantalla ${info.appTitle}`;
+
   // contraseña
   passEl.textContent = info.userPassword || '••••';
 
-  // QR: siempre el mismo archivo fijo
+  // QR usando el nombre de archivo que envía el backend
   qrEl.innerHTML = '';
 
   const img = document.createElement('img');
-  // Evitar caché del navegador con timestamp
-  img.src = `/qr/qr.png?ts=${Date.now()}`;
+  const file = info.qrImageFile || 'qr.png';
+  img.src = `/qr/${file}?ts=${Date.now()}`;
   img.alt = 'QR para conectarse';
 
   img.onerror = () => {
     qrEl.innerHTML = `
       <div class="footer-qr-placeholder">
-        No se encontró la imagen QR en /qr/qr.png
+        No se encontró la imagen QR en /qr/${file}
       </div>
     `;
   };
 
   qrEl.appendChild(img);
 }
+
 
 // ---------------------- REFRESH ----------------------
 
@@ -146,7 +158,7 @@ async function refreshPublicScreen() {
   ]);
 
   if (queue !== null) renderQueue(queue);
-  if (info !== null) renderPublicInfo(info);
+  renderPublicInfo(info);
 }
 
 document.addEventListener('DOMContentLoaded', () => {

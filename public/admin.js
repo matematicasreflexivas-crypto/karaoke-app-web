@@ -3,6 +3,24 @@ const API_BASE = '';
 
 let adminLogged = false;
 
+// Mostrar tiempo en cola: "Hace X min / horas"
+function formatTiempoEnCola(createdAt) {
+  if (!createdAt) return '';
+
+  const created = new Date(createdAt);
+  if (Number.isNaN(created.getTime())) return '';
+
+  const now = new Date();
+  const diffMs = now - created;
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHrs = Math.floor(diffMin / 60);
+
+  if (diffMin < 1) return 'Hace menos de 1 min';
+  if (diffMin < 60) return `Hace ${diffMin} min`;
+  if (diffHrs === 1) return 'Hace 1 hora';
+  return `Hace ${diffHrs} horas`;
+}
+
 // Login de administrador
 document.getElementById('btn-admin-login').onclick = async () => {
   const pass = document.getElementById('admin-pass').value.trim();
@@ -28,6 +46,10 @@ document.getElementById('btn-admin-login').onclick = async () => {
   loadQueueAdmin();
   loadTablesAdmin();
   startAutoRefreshAdmin();
+  setupHistoryButtons();
+  setupSuggestionsSection();
+  setupQueueOpenButtons();    // NUEVO
+  refreshQueueOpenStatus();   // NUEVO
 };
 
 // Limpiar toda la cola
@@ -97,11 +119,6 @@ async function loadQueueAdmin() {
     const row = document.createElement('div');
     row.className = 'queue-admin-item-line';
 
-    // resaltar siempre al participante en lugar 1
-    if (idx === 0) {
-      row.classList.add('queue-admin-item-is-current');
-    }
-
     const content = document.createElement('div');
     content.className = 'queue-admin-item-content';
 
@@ -109,8 +126,14 @@ async function loadQueueAdmin() {
     textSpan.className = 'queue-admin-item-text';
 
     const userNameUpper = (item.userName || '').toString().toUpperCase();
-    textSpan.textContent =
-      `${idx + 1}. Mesa ${item.tableNumber} - ${userNameUpper} - ${item.songTitle}`;
+    const tiempoEnCola = formatTiempoEnCola(item.createdAt);
+
+    let linea = `${idx + 1}. Mesa ${item.tableNumber} - ${userNameUpper} - ${item.songTitle}`;
+    if (tiempoEnCola) {
+      linea += ` | ${tiempoEnCola}`;
+    }
+
+    textSpan.textContent = linea;
 
     content.appendChild(textSpan);
 
@@ -754,6 +777,7 @@ function setupSuggestionsSection() {
     };
   }
 
+  // Botón para eliminar TODAS las sugerencias
   if (btnClearSuggestions && suggestionsList) {
     btnClearSuggestions.onclick = async () => {
       if (!adminLogged) {
@@ -783,6 +807,108 @@ function setupSuggestionsSection() {
         console.error(e);
         alert('No se pudo conectar para limpiar las sugerencias');
       }
+    };
+  }
+}
+
+// ========= CONTROL DE HORARIO / REGISTROS ABIERTOS-CERRADOS =========
+
+// Lee /api/public-info para saber si isQueueOpen está en true/false
+async function refreshQueueOpenStatus() {
+  const pStatus  = document.getElementById('queue-open-status');
+  const btnClose = document.getElementById('btn-close-queue');
+  const btnOpen  = document.getElementById('btn-open-queue');
+  if (!pStatus || !btnClose || !btnOpen) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/public-info`);
+    const data = await res.json();
+    if (!res.ok || !data.ok) return;
+
+    if (data.isQueueOpen) {
+      pStatus.textContent = 'Estado: se pueden registrar canciones';
+      btnClose.disabled = false;
+      btnOpen.disabled  = true;
+    } else {
+      pStatus.textContent = 'Estado: horario concluido (no se aceptan canciones nuevas)';
+      btnClose.disabled = true;
+      btnOpen.disabled  = false;
+    }
+  } catch (e) {
+    console.error('Error leyendo estado de la cola', e);
+  }
+}
+
+function setupQueueOpenButtons() {
+  const btnClose = document.getElementById('btn-close-queue');
+  const btnOpen  = document.getElementById('btn-open-queue');
+  if (!btnClose && !btnOpen) return;
+
+  if (btnClose) {
+    btnClose.onclick = async () => {
+      if (!adminLogged) {
+        alert('Primero inicia sesión como admin');
+        return;
+      }
+
+      const pass = prompt('Confirma la contraseña de administrador para cerrar registros:');
+      if (!pass) return;
+
+      let res, data;
+      try {
+        res = await fetch(`${API_BASE}/api/admin/set-queue-open`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ adminPassword: pass, isQueueOpen: false })
+        });
+        data = await res.json();
+      } catch (e) {
+        console.error(e);
+        alert('No se pudo conectar para cambiar el estado de registros');
+        return;
+      }
+
+      if (!res.ok || !data.ok) {
+        alert(data.message || 'No se pudo cerrar los registros');
+        return;
+      }
+
+      alert('Se ha cerrado el registro de canciones.');
+      refreshQueueOpenStatus();
+    };
+  }
+
+  if (btnOpen) {
+    btnOpen.onclick = async () => {
+      if (!adminLogged) {
+        alert('Primero inicia sesión como admin');
+        return;
+      }
+
+      const pass = prompt('Confirma la contraseña de administrador para abrir registros:');
+      if (!pass) return;
+
+      let res, data;
+      try {
+        res = await fetch(`${API_BASE}/api/admin/set-queue-open`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ adminPassword: pass, isQueueOpen: true })
+        });
+        data = await res.json();
+      } catch (e) {
+        console.error(e);
+        alert('No se pudo conectar para cambiar el estado de registros');
+        return;
+      }
+
+      if (!res.ok || !data.ok) {
+        alert(data.message || 'No se pudo abrir los registros');
+        return;
+      }
+
+      alert('Se ha abierto el registro de canciones.');
+      refreshQueueOpenStatus();
     };
   }
 }
@@ -865,6 +991,57 @@ document.getElementById('btn-change-user-pass').onclick = async () => {
   document.getElementById('new-user-pass').value = '';
 };
 
+// NUEVO: Cambiar título de la aplicación (nombre del bar)
+document.getElementById('btn-change-app-title').onclick = async () => {
+  if (!adminLogged) {
+    alert('Primero inicia sesión como admin');
+    return;
+  }
+
+  const adminPass = document.getElementById('admin-pass-app-title').value.trim();
+  const newTitle  = document.getElementById('new-app-title').value.trim();
+
+  if (!adminPass || !newTitle) {
+    alert('Escribe la contraseña de administrador y el nuevo título');
+    return;
+  }
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/api/admin/change-app-title`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        adminPassword: adminPass,
+        newTitle
+      })
+    });
+  } catch (e) {
+    console.error(e);
+    alert('No se pudo conectar para cambiar el título');
+    return;
+  }
+
+  let data;
+  try {
+    data = await res.json();
+  } catch (e) {
+    alert('Respuesta inválida del servidor al cambiar el título');
+    return;
+  }
+
+  if (!res.ok || !data.ok) {
+    alert(data.message || 'No se pudo cambiar el título');
+    return;
+  }
+
+  alert('Título actualizado correctamente');
+
+  document.getElementById('admin-pass-app-title').value = '';
+  // Si quieres también limpiar el campo de título:
+  // document.getElementById('new-app-title').value = '';
+};
+
 // Intervalo para auto‑refrescar solo cuando el admin está logueado
 let adminIntervalId = null;
 
@@ -877,9 +1054,7 @@ function startAutoRefreshAdmin() {
   }, 5000);
 }
 
-// ========= NUEVO: SUBIR / ACTUALIZAR QR =========
-// Envía la imagen al backend (que debe guardarla como public/qr/qr.png)
-// y fuerza recarga de la vista previa del admin. [web:1382][web:1383][web:1386]
+// ========= SUBIR / ACTUALIZAR QR =========
 
 document.getElementById('form-upload-qr').onsubmit = async (e) => {
   e.preventDefault();
@@ -924,7 +1099,6 @@ document.getElementById('form-upload-qr').onsubmit = async (e) => {
 
   alert('QR actualizado correctamente');
 
-  // Forzar recarga de la imagen sin caché
   const img = document.getElementById('current-qr-image');
   if (img) {
     const ts = Date.now();
