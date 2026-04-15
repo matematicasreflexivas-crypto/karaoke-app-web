@@ -145,9 +145,9 @@
       margin-top: 4px;
       max-height: 22vh;
       padding-right: 4px;
-      overflow-y: auto;     /* cola vertical */
-      overflow-x: auto;     /* y permite desplazar horizontal si la línea es larga */
-      white-space: nowrap;  /* cada registro en una sola línea */
+      overflow-y: auto;
+      overflow-x: auto;
+      white-space: nowrap;
     }
 
     .song-result {
@@ -155,15 +155,15 @@
       padding: 4px 8px;
       margin-bottom: 3px;
       border-radius: 6px;
-      background: #ffffff;    /* fondo blanco */
+      background: #ffffff;
       border: 1px solid #d1d5db;
       color: #111827;
       font-size: 0.95rem;
-      white-space: nowrap;    /* no partir el texto en varias líneas */
+      white-space: nowrap;
       text-align: left;
     }
 
-    /* Cola de participantes: igual que antes, fondo oscuro */
+    /* Cola de participantes */
     #queue {
       margin-top: 4px;
       max-height: 46vh;
@@ -216,6 +216,26 @@
       font-size: 0.9rem;
     }
 
+    .queue-user-name-highlight {
+      background: #ffffff;
+      color: #000000;
+      padding: 0 4px;
+      border-radius: 4px;
+    }
+
+    /* NUEVO: resaltar la fila del participante en lugar 1 */
+    .queue-item-is-current {
+      background: #f9fafb !important;
+      color: #111827 !important;
+      border: 1px solid #a855f7 !important;
+      box-shadow: 0 0 0 2px rgba(168,85,247,0.6);
+    }
+
+    .queue-item-is-current .queue-item-line {
+      background: transparent;
+      color: inherit;
+    }
+
     @media (min-width: 768px) {
       body {
         display: flex;
@@ -226,17 +246,24 @@
       }
     }
   </style>
+
+  <script>
+    function normalizeUserNameInput(input) {
+      input.value = input.value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase();
+    }
+  </script>
 </head>
 <body>
   <div class="container">
     <h1>Karaoke - Pantalla de usuario</h1>
 
-    <!-- Botón para mostrar/ocultar ficha de registro -->
     <button id="btn-toggle-login-card" class="btn-primary top-toggle-login" style="display:none;">
       Mostrar datos de registro
     </button>
 
-    <!-- Inicio de sesión -->
     <div class="card" id="login-card">
       <div class="section-title-row">
         <h2>Inicio de sesión</h2>
@@ -246,7 +273,12 @@
       <div class="form-group">
         <div>
           <label for="name">Tu nombre</label>
-          <input id="name" type="text" placeholder="Ej. Ricardo" />
+          <input
+            id="name"
+            type="text"
+            placeholder="Ej. Ricardo"
+            oninput="normalizeUserNameInput(this)"
+          />
         </div>
 
         <div>
@@ -267,7 +299,6 @@
       </div>
     </div>
 
-    <!-- CONTENIDO SOLO PARA USUARIOS LOGUEADOS -->
     <div id="user-content" style="display:none;">
 
       <div class="top-buttons">
@@ -278,22 +309,25 @@
         <button id="btn-toggle-queue-card" class="btn-primary" style="display:none;">
           Ocultar cola de participantes
         </button>
+
+        <button id="btn-toggle-suggest-card" class="btn-primary" style="display:none;">
+          Mostrar sugerencia de canción
+        </button>
       </div>
 
-      <!-- Buscar canción -->
       <div class="card" id="search-card">
         <h2>Buscar canción</h2>
 
         <div class="form-group">
           <div class="search-fields">
             <div class="search-field">
-              <label for="artist">Intérprete</label>
-              <input id="artist" type="text" placeholder="Nombre del artista" />
+              <label for="title">Título</label>
+              <input id="title" type="text" placeholder="Nombre de la canción" />
             </div>
 
             <div class="search-field">
-              <label for="title">Título</label>
-              <input id="title" type="text" placeholder="Nombre de la canción" />
+              <label for="artist">Intérprete</label>
+              <input id="artist" type="text" placeholder="Nombre del artista" />
             </div>
           </div>
 
@@ -301,13 +335,35 @@
         </div>
       </div>
 
-      <!-- Resultados -->
+      <div class="card" id="suggest-card" style="display:none;">
+        <h2>Sugerir canción para el menú</h2>
+        <p style="font-size:0.9rem; margin-bottom:6px;">
+          Sugerencia para agregar en el menú de canciones próximamente.
+          Hacer la sugerencia no te hace ingresar a la cola de participantes.
+        </p>
+
+        <div class="form-group">
+          <div>
+            <label for="suggest-title">Título de la canción</label>
+            <input id="suggest-title" type="text" placeholder="Nombre de la canción" />
+          </div>
+
+          <div>
+            <label for="suggest-artist">Intérprete</label>
+            <input id="suggest-artist" type="text" placeholder="Nombre del artista" />
+          </div>
+
+          <button id="btn-send-suggestion" class="btn-primary">
+            Enviar sugerencia
+          </button>
+        </div>
+      </div>
+
       <div class="card">
         <h3>Resultados de búsqueda</h3>
         <div id="songs"></div>
       </div>
 
-      <!-- Cola -->
       <div class="card">
         <h3>Cola de participantes</h3>
         <div id="queue"></div>

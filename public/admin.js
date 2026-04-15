@@ -1,8 +1,5 @@
 // ===== CONFIGURACIÓN API =====
-// Para trabajar LOCALMENTE (usando tu backend local en http://localhost:3000),
-// deja API_BASE vacío: '' → los fetch irán a /api/... en el mismo origen.
-// Cuando vayas a PRODUCCIÓN (Netlify + Render), cambia esta línea a:
-const API_BASE = 'https://karaoke-backend-84e3.onrender.com';
+const API_BASE = '';
 
 let adminLogged = false;
 
@@ -29,9 +26,7 @@ document.getElementById('btn-admin-login').onclick = async () => {
   adminLogged = true;
   document.getElementById('admin-panel').style.display = 'block';
   loadQueueAdmin();
-  loadTablesAdmin(); // cargar mesas al entrar
-
-  // Iniciar auto‑refresco de la cola cuando el admin entra
+  loadTablesAdmin();
   startAutoRefreshAdmin();
 };
 
@@ -72,7 +67,7 @@ document.getElementById('form-upload').onsubmit = async (e) => {
   let data;
   try {
     data = JSON.parse(text);
-  } catch (e) {
+  } catch (e2) {
     alert('El servidor no respondió JSON. Respuesta: ' + text);
     return;
   }
@@ -82,7 +77,7 @@ document.getElementById('form-upload').onsubmit = async (e) => {
     return;
   }
 
-  alert('Excel cargado y songs.json actualizado (' + data.count + ' canciones).');
+  alert('Excel cargado (' + data.count + ' canciones).');
 };
 
 // ========== COLA ADMIN: UNA LÍNEA POR REGISTRO ==========
@@ -102,12 +97,21 @@ async function loadQueueAdmin() {
     const row = document.createElement('div');
     row.className = 'queue-admin-item-line';
 
+    // resaltar siempre al participante en lugar 1
+    if (idx === 0) {
+      row.classList.add('queue-admin-item-is-current');
+    }
+
     const content = document.createElement('div');
     content.className = 'queue-admin-item-content';
 
     const textSpan = document.createElement('span');
     textSpan.className = 'queue-admin-item-text';
-    textSpan.textContent = `${idx + 1}. Mesa ${item.tableNumber} - ${item.userName} - ${item.songTitle}`;
+
+    const userNameUpper = (item.userName || '').toString().toUpperCase();
+    textSpan.textContent =
+      `${idx + 1}. Mesa ${item.tableNumber} - ${userNameUpper} - ${item.songTitle}`;
+
     content.appendChild(textSpan);
 
     const actions = document.createElement('div');
@@ -117,8 +121,28 @@ async function loadQueueAdmin() {
     btnDel.textContent = 'Eliminar';
     btnDel.className = 'btn-danger btn-queue-admin';
     btnDel.onclick = async () => {
-      await fetch(`${API_BASE}/api/queue/${item.id}`, { method: 'DELETE' });
+      const ok = confirm('¿Marcar esta canción como atendida y quitarla de la cola?');
+      if (!ok) return;
+
+      const resDel = await fetch(`${API_BASE}/api/queue/${item.id}`, { method: 'DELETE' });
+      let dataDel;
+      try {
+        dataDel = await resDel.json();
+      } catch (e) {
+        alert('Respuesta inválida del servidor al eliminar de la cola');
+        return;
+      }
+      if (!resDel.ok || !dataDel.ok) {
+        alert(dataDel.message || 'No se pudo eliminar la canción');
+        return;
+      }
+
       loadQueueAdmin();
+      const fromInput = document.getElementById('history-from');
+      const toInput   = document.getElementById('history-to');
+      const fromDateStr = fromInput ? fromInput.value : '';
+      const toDateStr   = toInput   ? toInput.value   : '';
+      loadHistoryAdmin(fromDateStr, toDateStr);
     };
     actions.appendChild(btnDel);
 
@@ -167,9 +191,136 @@ async function loadQueueAdmin() {
   });
 }
 
+// ========= HISTORIAL EN PANEL ADMIN =========
+
+async function loadHistoryAdmin(fromDateStr, toDateStr) {
+  const div = document.getElementById('history-admin');
+  if (!div) return;
+
+  div.innerHTML = 'Cargando historial...';
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/api/history`);
+  } catch (e) {
+    console.error(e);
+    div.textContent = 'No se pudo conectar para cargar historial';
+    return;
+  }
+
+  let data;
+  try {
+    data = await res.json();
+  } catch (e) {
+    console.error(e);
+    div.textContent = 'Respuesta inválida al cargar historial';
+    return;
+  }
+
+  if (!res.ok || !data.ok) {
+    div.textContent = data.message || 'Error cargando historial';
+    return;
+  }
+
+  let items = data.history || [];
+
+  if (fromDateStr || toDateStr) {
+    let fromTime = null;
+    let toTime   = null;
+
+    if (fromDateStr) {
+      fromTime = new Date(fromDateStr + 'T00:00:00').getTime();
+    }
+    if (toDateStr) {
+      toTime = new Date(toDateStr + 'T23:59:59').getTime();
+    }
+
+    items = items.filter(h => {
+      if (!h.playedAt) return false;
+      const t = new Date(h.playedAt).getTime();
+      if (Number.isNaN(t)) return false;
+
+      if (fromTime != null && t < fromTime) return false;
+      if (toTime   != null && t > toTime)   return false;
+
+      return true;
+    });
+  }
+
+  div.innerHTML = '';
+
+  if (!items.length) {
+    div.textContent = 'Aún no hay historial.';
+    return;
+  }
+
+  items.forEach((h, idx) => {
+    const row = document.createElement('div');
+    row.className = 'queue-admin-item-line';
+
+    const content = document.createElement('div');
+    content.className = 'queue-admin-item-content';
+
+    const textSpan = document.createElement('span');
+    textSpan.className = 'queue-admin-item-text';
+
+    const fechaRegistro = h.createdAt ? new Date(h.createdAt).toLocaleString('es-MX') : '';
+    const fechaAtendida = h.playedAt ? new Date(h.playedAt).toLocaleString('es-MX') : '';
+    const lugarCola     = (h.queuePosition != null && h.queueTotal != null)
+      ? ` | Lugar en cola: ${h.queuePosition}/${h.queueTotal}`
+      : '';
+
+    const userNameUpper = (h.userName || '').toString().toUpperCase();
+    let texto = `${idx + 1}. Mesa ${h.tableNumber} - ${userNameUpper} - ${h.songTitle}`;
+    if (fechaRegistro) {
+      texto += ` | Registrado: ${fechaRegistro}`;
+    }
+    if (fechaAtendida) {
+      texto += ` | Atendido: ${fechaAtendida}`;
+    }
+    texto += lugarCola;
+
+    textSpan.textContent = texto;
+
+    content.appendChild(textSpan);
+    row.appendChild(content);
+    div.appendChild(row);
+  });
+}
+
+// Descargar CSV de historial
+async function exportHistoryCsv() {
+  if (!adminLogged) {
+    alert('Primero inicia sesión como admin');
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/api/history/export`);
+    if (!res.ok) {
+      const text = await res.text();
+      alert('No se pudo exportar el historial: ' + text);
+      return;
+    }
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const fecha = new Date().toISOString().slice(0, 10);
+    a.download = `historial_karaoke_${fecha}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (e) {
+    console.error(e);
+    alert('Error al descargar el CSV de historial');
+  }
+}
+
 // ========= GESTIÓN DE MESAS EN PANEL ADMIN =========
 
-// Cargar listado de mesas permitidas
 async function loadTablesAdmin() {
   const div = document.getElementById('tables-admin');
   if (!div) return;
@@ -342,7 +493,7 @@ function setupClearTablesButton() {
   };
 }
 
-// Mostrar/ocultar LISTADOS e INICIO (sin ocultar botones ni cards)
+// Mostrar/ocultar LISTADOS e INICIO
 function setupToggleSections() {
   const tablesContainer = document.getElementById('tables-admin');
   const queueContainer  = document.getElementById('queue-admin');
@@ -377,10 +528,271 @@ function setupToggleSections() {
   }
 }
 
+// Botones de historial
+function setupHistoryButtons() {
+  const btnShowHistory   = document.getElementById('btn-show-history');
+  const btnExportHistory = document.getElementById('btn-export-history');
+  const btnClearHistory  = document.getElementById('btn-clear-history');
+  const historyContainer = document.getElementById('history-admin');
+
+  const inputFrom = document.getElementById('history-from');
+  const inputTo   = document.getElementById('history-to');
+  const btnApplyFilter = document.getElementById('btn-apply-history-filter');
+
+  if (btnShowHistory && historyContainer) {
+    btnShowHistory.onclick = async () => {
+      if (!adminLogged) {
+        alert('Primero inicia sesión como admin');
+        return;
+      }
+
+      const isHidden = historyContainer.style.display === 'none';
+
+      if (isHidden) {
+        const fromDateStr = inputFrom ? inputFrom.value : '';
+        const toDateStr   = inputTo   ? inputTo.value   : '';
+        await loadHistoryAdmin(fromDateStr, toDateStr);
+        historyContainer.style.display = 'block';
+        btnShowHistory.textContent = 'Ocultar historial';
+      } else {
+        historyContainer.style.display = 'none';
+        btnShowHistory.textContent = 'Ver historial';
+      }
+    };
+  }
+
+  if (btnApplyFilter && historyContainer) {
+    btnApplyFilter.onclick = async () => {
+      if (!adminLogged) {
+        alert('Primero inicia sesión como admin');
+        return;
+      }
+      const fromDateStr = inputFrom ? inputFrom.value : '';
+      const toDateStr   = inputTo   ? inputTo.value   : '';
+      await loadHistoryAdmin(fromDateStr, toDateStr);
+      historyContainer.style.display = 'block';
+      const btnShowHistory2 = document.getElementById('btn-show-history');
+      if (btnShowHistory2) {
+        btnShowHistory2.textContent = 'Ocultar historial';
+      }
+    };
+  }
+
+  if (btnExportHistory) {
+    btnExportHistory.onclick = () => {
+      if (!adminLogged) {
+        alert('Primero inicia sesión como admin');
+        return;
+      }
+      exportHistoryCsv();
+    };
+  }
+
+  if (btnClearHistory && historyContainer) {
+    btnClearHistory.onclick = async () => {
+      if (!adminLogged) {
+        alert('Primero inicia sesión como admin');
+        return;
+      }
+
+      const ok = confirm('¿Seguro que quieres eliminar TODO el historial de canciones?');
+      if (!ok) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/history`, {
+          method: 'DELETE'
+        });
+
+        let data;
+        try {
+          data = await res.json();
+        } catch (e) {
+          alert('Respuesta inválida del servidor al limpiar historial');
+          return;
+        }
+
+        if (!res.ok || !data.ok) {
+          alert(data.message || 'No se pudo limpiar el historial');
+          return;
+        }
+
+        historyContainer.innerHTML = 'Aún no hay historial.';
+      } catch (e) {
+        console.error(e);
+        alert('No se pudo conectar para limpiar el historial');
+      }
+    };
+  }
+}
+
+// ========= SUGERENCIAS DE CANCIONES (ADMIN) =========
+
+async function loadSongSuggestions() {
+  const container = document.getElementById('suggestions-list');
+  if (!container) return;
+
+  container.innerHTML = 'Cargando sugerencias...';
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/api/song-suggestions`);
+  } catch (e) {
+    console.error(e);
+    container.textContent = 'No se pudo cargar la lista de sugerencias.';
+    return;
+  }
+
+  let data;
+  try {
+    data = await res.json();
+  } catch (e) {
+    console.error(e);
+    container.textContent = 'Respuesta inválida del servidor.';
+    return;
+  }
+
+  if (!res.ok || !data.ok) {
+    container.textContent = data.message || 'Error al cargar sugerencias.';
+    return;
+  }
+
+  const suggestions = data.suggestions || [];
+  if (!suggestions.length) {
+    container.textContent = 'No hay sugerencias registradas.';
+    return;
+  }
+
+  container.innerHTML = '';
+
+  suggestions.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'queue-admin-item-line';
+
+    const content = document.createElement('div');
+    content.className = 'queue-admin-item-content';
+
+    const textSpan = document.createElement('span');
+    textSpan.className = 'queue-admin-item-text';
+
+    const titleText  = (s.title  || '').toString().toUpperCase();
+    const artistText = (s.artist || '').toString().toUpperCase();
+    const mesaTxt = s.tableNumber ? `Mesa: ${s.tableNumber}` : 'Mesa: (no especificada)';
+    const userTxt = s.userName    ? `Nombre: ${s.userName}`   : 'Nombre: (no especificado)';
+    const fecha   = s.createdAt   ? `Registrada: ${s.createdAt}` : '';
+
+    let linea = `Canción: ${titleText} - ${artistText} | ${mesaTxt} | ${userTxt}`;
+    if (fecha) {
+      linea += ` | ${fecha}`;
+    }
+    textSpan.textContent = linea;
+
+    content.appendChild(textSpan);
+
+    const actions = document.createElement('div');
+    actions.className = 'queue-admin-item-actions';
+
+    const btnDelete = document.createElement('button');
+    btnDelete.textContent = 'Eliminar sugerencia';
+    btnDelete.className = 'btn-danger btn-queue-admin';
+    btnDelete.onclick = async () => {
+      const ok = confirm('¿Seguro que deseas eliminar esta sugerencia?');
+      if (!ok) return;
+
+      try {
+        const resDel = await fetch(`${API_BASE}/api/song-suggestions/${s.id}`, {
+          method: 'DELETE'
+        });
+        const dataDel = await resDel.json();
+        if (!resDel.ok || !dataDel.ok) {
+          alert(dataDel.message || 'No se pudo eliminar la sugerencia.');
+          return;
+        }
+        loadSongSuggestions();
+      } catch (e) {
+        console.error(e);
+        alert('Error eliminando la sugerencia.');
+      }
+    };
+
+    actions.appendChild(btnDelete);
+    content.appendChild(actions);
+
+    card.appendChild(content);
+    container.appendChild(card);
+  });
+}
+
+function setupSuggestionsSection() {
+  const btnToggleSuggestionsCard = document.getElementById('btn-toggle-suggestions-card');
+  const suggestionsList          = document.getElementById('suggestions-list');
+  const btnExportSuggestions     = document.getElementById('btn-export-suggestions');
+  const btnClearSuggestions      = document.getElementById('btn-clear-suggestions');
+
+  if (btnToggleSuggestionsCard && suggestionsList) {
+    btnToggleSuggestionsCard.onclick = () => {
+      if (!adminLogged) {
+        alert('Primero inicia sesión como admin');
+        return;
+      }
+      const isHidden = suggestionsList.style.display === 'none';
+      if (isHidden) {
+        suggestionsList.style.display = 'block';
+        loadSongSuggestions();
+      } else {
+        suggestionsList.style.display = 'none';
+      }
+    };
+  }
+
+  if (btnExportSuggestions) {
+    btnExportSuggestions.onclick = () => {
+      if (!adminLogged) {
+        alert('Primero inicia sesión como admin');
+        return;
+      }
+      window.location.href = `${API_BASE}/api/song-suggestions/export`;
+    };
+  }
+
+  if (btnClearSuggestions && suggestionsList) {
+    btnClearSuggestions.onclick = async () => {
+      if (!adminLogged) {
+        alert('Primero inicia sesión como admin');
+        return;
+      }
+      const ok = confirm('¿Seguro que quieres eliminar TODAS las sugerencias?');
+      if (!ok) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/song-suggestions`, {
+          method: 'DELETE'
+        });
+        let data;
+        try {
+          data = await res.json();
+        } catch (e) {
+          alert('Respuesta inválida del servidor al limpiar sugerencias');
+          return;
+        }
+        if (!res.ok || !data.ok) {
+          alert(data.message || 'No se pudieron eliminar las sugerencias');
+          return;
+        }
+        loadSongSuggestions();
+      } catch (e) {
+        console.error(e);
+        alert('No se pudo conectar para limpiar las sugerencias');
+      }
+    };
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   setupAddTableButton();
   setupClearTablesButton();
   setupToggleSections();
+  setupHistoryButtons();
+  setupSuggestionsSection();
 });
 
 // Cambiar contraseña de administrador
@@ -464,3 +876,61 @@ function startAutoRefreshAdmin() {
     }
   }, 5000);
 }
+
+// ========= NUEVO: SUBIR / ACTUALIZAR QR =========
+// Envía la imagen al backend (que debe guardarla como public/qr/qr.png)
+// y fuerza recarga de la vista previa del admin. [web:1382][web:1383][web:1386]
+
+document.getElementById('form-upload-qr').onsubmit = async (e) => {
+  e.preventDefault();
+  if (!adminLogged) {
+    alert('Primero inicia sesión como admin');
+    return;
+  }
+
+  const fileInput = document.getElementById('qr-file');
+  if (!fileInput.files.length) {
+    alert('Selecciona una imagen de QR');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('qr', fileInput.files[0]);
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/api/admin/upload-qr`, {
+      method: 'POST',
+      body: formData
+    });
+  } catch (e2) {
+    console.error(e2);
+    alert('No se pudo conectar para subir el QR');
+    return;
+  }
+
+  let data;
+  try {
+    data = await res.json();
+  } catch (e2) {
+    alert('Respuesta inválida del servidor al subir QR');
+    return;
+  }
+
+  if (!res.ok || !data.ok) {
+    alert(data.message || 'Error al subir QR');
+    return;
+  }
+
+  alert('QR actualizado correctamente');
+
+  // Forzar recarga de la imagen sin caché
+  const img = document.getElementById('current-qr-image');
+  if (img) {
+    const ts = Date.now();
+    img.style.display = 'block';
+    img.src = `/qr/qr.png?ts=${ts}`;
+  }
+
+  fileInput.value = '';
+};

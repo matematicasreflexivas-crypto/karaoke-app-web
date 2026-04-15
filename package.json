@@ -12,6 +12,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "better-sqlite3": "^12.9.0",
     "convert-excel-to-json": "^1.7.0",
     "cors": "^2.8.6",
     "express": "^5.2.1",

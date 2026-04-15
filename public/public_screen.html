@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pantalla Karaoke</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      background: #050816;
+      color: #f9fafb;
+      min-height: 100vh;
+      min-width: 1024px;      /* fuerza ancho mínimo de escritorio */
+      display: flex;
+      flex-direction: column;
+      padding: 16px 32px;
+      overflow-x: auto;       /* si la pantalla es más chica, que salga scroll horizontal general */
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1600px;      /* ancho máximo para monitor */
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      height: 100vh;
+    }
+
+    header {
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 2.8rem;      /* un poco menor para dejar más alto a la cola */
+      margin-bottom: 4px;
+    }
+
+    header p {
+      font-size: 1rem;
+      color: #9ca3af;
+    }
+
+    .queue-card {
+      background: #111827;
+      border-radius: 16px;
+      padding: 16px;          /* menos padding para ganar espacio vertical */
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      box-shadow: 0 10px 15px rgba(0,0,0,0.3);
+    }
+
+    .queue-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;     /* menos separación */
+    }
+
+    .queue-header h2 {
+      font-size: 1.4rem;
+    }
+
+    .queue-header span {
+      font-size: 1rem;
+      color: #9ca3af;
+    }
+
+    .queue-list {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-right: 4px;
+      margin-top: 4px;
+    }
+
+    .queue-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px;      /* menos padding vertical y horizontal */
+      margin-bottom: 4px;     /* menos espacio entre filas */
+      border-radius: 999px;
+      background: #020617;
+      font-size: 1rem;        /* un poco más chico */
+      border: 1px solid transparent;
+    }
+
+    .queue-item-position {
+      font-weight: 700;
+      margin-right: 12px;
+      font-size: 1.3rem;      /* baja un poco, sigue siendo grande */
+      flex-shrink: 0;
+    }
+
+    .queue-item-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+    }
+
+    /* Contenedor de toda la línea: scroll horizontal si el texto es largo */
+    .queue-item-line {
+      white-space: nowrap;
+      overflow-x: auto;
+      overflow-y: hidden;
+      width: 100%;
+      font-weight: 500;
+    }
+
+    .queue-item-line::-webkit-scrollbar {
+      height: 6px;
+    }
+    .queue-item-line::-webkit-scrollbar-thumb {
+      background: #4b5563;
+      border-radius: 999px;
+    }
+
+    .queue-item-left,
+    .queue-item-right {
+      white-space: nowrap;
+    }
+
+    /* Item actual resaltado */
+    .queue-item.current {
+      background: #f9fafb;
+      color: #111827;
+      border-color: #a855f7;
+      box-shadow: 0 0 0 2px rgba(168,85,247,0.6);
+    }
+
+    .footer-card {
+      background: #111827;
+      border-radius: 16px;
+      padding: 14px 20px;     /* menos alto el footer */
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      box-shadow: 0 10px 15px rgba(0,0,0,0.3);
+    }
+
+    .footer-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .footer-info-title {
+      font-size: 0.95rem;
+      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .footer-password {
+      font-size: 1.8rem;      /* se mantiene grande */
+      font-weight: 700;
+      letter-spacing: 0.18em;
+    }
+
+    .footer-qr {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 150px;           /* un poco más compacto */
+      height: 150px;
+      background: #020617;
+      border-radius: 16px;
+      border: 1px dashed #4b5563;
+      overflow: hidden;
+    }
+
+    .footer-qr img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .footer-qr-placeholder {
+      font-size: 0.8rem;
+      color: #6b7280;
+      text-align: center;
+      padding: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Turnos para el Karaoke</h1>
+      <p>Consulta quién sigue, la contraseña y el QR para conectarte.</p>
+    </header>
+
+    <section class="queue-card">
+      <div class="queue-header">
+        <h2>Cola de participantes</h2>
+        <span id="queue-count-label">0 en espera</span>
+      </div>
+      <div id="queue-list" class="queue-list">
+        <div style="font-size:1rem; color:#9ca3af;">
+          Aún no hay participantes en la cola.
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer-card">
+      <div class="footer-info">
+        <span class="footer-info-title">Contraseña del día de hoy:</span>
+        <span id="public-password" class="footer-password">••••</span>
+      </div>
+
+      <div class="footer-qr" id="public-qr">
+        <div class="footer-qr-placeholder">
+          Aquí aparecerá el código QR del día.<br />
+          El administrador debe configurarlo.
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script src="public_screen.js"></script>
+</body>
+</html>

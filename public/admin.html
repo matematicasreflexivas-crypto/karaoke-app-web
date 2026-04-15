@@ -126,10 +126,9 @@
       margin-top: 8px;
       max-height: 45vh;
       padding-right: 4px;
-
-      overflow-y: auto;   /* scroll vertical */
-      overflow-x: auto;   /* scroll horizontal general para todas las filas */
-      white-space: nowrap; /* todas las filas en una sola línea continua */
+      overflow-y: auto;
+      overflow-x: auto;
+      white-space: nowrap;
     }
 
     /* Cada registro de la cola en UNA sola línea */
@@ -196,7 +195,6 @@
       margin-top: 8px;
       max-height: 20vh;
       padding-right: 4px;
-
       overflow-y: auto;
       overflow-x: hidden;
       white-space: normal;
@@ -213,6 +211,40 @@
 
     .table-item span {
       margin-right: 8px;
+    }
+
+    /* Filtros de historial (nuevo) */
+    .history-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: flex-end;
+      margin-top: 8px;
+      margin-bottom: 8px;
+    }
+
+    .history-filters label {
+      display: flex;
+      flex-direction: column;
+      font-size: 0.8rem;
+      color: #9ca3af;
+    }
+
+    .history-filters input[type="date"] {
+      margin-top: 4px;
+    }
+
+    /* NUEVO: resaltar el participante en lugar 1 en la cola admin */
+    .queue-admin-item-is-current {
+      background: #f9fafb !important;
+      color: #111827 !important;
+      border: 1px solid #a855f7 !important;
+      box-shadow: 0 0 0 2px rgba(168,85,247,0.6);
+    }
+
+    .queue-admin-item-is-current .queue-admin-item-line {
+      background: transparent;
+      color: inherit;
     }
 
     @media (min-width: 768px) {
@@ -341,17 +373,103 @@
         <div id="tables-admin"></div>
       </div>
 
-      <!-- Cola de participantes -->
+      <!-- Cola de participantes + historial -->
       <div class="card" id="card-cola">
         <div class="section-title-row">
           <h2>Cola de participantes</h2>
           <button id="btn-clear-all" class="btn-danger">Limpiar toda la cola</button>
         </div>
-        <button id="btn-toggle-queue" class="btn-primary" style="margin-top: 8px; margin-bottom: 8px;">
-          Mostrar/Ocultar cola de participantes
-        </button>
+
+        <!-- Botón cola -->
+        <div class="section-title-row" style="margin-top: 8px; margin-bottom: 8px;">
+          <button id="btn-toggle-queue" class="btn-primary">
+            Mostrar/Ocultar cola de participantes
+          </button>
+        </div>
+
         <p class="hint">Desliza para ver todos los participantes registrados.</p>
         <div id="queue-admin"></div>
+
+        <!-- Título historial -->
+        <h3 style="margin-top: 16px;">Historial de canciones</h3>
+
+        <!-- Botones de historial -->
+        <div class="section-title-row" style="margin-top: 8px; margin-bottom: 8px;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button id="btn-show-history" class="btn-primary">
+              Ver historial
+            </button>
+            <button id="btn-export-history" class="btn-primary">
+              Exportar historial (CSV)
+            </button>
+            <button id="btn-clear-history" class="btn-danger">
+              Eliminar historial
+            </button>
+          </div>
+        </div>
+
+        <!-- Filtros de fecha para historial -->
+        <div class="history-filters">
+          <label>
+            Desde:
+            <input type="date" id="history-from" />
+          </label>
+          <label>
+            Hasta:
+            <input type="date" id="history-to" />
+          </label>
+          <button id="btn-apply-history-filter" class="btn-secondary">
+            Aplicar filtro
+          </button>
+        </div>
+
+        <p class="hint">
+          Aquí se mostrará el historial de canciones que ya fueron atendidas (al eliminar individualmente de la cola).
+        </p>
+        <div id="history-admin" style="
+          margin-top: 8px;
+          max-height: 30vh;
+          overflow-y: auto;
+          overflow-x: auto;
+          white-space: nowrap;
+          font-size: 0.85rem;
+          display: none;
+        "></div>
+      </div>
+
+      <!-- Sugerencias de canciones (nuevo) -->
+      <div class="card">
+        <div class="section-title-row">
+          <h2>Sugerencias de canciones</h2>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button id="btn-export-suggestions" class="btn-primary" style="width:auto; padding:6px 10px; font-size:0.85rem;">
+              Exportar sugerencias (CSV)
+            </button>
+            <button id="btn-clear-suggestions" class="btn-danger" style="width:auto; padding:6px 10px; font-size:0.85rem;">
+              Eliminar todas
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:8px;">
+          <button id="btn-toggle-suggestions-card" class="btn-primary">
+            Mostrar/Ocultar lista de sugerencias
+          </button>
+        </div>
+
+        <p class="hint" style="margin-top:4px;">
+          Aquí verás las canciones sugeridas por los clientes para agregar al catálogo próximamente.
+        </p>
+
+        <div id="suggestions-list" style="
+          margin-top: 8px;
+          max-height: 30vh;
+          overflow-y: auto;
+          overflow-x: auto;
+          white-space: nowrap;
+          font-size: 0.85rem;
+          display: none;
+        "></div>
       </div>
 
       <!-- Cargar canciones desde Excel -->
@@ -374,6 +492,42 @@
           <button type="submit" class="btn-secondary">Subir Excel</button>
         </form>
       </div>
+
+      <!-- NUEVO: Actualizar QR de pantalla pública -->
+      <div class="card">
+        <h2>Actualizar QR de pantalla pública</h2>
+        <form id="form-upload-qr" class="form-group">
+          <div class="file-input-wrapper">
+            <label for="qr-file">Imagen del QR (.png, .jpg, etc.)</label>
+            <input
+              type="file"
+              id="qr-file"
+              name="qr"
+              accept="image/*"
+            />
+            <p class="hint">
+              Esta imagen se usará como QR en la pantalla pública. Puedes subir uno nuevo cuando quieras.
+            </p>
+          </div>
+
+          <button type="submit" class="btn-secondary">Subir / Actualizar QR</button>
+        </form>
+
+        <h3 style="margin-top:12px;">QR actual</h3>
+        <div style="margin-top:8px;">
+          <img
+            id="current-qr-image"
+            src="/qr/qr.png"
+            alt="QR actual"
+            style="max-width:200px; border-radius:8px; border:1px solid #4b5563;"
+            onerror="this.style.display='none';"
+          />
+          <p class="hint">
+            Si no se muestra imagen, aún no se ha subido ningún QR o hubo un problema de carga.
+          </p>
+        </div>
+      </div>
+
     </div>
   </div>
 
