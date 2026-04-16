@@ -23,6 +23,11 @@
       padding: 16px;
     }
 
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
     h1 {
       font-size: 1.4rem;
       text-align: center;
@@ -95,7 +100,6 @@
       color: #f9fafb;
     }
 
-    /* Opción 1: secundarios con el mismo gradiente que los primarios */
     .btn-secondary {
       background: linear-gradient(135deg, #4f46e5, #a855f7);
       color: #f9fafb;
@@ -200,7 +204,7 @@
     /* Listado de mesas VERTICAL */
     #tables-admin {
       margin-top: 8px;
-      max-height: 20vh;
+      max-height: 45vh;
       padding-right: 4px;
       overflow-y: auto;
       overflow-x: hidden;
@@ -386,6 +390,35 @@
           Cuando cierres los registros, si un cliente intenta registrar
           una canción verá el mensaje:
           "El horario para ingresar canciones ha concluido".
+        </p>
+      </div>
+
+      <!-- NUEVO: Opciones visibles en la pantalla de usuario -->
+      <div class="card" id="user-features-card">
+        <h2>Secciones visibles al usuario</h2>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="feature-user-search" checked>
+            Permitir sección "Buscar canción" en pantalla de usuario
+          </label>
+
+          <label>
+            <input type="checkbox" id="feature-user-queue" checked>
+            Permitir "Cola de participantes" en pantalla de usuario
+          </label>
+
+          <label>
+            <input type="checkbox" id="feature-user-suggestion" checked>
+            Permitir "Sugerir canción" en pantalla de usuario
+          </label>
+
+          <button id="btn-save-user-features" class="btn-secondary">
+            Guardar opciones de pantalla de usuario
+          </button>
+        </div>
+        <p class="hint">
+          Estas opciones afectan lo que se muestra en la pantalla de los clientes.  
+          Los cambios se aplican cuando ellos recargan su pantalla.
         </p>
       </div>
 

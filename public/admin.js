@@ -50,6 +50,10 @@ document.getElementById('btn-admin-login').onclick = async () => {
   setupSuggestionsSection();
   setupQueueOpenButtons();    // NUEVO
   refreshQueueOpenStatus();   // NUEVO
+
+  // NUEVO: cargar banderas de funciones del usuario y configurar controles
+  loadUserFeaturesAdmin();
+  setupUserFeaturesControls();
 };
 
 // Limpiar toda la cola
@@ -103,7 +107,6 @@ document.getElementById('form-upload').onsubmit = async (e) => {
 };
 
 // ========== COLA ADMIN: UNA LÍNEA POR REGISTRO ==========
-
 async function loadQueueAdmin() {
   const res = await fetch(`${API_BASE}/api/queue`);
   const data = await res.json();
@@ -134,7 +137,6 @@ async function loadQueueAdmin() {
     }
 
     textSpan.textContent = linea;
-
     content.appendChild(textSpan);
 
     const actions = document.createElement('div');
@@ -215,7 +217,6 @@ async function loadQueueAdmin() {
 }
 
 // ========= HISTORIAL EN PANEL ADMIN =========
-
 async function loadHistoryAdmin(fromDateStr, toDateStr) {
   const div = document.getElementById('history-admin');
   if (!div) return;
@@ -343,7 +344,6 @@ async function exportHistoryCsv() {
 }
 
 // ========= GESTIÓN DE MESAS EN PANEL ADMIN =========
-
 async function loadTablesAdmin() {
   const div = document.getElementById('tables-admin');
   if (!div) return;
@@ -386,12 +386,57 @@ async function loadTablesAdmin() {
     row.className = 'table-item';
 
     const span = document.createElement('span');
-    span.textContent = `Mesa: ${t.tableNumber}`;
+    const maxSongs = t.maxSongs != null ? t.maxSongs : 1;
+    span.textContent = `Mesa: ${t.tableNumber} (máx: ${maxSongs} canciones)`;
     row.appendChild(span);
+
+    const inputMax = document.createElement('input');
+    inputMax.type = 'number';
+    inputMax.min = '1';
+    inputMax.step = '1';
+    inputMax.value = maxSongs;
+    inputMax.style.width = '70px';
+    inputMax.style.marginLeft = '8px';
+    row.appendChild(inputMax);
+
+    const btnSaveMax = document.createElement('button');
+    btnSaveMax.textContent = 'Guardar límite';
+    btnSaveMax.className = 'btn-secondary btn-queue-admin';
+    btnSaveMax.style.marginLeft = '6px';
+    btnSaveMax.onclick = async () => {
+      if (!adminLogged) {
+        alert('Primero inicia sesión como admin');
+        return;
+      }
+      const val = parseInt(inputMax.value, 10);
+      if (Number.isNaN(val) || val < 1) {
+        alert('El número mínimo de canciones por mesa es 1');
+        return;
+      }
+      try {
+        const resPut = await fetch(`${API_BASE}/api/tables/${t.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ maxSongs: val })
+        });
+        const dataPut = await resPut.json();
+        if (!resPut.ok || !dataPut.ok) {
+          alert(dataPut.message || 'No se pudo actualizar el límite de canciones');
+          return;
+        }
+        alert('Límite actualizado para la mesa ' + t.tableNumber);
+        loadTablesAdmin();
+      } catch (e) {
+        console.error(e);
+        alert('No se pudo conectar para actualizar el límite');
+      }
+    };
+    row.appendChild(btnSaveMax);
 
     const btnDelete = document.createElement('button');
     btnDelete.textContent = 'Eliminar';
     btnDelete.className = 'btn-danger btn-queue-admin';
+    btnDelete.style.marginLeft = '6px';
     btnDelete.onclick = async () => {
       const ok = confirm(`¿Seguro que quieres eliminar la mesa ${t.tableNumber}?`);
       if (!ok) return;
@@ -441,12 +486,21 @@ function setupAddTableButton() {
       return;
     }
 
+    const inputMax = document.getElementById('new-table-max-songs');
+    let maxSongsVal = 1;
+    if (inputMax) {
+      const parsed = parseInt(inputMax.value, 10);
+      if (!Number.isNaN(parsed) && parsed > 0) {
+        maxSongsVal = parsed;
+      }
+    }
+
     let res;
     try {
       res = await fetch(`${API_BASE}/api/tables`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tableNumber: value })
+        body: JSON.stringify({ tableNumber: value, maxSongs: maxSongsVal })
       });
     } catch (e) {
       console.error(e);
@@ -469,6 +523,7 @@ function setupAddTableButton() {
     }
 
     input.value = '';
+    if (inputMax) inputMax.value = '';
     loadTablesAdmin();
   };
 }
@@ -649,7 +704,6 @@ function setupHistoryButtons() {
 }
 
 // ========= SUGERENCIAS DE CANCIONES (ADMIN) =========
-
 async function loadSongSuggestions() {
   const container = document.getElementById('suggestions-list');
   if (!container) return;
@@ -777,7 +831,6 @@ function setupSuggestionsSection() {
     };
   }
 
-  // Botón para eliminar TODAS las sugerencias
   if (btnClearSuggestions && suggestionsList) {
     btnClearSuggestions.onclick = async () => {
       if (!adminLogged) {
@@ -812,8 +865,6 @@ function setupSuggestionsSection() {
 }
 
 // ========= CONTROL DE HORARIO / REGISTROS ABIERTOS-CERRADOS =========
-
-// Lee /api/public-info para saber si isQueueOpen está en true/false
 async function refreshQueueOpenStatus() {
   const pStatus  = document.getElementById('queue-open-status');
   const btnClose = document.getElementById('btn-close-queue');
@@ -991,7 +1042,7 @@ document.getElementById('btn-change-user-pass').onclick = async () => {
   document.getElementById('new-user-pass').value = '';
 };
 
-// NUEVO: Cambiar título de la aplicación (nombre del bar)
+// Cambiar título de la aplicación (nombre del bar)
 document.getElementById('btn-change-app-title').onclick = async () => {
   if (!adminLogged) {
     alert('Primero inicia sesión como admin');
@@ -1038,8 +1089,6 @@ document.getElementById('btn-change-app-title').onclick = async () => {
   alert('Título actualizado correctamente');
 
   document.getElementById('admin-pass-app-title').value = '';
-  // Si quieres también limpiar el campo de título:
-  // document.getElementById('new-app-title').value = '';
 };
 
 // Intervalo para auto‑refrescar solo cuando el admin está logueado
@@ -1055,7 +1104,6 @@ function startAutoRefreshAdmin() {
 }
 
 // ========= SUBIR / ACTUALIZAR QR =========
-
 document.getElementById('form-upload-qr').onsubmit = async (e) => {
   e.preventDefault();
   if (!adminLogged) {
@@ -1108,3 +1156,75 @@ document.getElementById('form-upload-qr').onsubmit = async (e) => {
 
   fileInput.value = '';
 };
+
+// ========= NUEVO: LEER Y GUARDAR BANDERAS DE PANTALLA DE USUARIO =========
+
+// Leer banderas actuales desde /api/public-info y reflejarlas en los checkboxes
+async function loadUserFeaturesAdmin() {
+  const cbSearch     = document.getElementById('feature-user-search');
+  const cbQueue      = document.getElementById('feature-user-queue');
+  const cbSuggestion = document.getElementById('feature-user-suggestion');
+  if (!cbSearch || !cbQueue || !cbSuggestion) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/public-info`);
+    const data = await res.json();
+    if (!res.ok || !data.ok) return;
+
+    const features = data.userFeatures || {};
+    const searchEnabled     = features.search !== false;
+    const queueEnabled      = features.queue !== false;
+    const suggestionEnabled = features.suggestion !== false;
+
+    cbSearch.checked     = searchEnabled;
+    cbQueue.checked      = queueEnabled;
+    cbSuggestion.checked = suggestionEnabled;
+  } catch (e) {
+    console.error('Error leyendo userFeatures en admin', e);
+  }
+}
+
+// Configurar botón "guardar"
+function setupUserFeaturesControls() {
+  const btnSave = document.getElementById('btn-save-user-features');
+  const cbSearch     = document.getElementById('feature-user-search');
+  const cbQueue      = document.getElementById('feature-user-queue');
+  const cbSuggestion = document.getElementById('feature-user-suggestion');
+  if (!btnSave || !cbSearch || !cbQueue || !cbSuggestion) return;
+
+  btnSave.onclick = async () => {
+    if (!adminLogged) {
+      alert('Primero inicia sesión como admin');
+      return;
+    }
+
+    // Aquí NO pedimos password, asumiendo que ya se validó al entrar
+    const body = {
+      // si en tu backend guardas más cosas en public-info, inclúyelas aquí;
+      // por ahora enviamos sólo userFeatures
+      userFeatures: {
+        search: cbSearch.checked,
+        queue: cbQueue.checked,
+        suggestion: cbSuggestion.checked
+      }
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/change-user-features`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        alert(data.message || 'No se pudieron guardar las opciones de pantalla de usuario');
+        return;
+      }
+
+      alert('Opciones de pantalla de usuario guardadas.\nLos cambios se aplicarán al recargar la pantalla de usuario.');
+    } catch (e) {
+      console.error(e);
+      alert('No se pudo conectar para guardar las opciones de pantalla de usuario');
+    }
+  };
+}

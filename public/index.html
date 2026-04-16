@@ -18,29 +18,38 @@
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
+    html, body {
+      height: 100%;
+    }
+
     body {
       background: #050816;
       color: #f9fafb;
-      min-height: 100vh;
+      margin: 0;
       padding: 8px;
+      display: flex;
+      justify-content: center;
     }
 
     .container {
       max-width: 480px;
+      width: 100%;
       margin: 0 auto;
+      display: flex;
+      flex-direction: column;
     }
 
     /* Título principal */
     h1 {
       font-size: 1.1rem;
       text-align: center;
-      margin-bottom: 10px;
+      margin-bottom: 6px; /* un poco menos para ganar altura */
     }
 
     /* Títulos secundarios */
     h2 {
       font-size: 1.05rem;
-      margin: 8px 0 6px;
+      margin: 6px 0 4px;
     }
 
     h3 {
@@ -51,51 +60,49 @@
     .card {
       background: #111827;
       border-radius: 10px;
-      padding: 10px 12px;
-      margin-bottom: 10px;
+      padding: 8px 10px; /* menos padding */
+      margin-bottom: 8px;
       box-shadow: 0 4px 8px rgba(0,0,0,0.25);
     }
 
     .form-group {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px; /* menos gap */
     }
 
-    /* Contenedor de los dos campos de búsqueda en una misma línea */
     .search-fields {
       display: flex;
       gap: 8px;
     }
 
-    /* Cada campo ocupa la mitad del ancho disponible */
     .search-field {
       flex: 1;
       min-width: 0;
     }
 
     label {
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       color: #e5e7eb;
     }
 
     input {
       width: 100%;
-      padding: 8px 10px;
+      padding: 7px 9px;
       border-radius: 8px;
       border: 1px solid #4b5563;
       background: #020617;
       color: #f9fafb;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
     }
 
     input::placeholder {
       color: #6b7280;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
     }
 
     button {
-      padding: 9px 12px;
+      padding: 8px 11px;
       border-radius: 999px;
       border: none;
       font-size: 0.95rem;
@@ -121,29 +128,28 @@
     }
 
     .badge {
-      font-size: 0.8rem;
-      padding: 3px 7px;
+      font-size: 0.75rem;
+      padding: 2px 6px;
       border-radius: 999px;
       border: 1px solid #4b5563;
       color: #9ca3af;
     }
 
-    /* Contenedor de botones superiores (toggles) */
     .top-buttons {
       display: flex;
       flex-direction: column;
-      gap: 16px;
-      margin-bottom: 10px;
+      gap: 12px;
+      margin-bottom: 8px;
     }
 
     .top-toggle-login {
-      margin-bottom: 16px;
+      margin-bottom: 12px;
     }
 
-    /* Resultados de búsqueda: cola vertical, fondo blanco, con scroll horizontal si el texto es largo */
+    /* Resultados de búsqueda: más pequeño para dejar más espacio a la cola */
     #songs {
       margin-top: 4px;
-      max-height: 22vh;
+      max-height: 10vh;
       padding-right: 4px;
       overflow-y: auto;
       overflow-x: auto;
@@ -161,16 +167,6 @@
       font-size: 0.95rem;
       white-space: nowrap;
       text-align: left;
-    }
-
-    /* Cola de participantes */
-    #queue {
-      margin-top: 4px;
-      max-height: 46vh;
-      padding-right: 4px;
-      overflow-y: auto;
-      overflow-x: auto;
-      white-space: nowrap;
     }
 
     .queue-item-line {
@@ -223,7 +219,6 @@
       border-radius: 4px;
     }
 
-    /* NUEVO: resaltar la fila del participante en lugar 1 */
     .queue-item-is-current {
       background: #f9fafb !important;
       color: #111827 !important;
@@ -236,9 +231,57 @@
       color: inherit;
     }
 
+    /* Layout general */
+    #user-content.layout {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    #top-section {
+      flex: 0 0 auto;
+    }
+
+    #middle-section {
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .queue-card {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Contenedor scrolleable de la cola */
+    #queue,
+    #queue.queue-scroll {
+      margin-top: 4px;
+      padding-right: 4px;
+      max-height: 70vh;
+      overflow-y: auto;
+      overflow-x: auto;
+      white-space: nowrap;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Ajustes extra para el login:
+       - margen inferior extra
+       - permitir scroll si hiciera falta
+    */
+    #login-card .form-group {
+      margin-bottom: 10px;
+    }
+
+    #login-card {
+      max-height: 80vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
     @media (min-width: 768px) {
       body {
-        display: flex;
         justify-content: center;
       }
       .container {
@@ -254,6 +297,27 @@
         .replace(/[\u0300-\u036f]/g, '')
         .toUpperCase();
     }
+
+    // Asegurar que el botón "Ingresar" quede a la vista al enfocar campos del login
+    document.addEventListener('DOMContentLoaded', () => {
+      const loginCard = document.getElementById('login-card');
+      const loginInputs = ['name', 'table', 'pass']
+        .map(id => document.getElementById(id))
+        .filter(Boolean);
+
+      loginInputs.forEach(inp => {
+        inp.addEventListener('focus', () => {
+          if (!loginCard) return;
+          // pequeño timeout para esperar al teclado
+          setTimeout(() => {
+            loginCard.scrollTo({
+              top: loginCard.scrollHeight,
+              behavior: 'smooth'
+            });
+          }, 200);
+        });
+      });
+    });
   </script>
 </head>
 <body>
@@ -299,74 +363,78 @@
       </div>
     </div>
 
-    <div id="user-content" style="display:none;">
+    <div id="user-content" class="layout" style="display:none;">
 
-      <div class="top-buttons">
-        <button id="btn-toggle-search-card" class="btn-primary" style="display:none;">
-          Ocultar "Buscar canción"
-        </button>
+      <div id="top-section">
+        <div class="top-buttons">
+          <button id="btn-toggle-search-card" class="btn-primary" style="display:none;">
+            Ocultar "Buscar canción"
+          </button>
 
-        <button id="btn-toggle-queue-card" class="btn-primary" style="display:none;">
-          Ocultar cola de participantes
-        </button>
+          <button id="btn-toggle-queue-card" class="btn-primary" style="display:none;">
+            Ocultar cola de participantes
+          </button>
 
-        <button id="btn-toggle-suggest-card" class="btn-primary" style="display:none;">
-          Mostrar sugerencia de canción
-        </button>
-      </div>
-
-      <div class="card" id="search-card">
-        <h2>Buscar canción</h2>
-
-        <div class="form-group">
-          <div class="search-fields">
-            <div class="search-field">
-              <label for="title">Título</label>
-              <input id="title" type="text" placeholder="Nombre de la canción" />
-            </div>
-
-            <div class="search-field">
-              <label for="artist">Intérprete</label>
-              <input id="artist" type="text" placeholder="Nombre del artista" />
-            </div>
-          </div>
-
-          <button id="btn-search" class="btn-primary">Buscar</button>
-        </div>
-      </div>
-
-      <div class="card" id="suggest-card" style="display:none;">
-        <h2>Sugerir canción para el menú</h2>
-        <p style="font-size:0.9rem; margin-bottom:6px;">
-          Sugerencia para agregar en el menú de canciones próximamente.
-          Hacer la sugerencia no te hace ingresar a la cola de participantes.
-        </p>
-
-        <div class="form-group">
-          <div>
-            <label for="suggest-title">Título de la canción</label>
-            <input id="suggest-title" type="text" placeholder="Nombre de la canción" />
-          </div>
-
-          <div>
-            <label for="suggest-artist">Intérprete</label>
-            <input id="suggest-artist" type="text" placeholder="Nombre del artista" />
-          </div>
-
-          <button id="btn-send-suggestion" class="btn-primary">
-            Enviar sugerencia
+          <button id="btn-toggle-suggest-card" class="btn-primary" style="display:none;">
+            Mostrar sugerencia de canción
           </button>
         </div>
+
+        <div class="card" id="search-card">
+          <h2>Buscar canción</h2>
+
+          <div class="form-group">
+            <div class="search-fields">
+              <div class="search-field">
+                <label for="title">Título</label>
+                <input id="title" type="text" placeholder="Nombre de la canción" />
+              </div>
+
+              <div class="search-field">
+                <label for="artist">Intérprete</label>
+                <input id="artist" type="text" placeholder="Nombre del artista" />
+              </div>
+            </div>
+
+            <button id="btn-search" class="btn-primary">Buscar</button>
+          </div>
+        </div>
+
+        <div class="card" id="suggest-card" style="display:none;">
+          <h2>Sugerir canción para el menú</h2>
+          <p style="font-size:0.9rem; margin-bottom:6px;">
+            Sugerencia para agregar en el menú de canciones próximamente.
+            Hacer la sugerencia no te hace ingresar a la cola de participantes.
+          </p>
+
+          <div class="form-group">
+            <div>
+              <label for="suggest-title">Título de la canción</label>
+              <input id="suggest-title" type="text" placeholder="Nombre de la canción" />
+            </div>
+
+            <div>
+              <label for="suggest-artist">Intérprete</label>
+              <input id="suggest-artist" type="text" placeholder="Nombre del artista" />
+            </div>
+
+            <button id="btn-send-suggestion" class="btn-primary">
+              Enviar sugerencia
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div class="card">
-        <h3>Resultados de búsqueda</h3>
-        <div id="songs"></div>
-      </div>
+      <div id="middle-section">
+        <div class="card">
+          <h3>Resultados de búsqueda</h3>
+          <div id="songs"></div>
+        </div>
 
-      <div class="card">
-        <h3>Cola de participantes</h3>
-        <div id="queue"></div>
+        <div class="card queue-card">
+          <h3>Cola de participantes</h3>
+          <div id="queue" class="queue-scroll"></div>
+        </div>
       </div>
 
     </div>

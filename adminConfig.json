@@ -2,6 +2,11 @@
   "adminPassword": "1234",
   "userPassword": "usuario",
   "qrImageFile": "qr.png",
-  "appTitle": "MÉXICO CANTA",
-  "isQueueOpen": true
+  "appTitle": "AQUÍ TODOS CANTAN",
+  "isQueueOpen": true,
+  "userFeatures": {
+    "search": false,
+    "queue": false,
+    "suggestion": false
+  }
 }

@@ -5,7 +5,6 @@ const fs = require('fs');
 const multer = require('multer');
 const xlsx = require('xlsx');
 
-
 // ===== SQLITE (NUEVO) =====
 const Database = require('better-sqlite3');
 const dbPath = path.join(__dirname, 'karaoke.db');
@@ -26,7 +25,8 @@ db.exec(`
 db.exec(`
   CREATE TABLE IF NOT EXISTS tables (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    tableNumber TEXT NOT NULL UNIQUE
+    tableNumber TEXT NOT NULL UNIQUE,
+    maxSongs INTEGER DEFAULT 1
   );
 `);
 
@@ -111,7 +111,13 @@ let adminConfig = {
   userPassword: '1234',
   qrImageFile: 'qr-dia.png',
   appTitle: 'Karaoke', // título por defecto (nombre del bar)
-  isQueueOpen: true    // NUEVO: controla si se pueden registrar canciones
+  isQueueOpen: true,   // controla si se pueden registrar canciones
+  // NUEVO: banderas de secciones visibles en la pantalla de usuario
+  userFeatures: {
+    search: true,
+    queue: true,
+    suggestion: true
+  }
 };
 
 try {
@@ -123,7 +129,18 @@ try {
   adminConfig.appTitle      = parsed.appTitle      || 'Karaoke';
   adminConfig.isQueueOpen =
     typeof parsed.isQueueOpen === 'boolean' ? parsed.isQueueOpen : true;
-} catch (e) {}
+
+  // NUEVO: si ya existe userFeatures en el archivo, lo usamos; si no, dejamos los defaults
+  if (parsed.userFeatures && typeof parsed.userFeatures === 'object') {
+    adminConfig.userFeatures = {
+      search: parsed.userFeatures.search !== false,
+      queue: parsed.userFeatures.queue !== false,
+      suggestion: parsed.userFeatures.suggestion !== false
+    };
+  }
+} catch (e) {
+  // si no existe adminConfig.json, usamos los valores por defecto
+}
 
 function saveAdminConfig() {
   fs.writeFileSync(
@@ -133,14 +150,20 @@ function saveAdminConfig() {
   );
 }
 
-// Info pública del día: contraseña de usuario, QR y título
+// Info pública del día: contraseña de usuario, QR, título, estado de cola y flags de UI
 app.get('/api/public-info', (req, res) => {
   res.json({
     ok: true,
     userPassword: adminConfig.userPassword,
     qrImageFile: adminConfig.qrImageFile || null,
     appTitle: adminConfig.appTitle || 'Karaoke',
-    isQueueOpen: adminConfig.isQueueOpen // NUEVO: para que el front pueda saberlo
+    isQueueOpen: adminConfig.isQueueOpen,
+    // NUEVO: se envían las banderas de funciones de usuario
+    userFeatures: adminConfig.userFeatures || {
+      search: true,
+      queue: true,
+      suggestion: true
+    }
   });
 });
 
@@ -169,14 +192,11 @@ app.post('/api/admin/set-qr-file', (req, res) => {
 });
 
 // ===== NUEVO: subida directa de imagen de QR desde admin =====
-
-// carpeta donde guardamos el QR: public/qr/qr.png
 const qrFolder = path.join(__dirname, 'public', 'qr');
 if (!fs.existsSync(qrFolder)) {
   fs.mkdirSync(qrFolder, { recursive: true });
 }
 
-// storage de multer: siempre escribe qr.png
 const qrStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, qrFolder);
@@ -188,10 +208,8 @@ const qrStorage = multer.diskStorage({
 
 const uploadQr = multer({ storage: qrStorage });
 
-// endpoint protegido lógicamente por el frontend (usa adminLogged en el cliente)
 app.post('/api/admin/upload-qr', uploadQr.single('qr'), (req, res) => {
   try {
-    // actualizamos la config para que /api/public-info sepa que el archivo es qr.png
     adminConfig.qrImageFile = 'qr.png';
     saveAdminConfig();
 
@@ -207,20 +225,29 @@ app.post('/api/admin/upload-qr', uploadQr.single('qr'), (req, res) => {
 // ========== MESAS (SQLite) ==========
 function readTablesFromDb() {
   const stmt = db.prepare(`
-    SELECT id, tableNumber
+    SELECT id, tableNumber, maxSongs
     FROM tables
     ORDER BY id ASC
   `);
   return stmt.all();
 }
 
-function insertTable(tableNumber) {
+function insertTable(tableNumber, maxSongs) {
   const stmt = db.prepare(`
-    INSERT INTO tables (tableNumber)
-    VALUES (?)
+    INSERT INTO tables (tableNumber, maxSongs)
+    VALUES (?, ?)
   `);
-  const info = stmt.run(tableNumber);
+  const info = stmt.run(tableNumber, maxSongs);
   return info.lastInsertRowid;
+}
+
+function updateTableMaxSongs(id, maxSongs) {
+  const stmt = db.prepare(`
+    UPDATE tables
+    SET maxSongs = ?
+    WHERE id = ?
+  `);
+  return stmt.run(maxSongs, id);
 }
 
 function deleteTable(id) {
@@ -242,7 +269,7 @@ app.get('/api/tables', (req, res) => {
 });
 
 app.post('/api/tables', (req, res) => {
-  const { tableNumber } = req.body;
+  const { tableNumber, maxSongs } = req.body;
   if (!tableNumber) {
     return res
       .status(400)
@@ -264,8 +291,33 @@ app.post('/api/tables', (req, res) => {
       .json({ ok: false, message: `La mesa ${mesaOriginal} ya está registrada` });
   }
 
-  const id = insertTable(mesaOriginal);
+  let maxSongsInt = parseInt(maxSongs, 10);
+  if (Number.isNaN(maxSongsInt) || maxSongsInt < 1) {
+    maxSongsInt = 1;
+  }
+
+  const id = insertTable(mesaOriginal, maxSongsInt);
   res.json({ ok: true, id });
+});
+
+// NUEVO: actualizar solo el maxSongs de una mesa (para usarlo desde admin)
+app.put('/api/tables/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const { maxSongs } = req.body;
+
+  if (!maxSongs && maxSongs !== 0) {
+    return res
+      .status(400)
+      .json({ ok: false, message: 'Falta maxSongs' });
+  }
+
+  let maxSongsInt = parseInt(maxSongs, 10);
+  if (Number.isNaN(maxSongsInt) || maxSongsInt < 1) {
+    maxSongsInt = 1;
+  }
+
+  updateTableMaxSongs(id, maxSongsInt);
+  res.json({ ok: true });
 });
 
 app.delete('/api/tables/:id', (req, res) => {
@@ -286,6 +338,16 @@ function isTableAllowed(tableNumber) {
     const tNorm = normalizeText(String(t.tableNumber).trim());
     return tNorm === mesaNorm;
   });
+}
+
+// helper: obtener registro de mesa (incluye maxSongs)
+function getTableConfig(tableNumber) {
+  const tables = readTablesFromDb();
+  const mesaNorm = normalizeText(String(tableNumber).trim());
+  return tables.find(t => {
+    const tNorm = normalizeText(String(t.tableNumber).trim());
+    return tNorm === mesaNorm;
+  }) || null;
 }
 
 // ========== ADMIN ==========
@@ -351,7 +413,7 @@ app.post('/api/admin/change-user-password', (req, res) => {
   }
 });
 
-// NUEVO: cambiar título de la aplicación (nombre del bar)
+// cambiar título de la aplicación (nombre del bar)
 app.post('/api/admin/change-app-title', (req, res) => {
   const { adminPassword, newTitle } = req.body;
 
@@ -378,7 +440,7 @@ app.post('/api/admin/change-app-title', (req, res) => {
   }
 });
 
-// NUEVO: abrir/cerrar el registro de canciones
+// abrir/cerrar el registro de canciones
 app.post('/api/admin/set-queue-open', (req, res) => {
   const { adminPassword, isQueueOpen } = req.body || {};
 
@@ -402,6 +464,35 @@ app.post('/api/admin/set-queue-open', (req, res) => {
     return res
       .status(500)
       .json({ ok: false, message: 'No se pudo guardar el estado de la cola' });
+  }
+});
+
+// NUEVO: cambiar banderas de secciones visibles en pantalla de usuario
+app.post('/api/admin/change-user-features', (req, res) => {
+  const { userFeatures } = req.body || {};
+
+  if (!userFeatures || typeof userFeatures !== 'object') {
+    return res.status(400).json({ ok: false, message: 'Faltan datos de userFeatures' });
+  }
+
+  // Opcional: podríamos exigir contraseña aquí también
+  // pero como ya validaste admin al hacer login en el panel, lo dejamos simple.
+
+  // Normalizamos a booleanos, con default true
+  adminConfig.userFeatures = {
+    search: userFeatures.search !== false,
+    queue: userFeatures.queue !== false,
+    suggestion: userFeatures.suggestion !== false
+  };
+
+  try {
+    saveAdminConfig();
+    return res.json({ ok: true, userFeatures: adminConfig.userFeatures });
+  } catch (e) {
+    console.error('Error guardando userFeatures', e);
+    return res
+      .status(500)
+      .json({ ok: false, message: 'No se pudieron guardar las opciones de usuario' });
   }
 });
 
@@ -606,7 +697,7 @@ app.get('/api/queue', (req, res) => {
 });
 
 app.post('/api/queue', (req, res) => {
-  // NUEVO: bloquear registros si el admin cerró el horario
+  // bloquear registros si el admin cerró el horario
   if (!adminConfig.isQueueOpen) {
     return res.status(403).json({
       ok: false,
@@ -627,24 +718,43 @@ app.post('/api/queue', (req, res) => {
   }
 
   const mesaStr = String(tableNumber).trim();
+  const userNameStr = String(userName).trim();
 
   const currentQueue = readQueueFromDb();
-  const existeMesa = currentQueue.some(
+
+  const mesaConfig = getTableConfig(mesaStr);
+  const maxSongs = mesaConfig && mesaConfig.maxSongs ? mesaConfig.maxSongs : 1;
+
+  const sameTableItems = currentQueue.filter(
     item =>
       normalizeText(String(item.tableNumber).trim()) ===
       normalizeText(mesaStr)
   );
-  console.log('Intento mesa:', mesaStr, 'Existe ya:', existeMesa);
 
-  if (existeMesa) {
+  if (sameTableItems.length >= maxSongs) {
     return res.status(400).json({
       ok: false,
-      message: `La mesa ${mesaStr} ya está registrada en la cola. En tu mesa se podrá pedir una nueva canción hasta después de que pase su turno.`
+      message:
+        `Tu mesa (${mesaStr}) ya tiene ${maxSongs} participante(s) en la cola.\n\n` +
+        'Primero deben cantar todas las personas de tu mesa que ya están en la cola ' +
+        'y el administrador debe eliminarlas de la lista antes de poder registrar nuevas canciones.'
     });
   }
 
-  const id = insertQueueItem(userName, mesaStr, songTitle);
-  res.json({ ok: true, id });
+  const sameNameInTable = sameTableItems.some(item =>
+    normalizeText(String(item.userName).trim()) ===
+    normalizeText(userNameStr)
+  );
+
+  if (sameNameInTable) {
+    return res.status(400).json({
+      ok: false,
+      message: `En la mesa ${mesaStr}, la persona "${userNameStr}" ya registró una canción. Debe ser otra persona de esa mesa.`
+    });
+  }
+
+  const id = insertQueueItem(userNameStr, mesaStr, songTitle);
+  res.json({ ok: true, id, maxSongs });
 });
 
 app.put('/api/queue/:id', (req, res) => {
@@ -768,7 +878,6 @@ app.delete('/api/history', (req, res) => {
 
 // ========== SUGERENCIAS DE CANCIONES ==========
 
-// helper para insertar sugerencia
 function insertSongSuggestion(title, artist, userName, tableNumber) {
   const stmt = db.prepare(`
     INSERT INTO song_suggestions (title, artist, userName, tableNumber, createdAt)
@@ -778,7 +887,6 @@ function insertSongSuggestion(title, artist, userName, tableNumber) {
   return info.lastInsertRowid;
 }
 
-// helper para leer sugerencias
 function readSongSuggestions() {
   const stmt = db.prepare(`
     SELECT id, title, artist, userName, tableNumber, createdAt
@@ -788,7 +896,6 @@ function readSongSuggestions() {
   return stmt.all();
 }
 
-// helper para borrar sugerencia
 function deleteSongSuggestion(id) {
   const stmt = db.prepare(`
     DELETE FROM song_suggestions
@@ -797,7 +904,6 @@ function deleteSongSuggestion(id) {
   return stmt.run(id);
 }
 
-// endpoint que usa el frontend de usuario
 app.post('/api/song-suggestions', (req, res) => {
   try {
     const { title, artist, userName, tableNumber } = req.body;
@@ -832,7 +938,6 @@ app.post('/api/song-suggestions', (req, res) => {
   }
 });
 
-// Lista de sugerencias para el panel admin
 app.get('/api/song-suggestions', (req, res) => {
   try {
     const suggestions = readSongSuggestions();
@@ -845,7 +950,6 @@ app.get('/api/song-suggestions', (req, res) => {
   }
 });
 
-// Eliminar una sugerencia individual
 app.delete('/api/song-suggestions/:id', (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -859,7 +963,6 @@ app.delete('/api/song-suggestions/:id', (req, res) => {
   }
 });
 
-// Eliminar TODAS las sugerencias (para el botón "Eliminar todas" en admin)
 app.delete('/api/song-suggestions', (req, res) => {
   try {
     const stmt = db.prepare(`DELETE FROM song_suggestions`);
@@ -873,7 +976,6 @@ app.delete('/api/song-suggestions', (req, res) => {
   }
 });
 
-// Exportar sugerencias a CSV
 app.get('/api/song-suggestions/export', (req, res) => {
   try {
     const rows = readSongSuggestions();
@@ -882,11 +984,11 @@ app.get('/api/song-suggestions/export', (req, res) => {
 
     for (const r of rows) {
       const id       = r.id != null ? r.id : '';
-      const title    = (r.title       || '').replace(/"/g, '""');
-      const artist   = (r.artist      || '').replace(/"/g, '""');
-      const userName = (r.userName    || '').replace(/"/g, '""');
-      const tableNum = (r.tableNumber || '').replace(/"/g, '""');
-      const createdAt= (r.createdAt   || '').replace(/"/g, '""');
+      const title    = (r.title      || '').replace(/"/g, '""');
+      const artist   = (r.artist     || '').replace(/"/g, '""');
+      const userName = (r.userName   || '').replace(/"/g, '""');
+      const tableNum = (r.tableNumber|| '').replace(/"/g, '""');
+      const createdAt= (r.createdAt  || '').replace(/"/g, '""');
 
       csv += `${id},"${title}","${artist}","${userName}","${tableNum}","${createdAt}"\n`;
     }
