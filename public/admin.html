@@ -4,10 +4,8 @@
   <meta charset="UTF-8" />
   <title>Administrador Karaoke</title>
 
-  <!-- Hace que la página se adapte al ancho del móvil -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Estilos básicos responsive compartidos con la pantalla de usuario -->
   <style>
     * {
       box-sizing: border-box;
@@ -132,7 +130,7 @@
       color: #9ca3af;
     }
 
-    /* Cola admin: contenedor general con scroll vertical y horizontal */
+    /* Cola admin normal */
     #queue-admin {
       margin-top: 8px;
       max-height: 45vh;
@@ -142,7 +140,6 @@
       white-space: nowrap;
     }
 
-    /* Cada registro de la cola en UNA sola línea */
     .queue-admin-item-line {
       display: block;
       padding: 4px 8px;
@@ -152,7 +149,6 @@
       font-size: 0.9rem;
     }
 
-    /* Contenido interno: texto a la izquierda, botones a la derecha */
     .queue-admin-item-content {
       display: inline-flex;
       align-items: center;
@@ -161,20 +157,17 @@
       min-width: 100%;
     }
 
-    /* Texto que puede desbordarse */
     .queue-admin-item-text {
       flex: 1;
       min-width: 0;
     }
 
-    /* Contenedor de botones */
     .queue-admin-item-actions {
       display: inline-flex;
       gap: 6px;
       flex-shrink: 0;
     }
 
-    /* Botones de la cola admin un poco más compactos */
     .btn-queue-admin {
       padding: 6px 10px;
       font-size: 0.8rem;
@@ -224,7 +217,7 @@
       margin-right: 8px;
     }
 
-    /* Filtros de historial (nuevo) */
+    /* Filtros de historial */
     .history-filters {
       display: flex;
       flex-wrap: wrap;
@@ -243,6 +236,26 @@
 
     .history-filters input[type="date"] {
       margin-top: 4px;
+    }
+
+    /* Cola manual admin (mismos estilos que cola normal) */
+    #manual-queue-admin {
+      margin-top: 8px;
+      max-height: 30vh;
+      padding-right: 4px;
+      overflow-y: auto;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    /* Cola mixta admin (mismos estilos que cola normal) */
+    #mixed-queue-admin {
+      margin-top: 8px;
+      max-height: 30vh;
+      padding-right: 4px;
+      overflow-y: auto;
+      overflow-x: auto;
+      white-space: nowrap;
     }
 
     @media (min-width: 768px) {
@@ -340,7 +353,7 @@
           </p>
         </div>
 
-        <!-- NUEVO: Cambiar título de la aplicación -->
+        <!-- Título de la aplicación -->
         <div class="card">
           <h2>Título de la aplicación</h2>
           <div class="form-group">
@@ -393,7 +406,7 @@
         </p>
       </div>
 
-      <!-- NUEVO: Opciones visibles en la pantalla de usuario -->
+      <!-- Opciones visibles en la pantalla de usuario -->
       <div class="card" id="user-features-card">
         <h2>Secciones visibles al usuario</h2>
         <div class="form-group">
@@ -412,12 +425,29 @@
             Permitir "Sugerir canción" en pantalla de usuario
           </label>
 
+          <label>
+            <input type="checkbox" id="feature-user-manual-queue">
+            Permitir "Cola manual" (usuario escribe canción e intérprete)
+          </label>
+
+          <!-- NUEVO: registro manual separado -->
+          <label>
+            <input type="checkbox" id="feature-user-manual-register">
+            Permitir "Registro manual" (formulario para escribir canción e intérprete)
+          </label>
+
+          <!-- NUEVO: cola mixta -->
+          <label>
+            <input type="checkbox" id="feature-user-mixed-queue">
+            Mostrar "Cola mixta" (mezcla de catálogo + manual) en pantalla de usuario
+          </label>
+
           <button id="btn-save-user-features" class="btn-secondary">
             Guardar opciones de pantalla de usuario
           </button>
         </div>
         <p class="hint">
-          Estas opciones afectan lo que se muestra en la pantalla de los clientes.  
+          Estas opciones afectan lo que se muestra en la pantalla de los clientes.
           Los cambios se aplican cuando ellos recargan su pantalla.
         </p>
       </div>
@@ -452,14 +482,14 @@
         <div id="tables-admin"></div>
       </div>
 
-      <!-- Cola de participantes + historial -->
+      <!-- Cola de participantes + historial + colas manual/mixta -->
       <div class="card" id="card-cola">
         <div class="section-title-row">
           <h2>Cola de participantes</h2>
           <button id="btn-clear-all" class="btn-danger">Limpiar toda la cola</button>
         </div>
 
-        <!-- Botón cola -->
+        <!-- Botón cola normal -->
         <div class="section-title-row" style="margin-top: 8px; margin-bottom: 8px;">
           <button id="btn-toggle-queue" class="btn-primary">
             Mostrar/Ocultar cola de participantes
@@ -469,10 +499,40 @@
         <p class="hint">Desliza para ver todos los participantes registrados.</p>
         <div id="queue-admin"></div>
 
-        <!-- Título historial -->
+        <!-- Cola de participantes (carga manual) -->
+        <h3 style="margin-top: 16px;">Cola de participantes (carga manual)</h3>
+
+        <div class="section-title-row" style="margin-top: 8px; margin-bottom: 8px;">
+          <button id="btn-toggle-manual-queue" class="btn-primary">
+            Mostrar/Ocultar cola manual
+          </button>
+          <!-- Botón para limpiar cola manual -->
+          <button id="btn-clear-manual-queue" class="btn-danger">
+            Limpiar cola manual
+          </button>
+        </div>
+
+        <p class="hint">
+          Esta cola muestra a los participantes registrados manualmente
+          (cuando el cliente escribe canción e intérprete).
+        </p>
+        <div id="manual-queue-admin"></div>
+
+        <!-- NUEVO: Cola mixta -->
+        <h3 style="margin-top: 16px;">Cola mixta (catálogo + manual)</h3>
+        <div class="section-title-row" style="margin-top: 8px; margin-bottom: 8px;">
+          <button id="btn-toggle-mixed-queue" class="btn-primary">
+            Mostrar/Ocultar cola mixta
+          </button>
+        </div>
+        <p class="hint">
+          Esta cola muestra el orden combinado de canciones del catálogo y registros manuales.
+        </p>
+        <div id="mixed-queue-admin"></div>
+
+        <!-- Historial -->
         <h3 style="margin-top: 16px;">Historial de canciones</h3>
 
-        <!-- Botones de historial -->
         <div class="section-title-row" style="margin-top: 8px; margin-bottom: 8px;">
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button id="btn-show-history" class="btn-primary">
@@ -487,7 +547,6 @@
           </div>
         </div>
 
-        <!-- Filtros de fecha para historial -->
         <div class="history-filters">
           <label>
             Desde:
@@ -516,7 +575,7 @@
         "></div>
       </div>
 
-      <!-- Sugerencias de canciones (nuevo) -->
+      <!-- Sugerencias de canciones -->
       <div class="card">
         <div class="section-title-row">
           <h2>Sugerencias de canciones</h2>
@@ -572,7 +631,7 @@
         </form>
       </div>
 
-      <!-- NUEVO: Actualizar QR de pantalla pública -->
+      <!-- Actualizar QR de pantalla pública -->
       <div class="card">
         <h2>Actualizar QR de pantalla pública</h2>
         <form id="form-upload-qr" class="form-group">

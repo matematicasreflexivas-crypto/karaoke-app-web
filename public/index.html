@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <title>Karaoke - Usuario</title>
 
-  <!-- Viewport optimizado para móvil y teclado virtual -->
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1, interactive-widget=resizes-content"
@@ -43,7 +42,7 @@
     h1 {
       font-size: 1.1rem;
       text-align: center;
-      margin-bottom: 6px; /* un poco menos para ganar altura */
+      margin-bottom: 6px;
     }
 
     /* Títulos secundarios */
@@ -60,15 +59,16 @@
     .card {
       background: #111827;
       border-radius: 10px;
-      padding: 8px 10px; /* menos padding */
+      padding: 8px 10px;
       margin-bottom: 8px;
       box-shadow: 0 4px 8px rgba(0,0,0,0.25);
+      position: relative; /* Asegura que el flujo sea manejable */
     }
 
     .form-group {
       display: flex;
       flex-direction: column;
-      gap: 6px; /* menos gap */
+      gap: 6px;
     }
 
     .search-fields {
@@ -120,6 +120,14 @@
       width: 100%;
     }
 
+    /* Botones de control dinámicos: Estilo especial para que el usuario los distinga */
+    .btn-toggle-action {
+      background: #374151;
+      border: 1px solid #4b5563;
+      font-size: 0.85rem;
+      margin-bottom: 4px;
+    }
+
     .section-title-row {
       display: flex;
       align-items: center;
@@ -138,22 +146,27 @@
     .top-buttons {
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      margin-bottom: 8px;
+      gap: 4px;
+      margin-bottom: 12px;
+      /* Sticky para que no se pierdan al hacer scroll hacia abajo */
+      position: sticky;
+      top: 0;
+      background: #050816;
+      z-index: 100;
+      padding-top: 4px;
     }
 
     .top-toggle-login {
       margin-bottom: 12px;
     }
 
-    /* Resultados de búsqueda: más pequeño para dejar más espacio a la cola */
+    /* Resultados de búsqueda */
     #songs {
       margin-top: 4px;
-      max-height: 10vh;
+      max-height: 15vh;
       padding-right: 4px;
       overflow-y: auto;
-      overflow-x: auto;
-      white-space: nowrap;
+      overflow-x: hidden;
     }
 
     .song-result {
@@ -165,8 +178,8 @@
       border: 1px solid #d1d5db;
       color: #111827;
       font-size: 0.95rem;
-      white-space: nowrap;
       text-align: left;
+      width: 100%;
     }
 
     .queue-item-line {
@@ -190,28 +203,6 @@
       gap: 4px;
     }
 
-    .song-title {
-      font-weight: 600;
-      color: #e5e7eb;
-    }
-
-    .song-artist {
-      font-size: 0.9rem;
-      color: #9ca3af;
-    }
-
-    .song-actions {
-      margin-top: 4px;
-      display: flex;
-      gap: 6px;
-    }
-
-    .song-actions button {
-      flex: 1;
-      padding: 7px;
-      font-size: 0.9rem;
-    }
-
     .queue-user-name-highlight {
       background: #ffffff;
       color: #000000;
@@ -226,67 +217,35 @@
       box-shadow: 0 0 0 2px rgba(168,85,247,0.6);
     }
 
-    .queue-item-is-current .queue-item-line {
-      background: transparent;
-      color: inherit;
-    }
-
-    /* Layout general */
     #user-content.layout {
       display: flex;
       flex-direction: column;
       gap: 8px;
     }
 
-    #top-section {
-      flex: 0 0 auto;
-    }
-
-    #middle-section {
-      flex: 0 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .queue-card {
-      display: flex;
-      flex-direction: column;
-    }
-
-    /* Contenedor scrolleable de la cola */
-    #queue,
-    #queue.queue-scroll {
+    /* SCROLL VERTICAL MEJORADO PARA TODAS LAS COLAS */
+    .queue-scroll {
       margin-top: 4px;
       padding-right: 4px;
-      max-height: 70vh;
-      overflow-y: auto;
-      overflow-x: auto;
-      white-space: nowrap;
-      -webkit-overflow-scrolling: touch;
+      max-height: 50vh; /* Altura controlada para el scroll */
+      overflow-y: auto !important;
+      overflow-x: hidden;
+      scrollbar-width: thin;
+      scrollbar-color: #4b5563 #111827;
     }
 
-    /* Ajustes extra para el login:
-       - margen inferior extra
-       - permitir scroll si hiciera falta
-    */
-    #login-card .form-group {
-      margin-bottom: 10px;
+    /* Layout dinámico para apilar secciones */
+    #middle-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
     }
 
-    #login-card {
-      max-height: 80vh;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-    }
+    .mixed-from-catalog { border-left: 3px solid #22c55e; }
+    .mixed-from-manual { border-left: 3px solid #f97316; }
 
     @media (min-width: 768px) {
-      body {
-        justify-content: center;
-      }
-      .container {
-        width: 480px;
-      }
+      .container { width: 480px; }
     }
   </style>
 
@@ -298,7 +257,6 @@
         .toUpperCase();
     }
 
-    // Asegurar que el botón "Ingresar" quede a la vista al enfocar campos del login
     document.addEventListener('DOMContentLoaded', () => {
       const loginCard = document.getElementById('login-card');
       const loginInputs = ['name', 'table', 'pass']
@@ -308,7 +266,6 @@
       loginInputs.forEach(inp => {
         inp.addEventListener('focus', () => {
           if (!loginCard) return;
-          // pequeño timeout para esperar al teclado
           setTimeout(() => {
             loginCard.scrollTo({
               top: loginCard.scrollHeight,
@@ -337,106 +294,98 @@
       <div class="form-group">
         <div>
           <label for="name">Tu nombre</label>
-          <input
-            id="name"
-            type="text"
-            placeholder="Ej. Ricardo"
-            oninput="normalizeUserNameInput(this)"
-          />
+          <input id="name" type="text" placeholder="Ej. Ricardo" oninput="normalizeUserNameInput(this)" />
         </div>
-
         <div>
           <label for="table">Mesa</label>
-          <input
-            id="table"
-            type="text"
-            placeholder="Ej. 5, VIP 1, VIP-1"
-          />
+          <input id="table" type="text" placeholder="Ej. 5, VIP 1" />
         </div>
-
         <div>
           <label for="pass">Contraseña</label>
           <input id="pass" type="password" placeholder="Clave que te dio el bar" />
         </div>
-
         <button id="btn-login" class="btn-primary">Ingresar</button>
       </div>
     </div>
 
     <div id="user-content" class="layout" style="display:none;">
 
+      <div class="top-buttons">
+        <button id="btn-toggle-search-card" class="btn-primary btn-toggle-action" style="display:none;">
+          Ocultar "Buscar canción"
+        </button>
+        <button id="btn-toggle-queue-card" class="btn-primary btn-toggle-action" style="display:none;">
+          Ocultar cola de participantes
+        </button>
+        <button id="btn-toggle-manual-queue-card" class="btn-primary btn-toggle-action" style="display:none;">
+          Mostrar cola manual
+        </button>
+        <button id="btn-toggle-mixed-queue-card" class="btn-primary btn-toggle-action" style="display:none;">
+          Mostrar cola mixta
+        </button>
+        <button id="btn-toggle-suggest-card" class="btn-primary btn-toggle-action" style="display:none;">
+          Mostrar sugerencia de canción
+        </button>
+      </div>
+
       <div id="top-section">
-        <div class="top-buttons">
-          <button id="btn-toggle-search-card" class="btn-primary" style="display:none;">
-            Ocultar "Buscar canción"
-          </button>
-
-          <button id="btn-toggle-queue-card" class="btn-primary" style="display:none;">
-            Ocultar cola de participantes
-          </button>
-
-          <button id="btn-toggle-suggest-card" class="btn-primary" style="display:none;">
-            Mostrar sugerencia de canción
-          </button>
-        </div>
-
         <div class="card" id="search-card">
           <h2>Buscar canción</h2>
-
           <div class="form-group">
             <div class="search-fields">
               <div class="search-field">
                 <label for="title">Título</label>
                 <input id="title" type="text" placeholder="Nombre de la canción" />
               </div>
-
               <div class="search-field">
                 <label for="artist">Intérprete</label>
                 <input id="artist" type="text" placeholder="Nombre del artista" />
               </div>
             </div>
-
             <button id="btn-search" class="btn-primary">Buscar</button>
           </div>
         </div>
 
         <div class="card" id="suggest-card" style="display:none;">
-          <h2>Sugerir canción para el menú</h2>
-          <p style="font-size:0.9rem; margin-bottom:6px;">
-            Sugerencia para agregar en el menú de canciones próximamente.
-            Hacer la sugerencia no te hace ingresar a la cola de participantes.
-          </p>
-
+          <h2>Sugerir canción</h2>
           <div class="form-group">
-            <div>
-              <label for="suggest-title">Título de la canción</label>
-              <input id="suggest-title" type="text" placeholder="Nombre de la canción" />
-            </div>
+            <input id="suggest-title" type="text" placeholder="Título" />
+            <input id="suggest-artist" type="text" placeholder="Artista" />
+            <button id="btn-send-suggestion" class="btn-primary">Enviar sugerencia</button>
+          </div>
+        </div>
 
-            <div>
-              <label for="suggest-artist">Intérprete</label>
-              <input id="suggest-artist" type="text" placeholder="Nombre del artista" />
-            </div>
-
-            <button id="btn-send-suggestion" class="btn-primary">
-              Enviar sugerencia
-            </button>
+        <div class="card" id="manual-card" style="display:none;">
+          <h2>Registro manual</h2>
+          <div class="form-group">
+            <input id="manual-title" type="text" placeholder="Título de la canción" />
+            <input id="manual-artist" type="text" placeholder="Intérprete" />
+            <button id="btn-send-manual" class="btn-primary">Registrar canción manual</button>
           </div>
         </div>
       </div>
 
       <div id="middle-section">
-        <div class="card">
+        <div class="card" id="search-results-card" style="display:none;">
           <h3>Resultados de búsqueda</h3>
           <div id="songs"></div>
         </div>
 
-        <div class="card queue-card">
+        <div class="card queue-card" id="queue-card">
           <h3>Cola de participantes</h3>
           <div id="queue" class="queue-scroll"></div>
         </div>
-      </div>
 
+        <div class="card queue-card" id="manual-queue-card" style="display:none;">
+          <h3>Participantes (Carga manual)</h3>
+          <div id="manual-queue" class="queue-scroll"></div>
+        </div>
+
+        <div class="card queue-card" id="mixed-queue-card" style="display:none;">
+          <h3>Cola mixta (General)</h3>
+          <div id="mixed-queue-list" class="queue-scroll"></div>
+        </div>
+      </div>
     </div>
   </div>
 

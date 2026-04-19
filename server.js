@@ -62,6 +62,20 @@ db.exec(`
     createdAt TEXT NOT NULL
   );
 `);
+
+// NUEVA TABLA: cola manual (registro manual de canciones)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS manual_queue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    userName TEXT NOT NULL,
+    tableNumber TEXT NOT NULL,
+    songTitle TEXT NOT NULL,
+    manualSongTitle TEXT,
+    manualSongArtist TEXT,
+    createdAt TEXT DEFAULT (datetime('now', 'localtime'))
+  );
+`);
+
 // ===== FIN SQLITE =====
 
 const app = express();
@@ -105,19 +119,24 @@ function normalizeText(str) {
 
 // ========== CONFIG ADMIN / USUARIO ==========
 const adminConfigPath = path.join(__dirname, 'adminConfig.json');
+console.log('adminConfigPath:', adminConfigPath);
 
 let adminConfig = {
   adminPassword: '1234',
   userPassword: '1234',
   qrImageFile: 'qr-dia.png',
-  appTitle: 'Karaoke', // título por defecto (nombre del bar)
-  isQueueOpen: true,   // controla si se pueden registrar canciones
-  // NUEVO: banderas de secciones visibles en la pantalla de usuario
+  appTitle: 'Karaoke',
+  isQueueOpen: true,
   userFeatures: {
     search: true,
     queue: true,
-    suggestion: true
-  }
+    suggestion: true,
+    manualQueue: false,
+    manualRegister: false,
+    mixedQueue: false
+  },
+  manualMaxSongsPerTable: 1,
+  publicQueueMode: 'catalog'
 };
 
 try {
@@ -130,13 +149,23 @@ try {
   adminConfig.isQueueOpen =
     typeof parsed.isQueueOpen === 'boolean' ? parsed.isQueueOpen : true;
 
-  // NUEVO: si ya existe userFeatures en el archivo, lo usamos; si no, dejamos los defaults
   if (parsed.userFeatures && typeof parsed.userFeatures === 'object') {
     adminConfig.userFeatures = {
-      search: parsed.userFeatures.search !== false,
-      queue: parsed.userFeatures.queue !== false,
-      suggestion: parsed.userFeatures.suggestion !== false
+      search:         parsed.userFeatures.search         !== false,
+      queue:          parsed.userFeatures.queue          !== false,
+      suggestion:     parsed.userFeatures.suggestion     !== false,
+      manualQueue:    parsed.userFeatures.manualQueue    === true,
+      manualRegister: parsed.userFeatures.manualRegister === true,
+      mixedQueue:     parsed.userFeatures.mixedQueue     === true
     };
+  }
+
+  if (typeof parsed.manualMaxSongsPerTable === 'number') {
+    adminConfig.manualMaxSongsPerTable = parsed.manualMaxSongsPerTable;
+  }
+
+  if (parsed.publicQueueMode === 'manual' || parsed.publicQueueMode === 'catalog') {
+    adminConfig.publicQueueMode = parsed.publicQueueMode;
   }
 } catch (e) {
   // si no existe adminConfig.json, usamos los valores por defecto
@@ -150,7 +179,7 @@ function saveAdminConfig() {
   );
 }
 
-// Info pública del día: contraseña de usuario, QR, título, estado de cola y flags de UI
+// Info pública del día
 app.get('/api/public-info', (req, res) => {
   res.json({
     ok: true,
@@ -158,16 +187,23 @@ app.get('/api/public-info', (req, res) => {
     qrImageFile: adminConfig.qrImageFile || null,
     appTitle: adminConfig.appTitle || 'Karaoke',
     isQueueOpen: adminConfig.isQueueOpen,
-    // NUEVO: se envían las banderas de funciones de usuario
-    userFeatures: adminConfig.userFeatures || {
-      search: true,
-      queue: true,
-      suggestion: true
-    }
+    userFeatures: {
+      search:         adminConfig.userFeatures.search         !== false,
+      queue:          adminConfig.userFeatures.queue          !== false,
+      suggestion:     adminConfig.userFeatures.suggestion     !== false,
+      manualQueue:    adminConfig.userFeatures.manualQueue    === true,
+      manualRegister: adminConfig.userFeatures.manualRegister === true,
+      mixedQueue:     adminConfig.userFeatures.mixedQueue     === true
+    },
+    manualMaxSongsPerTable:
+      typeof adminConfig.manualMaxSongsPerTable === 'number'
+        ? adminConfig.manualMaxSongsPerTable
+        : 1,
+    publicQueueMode: adminConfig.publicQueueMode || 'catalog'
   });
 });
 
-// Cambiar nombre de archivo de QR público (aún disponible si lo usas)
+// Cambiar nombre de archivo de QR público
 app.post('/api/admin/set-qr-file', (req, res) => {
   const { adminPassword, qrImageFile } = req.body;
   if (!adminPassword || !qrImageFile) {
@@ -191,7 +227,7 @@ app.post('/api/admin/set-qr-file', (req, res) => {
   }
 });
 
-// ===== NUEVO: subida directa de imagen de QR desde admin =====
+// ===== subida directa de imagen de QR =====
 const qrFolder = path.join(__dirname, 'public', 'qr');
 if (!fs.existsSync(qrFolder)) {
   fs.mkdirSync(qrFolder, { recursive: true });
@@ -300,7 +336,7 @@ app.post('/api/tables', (req, res) => {
   res.json({ ok: true, id });
 });
 
-// NUEVO: actualizar solo el maxSongs de una mesa (para usarlo desde admin)
+// actualizar solo el maxSongs de una mesa
 app.put('/api/tables/:id', (req, res) => {
   const id = Number(req.params.id);
   const { maxSongs } = req.body;
@@ -340,14 +376,16 @@ function isTableAllowed(tableNumber) {
   });
 }
 
-// helper: obtener registro de mesa (incluye maxSongs)
+// helper: obtener registro de mesa
 function getTableConfig(tableNumber) {
   const tables = readTablesFromDb();
   const mesaNorm = normalizeText(String(tableNumber).trim());
-  return tables.find(t => {
-    const tNorm = normalizeText(String(t.tableNumber).trim());
-    return tNorm === mesaNorm;
-  }) || null;
+  return (
+    tables.find(t => {
+      const tNorm = normalizeText(String(t.tableNumber).trim());
+      return tNorm === mesaNorm;
+    }) || null
+  );
 }
 
 // ========== ADMIN ==========
@@ -413,7 +451,7 @@ app.post('/api/admin/change-user-password', (req, res) => {
   }
 });
 
-// cambiar título de la aplicación (nombre del bar)
+// cambiar título de la aplicación
 app.post('/api/admin/change-app-title', (req, res) => {
   const { adminPassword, newTitle } = req.body;
 
@@ -467,7 +505,7 @@ app.post('/api/admin/set-queue-open', (req, res) => {
   }
 });
 
-// NUEVO: cambiar banderas de secciones visibles en pantalla de usuario
+// cambiar banderas de secciones visibles en pantalla de usuario
 app.post('/api/admin/change-user-features', (req, res) => {
   const { userFeatures } = req.body || {};
 
@@ -475,14 +513,13 @@ app.post('/api/admin/change-user-features', (req, res) => {
     return res.status(400).json({ ok: false, message: 'Faltan datos de userFeatures' });
   }
 
-  // Opcional: podríamos exigir contraseña aquí también
-  // pero como ya validaste admin al hacer login en el panel, lo dejamos simple.
-
-  // Normalizamos a booleanos, con default true
   adminConfig.userFeatures = {
-    search: userFeatures.search !== false,
-    queue: userFeatures.queue !== false,
-    suggestion: userFeatures.suggestion !== false
+    search:         userFeatures.search         !== false,
+    queue:          userFeatures.queue          !== false,
+    suggestion:     userFeatures.suggestion     !== false,
+    manualQueue:    userFeatures.manualQueue    === true,
+    manualRegister: userFeatures.manualRegister === true,
+    mixedQueue:     userFeatures.mixedQueue     === true
   };
 
   try {
@@ -493,6 +530,87 @@ app.post('/api/admin/change-user-features', (req, res) => {
     return res
       .status(500)
       .json({ ok: false, message: 'No se pudieron guardar las opciones de usuario' });
+  }
+});
+
+// cambiar límite global de canciones manuales por mesa (se mantiene como info)
+app.post('/api/admin/change-manual-max-songs', (req, res) => {
+  const { adminPassword, manualMaxSongsPerTable } = req.body || {};
+
+  if (!adminPassword || manualMaxSongsPerTable == null) {
+    return res.status(400).json({ ok: false, message: 'Faltan datos' });
+  }
+
+  if (adminPassword !== adminConfig.adminPassword) {
+    return res
+      .status(401)
+      .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
+  }
+
+  let val = parseInt(manualMaxSongsPerTable, 10);
+  if (Number.isNaN(val) || val < 1) val = 1;
+
+  adminConfig.manualMaxSongsPerTable = val;
+
+  try {
+    saveAdminConfig();
+    return res.json({ ok: true, manualMaxSongsPerTable: val });
+  } catch (e) {
+    console.error('Error guardando manualMaxSongsPerTable', e);
+    return res
+      .status(500)
+      .json({ ok: false, message: 'No se pudo guardar el límite manual por mesa' });
+  }
+});
+
+// aplicar un maxSongs global a todas las mesas
+app.post('/api/admin/apply-max-songs-all-tables', (req, res) => {
+  const { adminPassword, maxSongs } = req.body || {};
+
+  if (!adminPassword || maxSongs == null) {
+    return res.status(400).json({ ok: false, message: 'Faltan datos' });
+  }
+
+  if (adminPassword !== adminConfig.adminPassword) {
+    return res
+      .status(401)
+      .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
+  }
+
+  let val = parseInt(maxSongs, 10);
+  if (Number.isNaN(val) || val < 1) val = 1;
+
+  const stmt = db.prepare(`UPDATE tables SET maxSongs = ?`);
+  stmt.run(val);
+
+  return res.json({ ok: true, maxSongs: val });
+});
+
+// cambiar qué cola muestra la pantalla pública
+app.post('/api/admin/change-public-queue-mode', (req, res) => {
+  const { adminPassword, publicQueueMode } = req.body || {};
+
+  if (!adminPassword || !publicQueueMode) {
+    return res.status(400).json({ ok: false, message: 'Faltan datos' });
+  }
+
+  if (adminPassword !== adminConfig.adminPassword) {
+    return res
+      .status(401)
+      .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
+  }
+
+  const mode = publicQueueMode === 'manual' ? 'manual' : 'catalog';
+  adminConfig.publicQueueMode = mode;
+
+  try {
+    saveAdminConfig();
+    return res.json({ ok: true, publicQueueMode: mode });
+  } catch (e) {
+    console.error('Error guardando publicQueueMode', e);
+    return res
+      .status(500)
+      .json({ ok: false, message: 'No se pudo guardar el modo de cola pública' });
   }
 });
 
@@ -557,10 +675,8 @@ app.get('/api/songs', (req, res) => {
     const songArtistNorm = normalizeText(s.artist);
     const songTitleNorm  = normalizeText(s.title);
 
-    const matchArtist =
-      !termArtist || songArtistNorm.includes(termArtist);
-    const matchTitle  =
-      !termTitle  || songTitleNorm.includes(termTitle);
+    const matchArtist = !termArtist || songArtistNorm.includes(termArtist);
+    const matchTitle  = !termTitle  || songTitleNorm.includes(termTitle);
 
     return matchArtist && matchTitle;
   });
@@ -657,7 +773,6 @@ function clearQueue() {
   return stmt.run();
 }
 
-// mover de cola a historial, guardando posición y total en cola
 function moveQueueItemToHistory(id) {
   const queue = readQueueFromDb();
   const index = queue.findIndex(q => q.id === id);
@@ -690,14 +805,147 @@ function moveQueueItemToHistory(id) {
   return { ...item, playedAt, queuePosition, queueTotal };
 }
 
-// API cola
+// ========== COLA MANUAL (helpers) ==========
+function readManualQueueFromDb() {
+  const stmt = db.prepare(`
+    SELECT
+      id,
+      userName,
+      tableNumber,
+      songTitle,
+      manualSongTitle,
+      manualSongArtist,
+      createdAt
+    FROM manual_queue
+    ORDER BY id ASC
+  `);
+  return stmt.all();
+}
+
+function insertManualQueueItem(
+  userName,
+  tableNumber,
+  songTitle,
+  manualSongTitle,
+  manualSongArtist
+) {
+  const stmt = db.prepare(`
+    INSERT INTO manual_queue (
+      userName,
+      tableNumber,
+      songTitle,
+      manualSongTitle,
+      manualSongArtist
+    )
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  const info = stmt.run(
+    userName,
+    tableNumber,
+    songTitle,
+    manualSongTitle || null,
+    manualSongArtist || null
+  );
+  return info.lastInsertRowid;
+}
+
+function updateManualQueueItem(id, manualSongTitle, manualSongArtist) {
+  const stmt = db.prepare(`
+    UPDATE manual_queue
+    SET
+      manualSongTitle  = ?,
+      manualSongArtist = ?
+    WHERE id = ?
+  `);
+  return stmt.run(
+    manualSongTitle || null,
+    manualSongArtist || null,
+    id
+  );
+}
+
+function deleteManualQueueItem(id) {
+  const stmt = db.prepare(`
+    DELETE FROM manual_queue
+    WHERE id = ?
+  `);
+  return stmt.run(id);
+}
+
+function clearManualQueue() {
+  const stmt = db.prepare(`DELETE FROM manual_queue`);
+  return stmt.run();
+}
+
+// ======= NUEVOS HELPERS: total combinado y unicidad de persona =======
+
+// total combinado por mesa (queue + manual_queue)
+function getTotalActiveForTable(tableNumber) {
+  const mesaNorm = normalizeText(String(tableNumber).trim());
+
+  const q1 = readQueueFromDb().filter(
+    item => normalizeText(String(item.tableNumber).trim()) === mesaNorm
+  );
+  const q2 = readManualQueueFromDb().filter(
+    item => normalizeText(String(item.tableNumber).trim()) === mesaNorm
+  );
+
+  return q1.length + q2.length;
+}
+
+// verificar si un userName ya existe en cualquiera de las dos colas para esa mesa
+function userExistsInAnyQueue(tableNumber, userName) {
+  const mesaNorm = normalizeText(String(tableNumber).trim());
+  const nameNorm = normalizeText(String(userName).trim());
+
+  const q1 = readQueueFromDb().some(
+    item =>
+      normalizeText(String(item.tableNumber).trim()) === mesaNorm &&
+      normalizeText(String(item.userName).trim()) === nameNorm
+  );
+
+  if (q1) return true;
+
+  const q2 = readManualQueueFromDb().some(
+    item =>
+      normalizeText(String(item.tableNumber).trim()) === mesaNorm &&
+      normalizeText(String(item.userName).trim()) === nameNorm
+  );
+
+  return q2;
+}
+
+// ====== ENDPOINTS DELETE PARA COLA CATÁLOGO ======
+app.delete('/api/queue/:id', (req, res) => {
+  const id = Number(req.params.id);
+  deleteQueueItem(id);
+  return res.json({ ok: true });
+});
+
+app.delete('/api/queue', (req, res) => {
+  clearQueue();
+  return res.json({ ok: true });
+});
+
+// ====== ENDPOINTS DELETE PARA COLA MANUAL ======
+app.delete('/api/manual-queue/:id', (req, res) => {
+  const id = Number(req.params.id);
+  deleteManualQueueItem(id);
+  return res.json({ ok: true });
+});
+
+app.delete('/api/manual-queue', (req, res) => {
+  clearManualQueue();
+  return res.json({ ok: true });
+});
+
+// ========== API COLA PRINCIPAL (CATÁLOGO) ==========
 app.get('/api/queue', (req, res) => {
   const q = readQueueFromDb();
   res.json({ ok: true, queue: q });
 });
 
 app.post('/api/queue', (req, res) => {
-  // bloquear registros si el admin cerró el horario
   if (!adminConfig.isQueueOpen) {
     return res.status(403).json({
       ok: false,
@@ -717,30 +965,117 @@ app.post('/api/queue', (req, res) => {
     });
   }
 
-  const mesaStr = String(tableNumber).trim();
+  const mesaStr     = String(tableNumber).trim();
   const userNameStr = String(userName).trim();
-
-  const currentQueue = readQueueFromDb();
 
   const mesaConfig = getTableConfig(mesaStr);
   const maxSongs = mesaConfig && mesaConfig.maxSongs ? mesaConfig.maxSongs : 1;
 
-  const sameTableItems = currentQueue.filter(
-    item =>
-      normalizeText(String(item.tableNumber).trim()) ===
-      normalizeText(mesaStr)
-  );
+  // total combinado catálogo + manual (antes de insertar)
+  const totalForTable = getTotalActiveForTable(mesaStr);
 
-  if (sameTableItems.length >= maxSongs) {
+  if (totalForTable >= maxSongs) {
     return res.status(400).json({
       ok: false,
       message:
-        `Tu mesa (${mesaStr}) ya tiene ${maxSongs} participante(s) en la cola.\n\n` +
+        `Tu mesa (${mesaStr}) ya tiene ${maxSongs} participante(s) registrados (sumando registro por selección y registro manual).\n\n` +
         'Primero deben cantar todas las personas de tu mesa que ya están en la cola ' +
         'y el administrador debe eliminarlas de la lista antes de poder registrar nuevas canciones.'
     });
   }
 
+  // unicidad de persona por mesa en ambas colas
+  if (userExistsInAnyQueue(mesaStr, userNameStr)) {
+    return res.status(400).json({
+      ok: false,
+      message:
+        `En la mesa ${mesaStr}, la persona "${userNameStr}" ya tiene una canción registrada ` +
+        '(ya sea por selección o registro manual). Debe ser otra persona distinta de esa mesa.'
+    });
+  }
+
+  const id = insertQueueItem(userNameStr, mesaStr, songTitle);
+
+  // recalc total para mensaje amigable
+  const totalAfterInsert = getTotalActiveForTable(mesaStr);
+  const restantes = Math.max(maxSongs - totalAfterInsert, 0);
+
+  return res.json({
+    ok: true,
+    id,
+    maxSongs,
+    totalAfterInsert, // <- IMPORTANTE para el front
+    message:
+      restantes > 0
+        ? `Registro exitoso. Tu mesa (${mesaStr}) puede registrar todavía ${restantes} participante(s) más (sumando selección + manual).`
+        : `Registro exitoso. Tu mesa (${mesaStr}) ha alcanzado el máximo de ${maxSongs} participante(s) en la cola (sumando selección + manual).`
+  });
+});
+
+// ========== COLA MANUAL ==========
+app.get('/api/manual-queue', (req, res) => {
+  const q = readManualQueueFromDb();
+  res.json({ ok: true, queue: q });
+});
+
+app.post('/api/manual-queue', (req, res) => {
+  const {
+    userName,
+    tableNumber,
+    songTitle,
+    manualSongTitle,
+    manualSongArtist
+  } = req.body;
+
+  if (!userName || !tableNumber || !songTitle) {
+    return res.status(400).json({ ok: false, message: 'Faltan datos' });
+  }
+
+  if (!isTableAllowed(tableNumber)) {
+    return res.status(400).json({
+      ok: false,
+      message: `La mesa ${tableNumber} no está registrada. Pide al administrador que la dé de alta.`
+    });
+  }
+
+  const mesaStr     = String(tableNumber).trim();
+  const userNameStr = String(userName).trim();
+  const mesaNorm    = normalizeText(mesaStr);
+
+  const mesaConfig = getTableConfig(mesaStr);
+  const maxSongs = mesaConfig && mesaConfig.maxSongs ? mesaConfig.maxSongs : 1;
+
+  // total combinado catálogo + manual (antes de insertar)
+  const totalForTable = getTotalActiveForTable(mesaStr);
+
+  if (totalForTable >= maxSongs) {
+    return res.status(400).json({
+      ok: false,
+      message:
+        `Tu mesa (${mesaStr}) ya tiene ${maxSongs} participante(s) registrados (sumando registro por selección y registro manual).\n\n` +
+        'Primero deben cantar todas las personas de tu mesa que ya están en la cola ' +
+        'y el administrador debe eliminarlas de la lista antes de poder registrar nuevas canciones.'
+    });
+  }
+
+  // unicidad de persona por mesa en ambas colas
+  if (userExistsInAnyQueue(mesaStr, userNameStr)) {
+    return res.status(400).json({
+      ok: false,
+      message:
+        `En la mesa ${mesaStr}, la persona "${userNameStr}" ya tiene una canción registrada ` +
+        '(ya sea por selección o registro manual). Debe ser otra persona distinta de esa mesa.'
+    });
+  }
+
+  const currentQueue = readManualQueueFromDb();
+
+  const sameTableItems = currentQueue.filter(
+    item =>
+      normalizeText(String(item.tableNumber).trim()) === mesaNorm
+  );
+
+  // (esta parte ya está cubierta por userExistsInAnyQueue, pero la dejo por compatibilidad)
   const sameNameInTable = sameTableItems.some(item =>
     normalizeText(String(item.userName).trim()) ===
     normalizeText(userNameStr)
@@ -749,60 +1084,126 @@ app.post('/api/queue', (req, res) => {
   if (sameNameInTable) {
     return res.status(400).json({
       ok: false,
-      message: `En la mesa ${mesaStr}, la persona "${userNameStr}" ya registró una canción. Debe ser otra persona de esa mesa.`
+      message: `En la mesa ${mesaStr}, la persona "${userNameStr}" ya registró una canción manual. Debe ser otra persona de esa mesa.`
     });
   }
 
-  const id = insertQueueItem(userNameStr, mesaStr, songTitle);
-  res.json({ ok: true, id, maxSongs });
+  const songTitleStr    = String(songTitle).trim();
+  const manualTitleStr  = manualSongTitle  ? String(manualSongTitle).trim()  : null;
+  const manualArtistStr = manualSongArtist ? String(manualSongArtist).trim() : null;
+
+  const id = insertManualQueueItem(
+    userNameStr,
+    mesaStr,
+    songTitleStr,
+    manualTitleStr,
+    manualArtistStr
+  );
+
+  // recalc total para mensaje amigable
+  const totalAfterInsert = getTotalActiveForTable(mesaStr);
+  const restantes = Math.max(maxSongs - totalAfterInsert, 0);
+
+  return res.json({
+    ok: true,
+    id,
+    maxSongs,
+    totalAfterInsert, // <- IMPORTANTE para el front
+    message:
+      restantes > 0
+        ? `Registro exitoso. Tu mesa (${mesaStr}) puede registrar todavía ${restantes} participante(s) más (sumando selección + manual).`
+        : `Registro exitoso. Tu mesa (${mesaStr}) ha alcanzado el máximo de ${maxSongs} participante(s) en la cola (sumando selección + manual).`
+  });
 });
 
-app.put('/api/queue/:id', (req, res) => {
+app.put('/api/manual-queue/:id', (req, res) => {
   const id = Number(req.params.id);
-  const { songTitle } = req.body;
+  const { manualSongTitle, manualSongArtist } = req.body || {};
 
-  if (!songTitle) {
+  if (!manualSongTitle || !manualSongArtist) {
     return res
       .status(400)
-      .json({ ok: false, message: 'Falta el título de la canción' });
+      .json({ ok: false, message: 'Faltan título o intérprete manual' });
   }
 
-  const currentQueue = readQueueFromDb();
+  const currentQueue = readManualQueueFromDb();
   const item = currentQueue.find(q => q.id === id);
 
   if (!item) {
     return res
       .status(404)
-      .json({ ok: false, message: 'Registro no encontrado en la cola' });
+      .json({ ok: false, message: 'Registro no encontrado en la cola manual' });
   }
 
-  updateQueueSong(id, songTitle);
+  updateManualQueueItem(id, manualSongTitle.trim(), manualSongArtist.trim());
 
   return res.json({
     ok: true,
-    item: { ...item, songTitle }
+    item: {
+      ...item,
+      manualSongTitle: manualSongTitle.trim(),
+      manualSongArtist: manualSongArtist.trim()
+    }
   });
 });
 
-app.delete('/api/queue/:id', (req, res) => {
-  const id = Number(req.params.id);
-  const moved = moveQueueItemToHistory(id);
+// ========== COLA MIXTA (CATÁLOGO + MANUAL) ==========
+app.get('/api/mixed-queue', (req, res) => {
+  try {
+    const catalogQueue = readQueueFromDb();
+    const manualQueue  = readManualQueueFromDb();
 
-  if (!moved) {
-    return res
-      .status(404)
-      .json({ ok: false, message: 'Registro no encontrado en la cola' });
+    const catalogItems = (catalogQueue || []).map(item => ({
+      id: item.id,
+      tableNumber: item.tableNumber,
+      userName: item.userName,
+      displaySongTitle:  item.songTitle,
+      displaySongArtist: '',
+      source: 'catalog',
+      createdAt: item.createdAt || new Date().toISOString()
+    }));
+
+    const manualItems = (manualQueue || []).map(item => ({
+      id: item.id,
+      tableNumber: item.tableNumber,
+      userName: item.userName,
+      displaySongTitle:  item.manualSongTitle  || item.songTitle || '',
+      displaySongArtist: item.manualSongArtist || '',
+      source: 'manual',
+      createdAt: item.createdAt || new Date().toISOString()
+    }));
+
+    const mixed = [...catalogItems, ...manualItems].sort((a, b) => {
+      const ta = new Date(a.createdAt).getTime();
+      const tb = new Date(b.createdAt).getTime();
+      return (ta || 0) - (tb || 0);
+    });
+
+    return res.json({ ok: true, queue: mixed });
+  } catch (e) {
+    console.error('Error construyendo cola mixta:', e);
+    return res.status(500).json({
+      ok: false,
+      message: 'Error al construir la cola mixta'
+    });
   }
-
-  res.json({ ok: true, historyItem: moved });
 });
 
-app.delete('/api/queue', (req, res) => {
-  clearQueue();
-  res.json({ ok: true });
+// BORRAR TODA LA COLA MIXTA (queue + manual_queue)
+app.delete('/api/mixed-queue', (req, res) => {
+  try {
+    clearQueue();
+    clearManualQueue();
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('Error limpiando cola mixta', e);
+    return res
+      .status(500)
+      .json({ ok: false, message: 'Error al limpiar la cola mixta' });
+  }
 });
 
-// ========== HISTORIAL: LISTAR / EXPORTAR / LIMPIAR ==========
+// ========== HISTORIAL ==========
 app.get('/api/history', (req, res) => {
   const { table } = req.query;
 
@@ -855,8 +1256,8 @@ app.get('/api/history/export', (req, res) => {
     const song   = `"${(r.songTitle || '').replace(/"/g, '""')}"`;
     const created = `"${createdStr.replace(/"/g, '""')}"`;
     const played  = `"${playedStr.replace(/"/g, '""')}"`;
-    const pos    = r.queuePosition != null ? r.queuePosition : '';
-    const total  = r.queueTotal    != null ? r.queueTotal    : '';
+    const pos   = r.queuePosition != null ? r.queuePosition : '';
+    const total = r.queueTotal    != null ? r.queueTotal    : '';
 
     csv += `${user},${table},${song},${created},${played},${pos},${total}\n`;
   }
@@ -877,7 +1278,6 @@ app.delete('/api/history', (req, res) => {
 });
 
 // ========== SUGERENCIAS DE CANCIONES ==========
-
 function insertSongSuggestion(title, artist, userName, tableNumber) {
   const stmt = db.prepare(`
     INSERT INTO song_suggestions (title, artist, userName, tableNumber, createdAt)
@@ -983,12 +1383,12 @@ app.get('/api/song-suggestions/export', (req, res) => {
     let csv = 'id,title,artist,userName,tableNumber,createdAt\n';
 
     for (const r of rows) {
-      const id       = r.id != null ? r.id : '';
-      const title    = (r.title      || '').replace(/"/g, '""');
-      const artist   = (r.artist     || '').replace(/"/g, '""');
-      const userName = (r.userName   || '').replace(/"/g, '""');
-      const tableNum = (r.tableNumber|| '').replace(/"/g, '""');
-      const createdAt= (r.createdAt  || '').replace(/"/g, '""');
+      const id        = r.id != null ? r.id : '';
+      const title     = (r.title       || '').replace(/"/g, '""');
+      const artist    = (r.artist      || '').replace(/"/g, '""');
+      const userName  = (r.userName    || '').replace(/"/g, '""');
+      const tableNum  = (r.tableNumber || '').replace(/"/g, '""');
+      const createdAt = (r.createdAt   || '').replace(/"/g, '""');
 
       csv += `${id},"${title}","${artist}","${userName}","${tableNum}","${createdAt}"\n`;
     }

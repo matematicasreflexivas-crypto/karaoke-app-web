@@ -1,8 +1,78 @@
 const API_BASE = '';
 
+let manualMaxSongsPerTable = 1; // valor maestro leído de public-info
+let loggedUser = null;
+window.currentUserName  = null;
+window.currentUserTable = null;
+let hasSuggestedWhileInQueue = false;
 
-// ========== CARGAR TÍTULO PÚBLICO (appTitle) + BANDERAS ==========
+// Nombre del participante actual con el que se registra la canción.
+window.currentSingerName = null;
+
+// intervalos de refresco
+let queueInterval       = null;
+let manualQueueInterval = null;
+let mixedQueueInterval  = null;
+
+// ================== Helpers generales ==================
+
+function toUpperNoAccents(text) {
+  if (!text) return '';
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
+}
+
+function removeAccents(str) {
+  return str
+    ? str.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    : '';
+}
+
+function debounce(fn, delay = 400) {
+  let timerId = null;
+  return (...args) => {
+    clearTimeout(timerId);
+    timerId = setTimeout(() => fn(...args), delay);
+  };
+}
+
+function ensureResultsVisible() {
+  const searchCard = document.getElementById('search-card');
+  if (!searchCard) return;
+  setTimeout(() => {
+    searchCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
+}
+
+function getResultsCard() {
+  return (
+    Array.from(document.querySelectorAll('.card')).find(card => {
+      const h3 = card.querySelector('h3');
+      return h3 && h3.textContent.includes('Resultados de búsqueda');
+    }) || null
+  );
+}
+
+function getQueueCard() {
+  return (
+    Array.from(document.querySelectorAll('.card')).find(card => {
+      const h3 = card.querySelector('h3');
+      return (
+        h3 &&
+        h3.textContent.includes('Cola de participantes') &&
+        !h3.textContent.includes('carga manual') &&
+        !h3.textContent.includes('mixta')
+      );
+    }) || null
+  );
+}
+
+// ================== Cargar info pública ==================
+
 async function loadPublicInfo() {
+  console.log('loadPublicInfo() llamada');
   try {
     const res = await fetch(`${API_BASE}/api/public-info`);
     const data = await res.json();
@@ -13,8 +83,17 @@ async function loadPublicInfo() {
     const h1 = document.querySelector('h1');
     if (h1) h1.textContent = `${title}  `;
 
-    // NUEVO: aplicar banderas de funciones
+    if (
+      typeof data.manualMaxSongsPerTable === 'number' &&
+      data.manualMaxSongsPerTable > 0
+    ) {
+      manualMaxSongsPerTable = data.manualMaxSongsPerTable;
+    } else {
+      manualMaxSongsPerTable = 1;
+    }
+
     const features = data.userFeatures || {};
+    window.__lastUserFeatures = features;
     applyUserFeatures(features);
   } catch (e) {
     console.error('Error cargando info pública', e);
@@ -25,13 +104,8 @@ document.addEventListener('DOMContentLoaded', () => {
   loadPublicInfo();
 });
 
-let loggedUser = null;
-window.currentUserName  = null;
-window.currentUserTable = null;
-let hasSuggestedWhileInQueue = false;
+// ================== LOGIN DE USUARIO ==================
 
-
-// ========== LOGIN DE USUARIO ==========
 document.getElementById('btn-login').onclick = async () => {
   let name  = document.getElementById('name').value.trim();
   const table = document.getElementById('table').value.trim();
@@ -42,7 +116,7 @@ document.getElementById('btn-login').onclick = async () => {
     return;
   }
 
-  name = name.toUpperCase();
+  name = toUpperNoAccents(name);
 
   let res;
   try {
@@ -71,22 +145,23 @@ document.getElementById('btn-login').onclick = async () => {
     return;
   }
 
-  loggedUser = { name, table, pass };   // usuario del CEL
-  window.currentUserName  = name.trim();
-  window.currentUserTable = table.trim();
+  loggedUser = { name, table, pass };
+  window.currentUserName   = name.trim();
+  window.currentUserTable  = table.trim();
+  window.currentSingerName = name.trim();
 
   alert('Ingresaste como ' + name);
 
-  const loginCard             = document.getElementById('login-card');
-  const userContent           = document.getElementById('user-content');
-  const toggleLoginBtn        = document.getElementById('btn-toggle-login-card');
-  const searchCard            = document.getElementById('search-card');
-  const btnToggleSearchCard   = document.getElementById('btn-toggle-search-card');
-  const btnSearch             = document.getElementById('btn-search');
-  const queueDiv              = document.getElementById('queue');
-  const btnToggleQueueCard    = document.getElementById('btn-toggle-queue-card');
-  const btnToggleSuggestCard  = document.getElementById('btn-toggle-suggest-card');
-  const suggestCard           = document.getElementById('suggest-card');
+  const loginCard            = document.getElementById('login-card');
+  const userContent          = document.getElementById('user-content');
+  const toggleLoginBtn       = document.getElementById('btn-toggle-login-card');
+  const searchCard           = document.getElementById('search-card');
+  const btnToggleSearchCard  = document.getElementById('btn-toggle-search-card');
+  const btnSearch            = document.getElementById('btn-search');
+  const queueDiv             = document.getElementById('queue');
+  const btnToggleQueueCard   = document.getElementById('btn-toggle-queue-card');
+  const btnToggleSuggestCard = document.getElementById('btn-toggle-suggest-card');
+  const suggestCard          = document.getElementById('suggest-card');
 
   if (loginCard) loginCard.style.display = 'none';
   if (userContent) userContent.style.display = 'block';
@@ -96,7 +171,6 @@ document.getElementById('btn-login').onclick = async () => {
     toggleLoginBtn.textContent = 'Mostrar datos de registro';
   }
 
-  // OJO: la visibilidad real de estas secciones también la controla applyUserFeatures()
   if (searchCard) searchCard.style.display = 'block';
   if (btnToggleSearchCard) {
     btnToggleSearchCard.style.display = 'block';
@@ -125,16 +199,19 @@ document.getElementById('btn-login').onclick = async () => {
     suggestCard.style.display = 'none';
   }
 
-  // Volvemos a aplicar banderas por si el login se hizo después de cargar /api/public-info
   if (window.__lastUserFeatures) {
     applyUserFeatures(window.__lastUserFeatures);
   }
 
-  loadQueue();
+  await loadQueue();
+  await loadManualQueue();
+  await loadMixedQueue();
+
+  startAutoRefreshQueues(window.__lastUserFeatures || {});
 };
 
+// ================== TOGGLE DE FICHA DE REGISTRO ==================
 
-// ========== TOGGLE DE FICHA DE REGISTRO ==========
 const toggleLoginBtn2 = document.getElementById('btn-toggle-login-card');
 if (toggleLoginBtn2) {
   toggleLoginBtn2.onclick = () => {
@@ -152,33 +229,10 @@ if (toggleLoginBtn2) {
   };
 }
 
+// ================== Búsqueda ==================
 
-// ========== HELPER: DEBOUNCE ==========
-function debounce(fn, delay = 400) {
-  let timerId = null;
-  return (...args) => {
-    clearTimeout(timerId);
-    timerId = setTimeout(() => fn(...args), delay);
-  };
-}
+const debouncedSearch = debounce(performSearch, 400);
 
-
-// ========== HELPER: SCROLL BÚSQUEDA ARRIBA ==========
-function ensureResultsVisible() {
-  const middle = document.getElementById('middle-section');
-  const searchCard = document.getElementById('search-card');
-  if (!middle || !searchCard) return;
-
-  setTimeout(() => {
-    searchCard.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start'
-    });
-  }, 100);
-}
-
-
-// ========== BÚSQUEDA ==========
 async function performSearch() {
   if (!loggedUser) return;
 
@@ -249,7 +303,7 @@ async function performSearch() {
   songs.forEach(song => {
     const titleText  = (song.title  || '').toString();
     const artistText = (song.artist || '').toString();
-    const label = `${titleText.toUpperCase()}_${artistText.toUpperCase()}`;
+    const label = `${toUpperNoAccents(titleText)}_${toUpperNoAccents(artistText)}`;
 
     const btn = document.createElement('button');
     btn.className = 'song-result';
@@ -262,10 +316,6 @@ async function performSearch() {
   ensureResultsVisible();
 }
 
-const debouncedSearch = debounce(performSearch, 400);
-
-
-// ========== BOTÓN BUSCAR ==========
 const btnSearch2 = document.getElementById('btn-search');
 if (btnSearch2) {
   btnSearch2.style.display = 'none';
@@ -278,12 +328,10 @@ if (btnSearch2) {
   };
 }
 
-
-// ========== TOGGLE "BUSCAR CANCIÓN" ==========
+// toggle buscar
 const btnToggleSearchCard2 = document.getElementById('btn-toggle-search-card');
 if (btnToggleSearchCard2) {
   btnToggleSearchCard2.onclick = () => {
-    // si el admin desactivó esta función, este botón no debería mostrarse
     if (btnToggleSearchCard2.dataset.disabled === 'true') return;
 
     const searchCard = document.getElementById('search-card');
@@ -304,8 +352,7 @@ if (btnToggleSearchCard2) {
   };
 }
 
-
-// ========== TOGGLE "COLA DE PARTICIPANTES" ==========
+// toggle cola catálogo
 const btnToggleQueueCard2 = document.getElementById('btn-toggle-queue-card');
 if (btnToggleQueueCard2) {
   btnToggleQueueCard2.onclick = () => {
@@ -328,8 +375,7 @@ if (btnToggleQueueCard2) {
   };
 }
 
-
-// ========== TOGGLE "SUGERENCIA DE CANCIÓN" ==========
+// toggle sugerencias
 const btnToggleSuggestCard2 = document.getElementById('btn-toggle-suggest-card');
 if (btnToggleSuggestCard2) {
   btnToggleSuggestCard2.onclick = () => {
@@ -346,8 +392,7 @@ if (btnToggleSuggestCard2) {
   };
 }
 
-
-// ========== BÚSQUEDA EN VIVO ==========
+// búsqueda en vivo
 const artistInput2 = document.getElementById('artist');
 const titleInput2  = document.getElementById('title');
 
@@ -365,62 +410,38 @@ if (titleInput2) {
   });
 }
 
+// inputs manuales en vivo
+const manualTitleInput  = document.getElementById('manual-title');
+const manualArtistInput = document.getElementById('manual-artist');
 
-// ========== ELECCIÓN DE CANCIÓN ==========
+if (manualTitleInput) {
+  manualTitleInput.addEventListener('input', () => {
+    const pos = manualTitleInput.selectionStart;
+    manualTitleInput.value = toUpperNoAccents(manualTitleInput.value);
+    manualTitleInput.setSelectionRange(pos, pos);
+  });
+}
+
+if (manualArtistInput) {
+  manualArtistInput.addEventListener('input', () => {
+    const pos = manualArtistInput.selectionStart;
+    manualArtistInput.value = toUpperNoAccents(manualArtistInput.value);
+    manualArtistInput.setSelectionRange(pos, pos);
+  });
+}
+
+// ================== ELECCIÓN DE CANCIÓN (CATÁLOGO) ==================
+
 async function chooseSong(songLabel) {
   if (!loggedUser) {
     alert('Primero inicia sesión');
     return;
   }
 
-  const mesaActual = (loggedUser.table || '').trim();
-  const mesaNorm = mesaActual.toLowerCase();
-
-  let maxSongs = 1;
-
-  try {
-    const resTables = await fetch(`${API_BASE}/api/tables`);
-    const dataTables = await resTables.json();
-
-    if (!resTables.ok || !dataTables.ok || !Array.isArray(dataTables.tables)) {
-      // dejamos validación al backend
-    } else {
-      const mesaConfig = dataTables.tables.find(t => {
-        const tNorm = (t.tableNumber || '').toString().trim().toLowerCase();
-        return tNorm === mesaNorm;
-      });
-
-      maxSongs = mesaConfig && mesaConfig.maxSongs ? mesaConfig.maxSongs : 1;
-
-      const resQueue = await fetch(`${API_BASE}/api/queue`, {
-        cache: 'no-store'
-      });
-      const dataQueue = await resQueue.json();
-
-      if (resQueue.ok && dataQueue.ok && Array.isArray(dataQueue.queue)) {
-        const fromThisTable = dataQueue.queue.filter(
-          q => (q.tableNumber || '').toString().trim().toLowerCase() === mesaNorm
-        );
-
-        const participantesDeEsaMesa = fromThisTable.length;
-
-        if (participantesDeEsaMesa >= maxSongs) {
-          alert(
-            `Aún no puedes registrar otra canción.\n\n` +
-            `Tu mesa (${mesaActual}) ya tiene ${participantesDeEsaMesa} participante(s) en la cola.\n` +
-            `El máximo permitido para tu mesa es de ${maxSongs} participante(s) simultáneos.\n\n` +
-            'Primero deben cantar todas las personas de tu mesa que ya están en la cola '
-          );
-          return;
-        }
-      }
-    }
-  } catch (err) {
-    console.error('Error verificando cola/mesas antes de registrar', err);
-  }
+  const singerName = window.currentSingerName || loggedUser.name;
 
   const confirmar = confirm(
-    `¿Confirmas que quieres registrar esta canción para:\n\nMesa ${loggedUser.table} - ${loggedUser.name}\n\n${songLabel}`
+    `¿Confirmas que quieres registrar esta canción para:\n\nMesa ${loggedUser.table} - ${singerName}\n\n${songLabel}`
   );
   if (!confirmar) return;
 
@@ -430,7 +451,7 @@ async function chooseSong(songLabel) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        userName: loggedUser.name,
+        userName: singerName,
         tableNumber: loggedUser.table,
         songTitle: songLabel
       })
@@ -462,14 +483,10 @@ async function chooseSong(songLabel) {
     alert(data.message || 'No se pudo registrar');
 
     const resultsCard = getResultsCard();
-    if (resultsCard) {
-      resultsCard.style.display = 'none';
-    }
+    if (resultsCard) resultsCard.style.display = 'none';
 
     const searchCard = document.getElementById('search-card');
-    if (searchCard) {
-      searchCard.style.display = 'block';
-    }
+    if (searchCard) searchCard.style.display = 'block';
 
     const btnToggle = document.getElementById('btn-toggle-search-card');
     if (btnToggle) {
@@ -485,20 +502,12 @@ async function chooseSong(songLabel) {
     return;
   }
 
-  if (data.maxSongs != null) {
-    maxSongs = data.maxSongs;
-  }
-
   const resultsCard = getResultsCard();
-  if (resultsCard) {
-    resultsCard.style.display = 'none';
-  }
+  if (resultsCard) resultsCard.style.display = 'none';
 
   const searchCard = document.getElementById('search-card');
   const queueDiv   = document.getElementById('queue');
-  if (searchCard) {
-    searchCard.style.display = 'none';
-  }
+  if (searchCard) searchCard.style.display = 'none';
 
   const btnToggle = document.getElementById('btn-toggle-search-card');
   if (btnToggle) {
@@ -506,25 +515,33 @@ async function chooseSong(songLabel) {
     btnToggle.style.display = 'block';
   }
 
-  if (queueDiv) {
-    queueDiv.style.maxHeight = '';
+  if (queueDiv) queueDiv.style.maxHeight = '';
+
+  if (songsDiv) songsDiv.style.maxHeight = '22vh';
+
+  await loadQueue();
+  await loadMixedQueue();
+
+  if (data.message) {
+    alert(data.message);
   }
 
-  if (songsDiv) {
-    songsDiv.style.maxHeight = '22vh';
+  if (
+    typeof data.maxSongs === 'number' &&
+    typeof data.totalAfterInsert === 'number'
+  ) {
+    const restantes = data.maxSongs - data.totalAfterInsert;
+    if (restantes > 0) {
+      await preguntarOtraPersonaParaMesa(data.maxSongs);
+    }
   }
 
   await loadQueue();
-
-  if (maxSongs && maxSongs > 1) {
-    await preguntarOtraPersonaParaMesa(maxSongs);
-  }
-
-  loadQueue();
+  await loadMixedQueue();
 }
 
+// ================== COLA CATÁLOGO ==================
 
-// ========== COLA DE PARTICIPANTES ==========
 async function loadQueue() {
   if (!loggedUser) return;
 
@@ -556,7 +573,9 @@ async function loadQueue() {
     return;
   }
 
-  const currentName  = removeAccents((window.currentUserName  || '').trim()).toLowerCase();
+  const currentName  = removeAccents(
+    (window.currentUserName || '').trim()
+  ).toLowerCase();
   const currentTable = (window.currentUserTable || '').trim().toLowerCase();
 
   let isUserInQueue = false;
@@ -589,16 +608,12 @@ async function loadQueue() {
 
     const mesaLabelSpan = document.createElement('span');
     mesaLabelSpan.textContent = 'Mesa ';
-    if (isCurrentUser) {
-      mesaLabelSpan.classList.add('queue-user-name-highlight');
-    }
+    if (isCurrentUser) mesaLabelSpan.classList.add('queue-user-name-highlight');
     p.appendChild(mesaLabelSpan);
 
     const tableSpan = document.createElement('span');
     tableSpan.textContent = item.tableNumber;
-    if (isCurrentUser) {
-      tableSpan.classList.add('queue-user-name-highlight');
-    }
+    if (isCurrentUser) tableSpan.classList.add('queue-user-name-highlight');
     p.appendChild(tableSpan);
 
     const sep1 = document.createElement('span');
@@ -606,10 +621,8 @@ async function loadQueue() {
     p.appendChild(sep1);
 
     const nameSpan = document.createElement('span');
-    nameSpan.textContent = itemNameRaw.toUpperCase();
-    if (isCurrentUser) {
-      nameSpan.classList.add('queue-user-name-highlight');
-    }
+    nameSpan.textContent = toUpperNoAccents(itemNameRaw);
+    if (isCurrentUser) nameSpan.classList.add('queue-user-name-highlight');
     p.appendChild(nameSpan);
 
     const spanRight = document.createElement('span');
@@ -624,8 +637,230 @@ async function loadQueue() {
   }
 }
 
+// ================== COLA MANUAL ==================
 
-// ========== ENVÍO DE SUGERENCIA DE CANCIÓN ==========
+async function loadManualQueue() {
+  if (!loggedUser) return;
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/api/manual-queue`, { cache: 'no-store' });
+  } catch (err) {
+    console.error(err);
+    return;
+  }
+
+  let data;
+  try {
+    data = await res.json();
+  } catch (err) {
+    console.error(err);
+    return;
+  }
+
+  const div = document.getElementById('manual-queue');
+  if (!div) return;
+
+  div.style.maxHeight = '60vh';
+  div.style.overflowY = 'auto';
+
+  div.innerHTML = '';
+
+  if (!data.ok) {
+    div.textContent = 'Error cargando cola manual';
+    return;
+  }
+
+  const currentName  = removeAccents(
+    (window.currentUserName || '').trim()
+  ).toLowerCase();
+  const currentTable = (window.currentUserTable || '').trim().toLowerCase();
+
+  data.queue.forEach((item, idx) => {
+    const p = document.createElement('p');
+    p.className = 'queue-item-line';
+
+    if (idx === 0) {
+      p.classList.add('queue-item-is-current');
+    }
+
+    const itemTable     = (item.tableNumber || '').trim().toLowerCase();
+    const itemNameRaw   = (item.userName || '').toString().trim();
+    const itemNameLower = removeAccents(itemNameRaw).toLowerCase();
+
+    const isCurrentUser =
+      currentName &&
+      currentTable &&
+      currentName === itemNameLower &&
+      currentTable === itemTable;
+
+    const spanIndex = document.createElement('span');
+    spanIndex.textContent = `${idx + 1}. `;
+    p.appendChild(spanIndex);
+
+    const mesaLabelSpan = document.createElement('span');
+    mesaLabelSpan.textContent = 'Mesa ';
+    if (isCurrentUser) mesaLabelSpan.classList.add('queue-user-name-highlight');
+    p.appendChild(mesaLabelSpan);
+
+    const tableSpan = document.createElement('span');
+    tableSpan.textContent = item.tableNumber;
+    if (isCurrentUser) tableSpan.classList.add('queue-user-name-highlight');
+    p.appendChild(tableSpan);
+
+    const sep1 = document.createElement('span');
+    sep1.textContent = ' - ';
+    p.appendChild(sep1);
+
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = toUpperNoAccents(itemNameRaw);
+    if (isCurrentUser) nameSpan.classList.add('queue-user-name-highlight');
+    p.appendChild(nameSpan);
+
+    const sep2 = document.createElement('span');
+    sep2.textContent = ' - ';
+    p.appendChild(sep2);
+
+    const songSpan = document.createElement('span');
+
+    const titleText = toUpperNoAccents(
+      (item.manualSongTitle || item.songTitle || '').toString()
+    );
+    const artistText = toUpperNoAccents(
+      (item.manualSongArtist || item.songArtist || '').toString()
+    );
+
+    songSpan.textContent = artistText
+      ? `${titleText} _ ${artistText}`
+      : `${titleText}`;
+
+    p.appendChild(songSpan);
+
+    div.appendChild(p);
+  });
+}
+
+// ================== COLA MIXTA ==================
+
+async function loadMixedQueue() {
+  if (!loggedUser) return;
+
+  const container = document.getElementById('mixed-queue-list');
+  if (!container) return;
+
+  const features = window.__lastUserFeatures || {};
+  if (!features.mixedQueue) {
+    container.innerHTML = '';
+    const card = document.getElementById('mixed-queue-card');
+    if (card) card.style.display = 'none';
+    return;
+  }
+
+  container.textContent = 'Cargando cola mixta...';
+
+  let res, data;
+  try {
+    res  = await fetch(`${API_BASE}/api/mixed-queue`, { cache: 'no-store' });
+    data = await res.json();
+  } catch (e) {
+    console.error('Error leyendo /api/mixed-queue', e);
+    container.textContent = 'No se pudo cargar la cola mixta.';
+    return;
+  }
+
+  if (!res.ok || !data.ok) {
+    container.textContent = data.message || 'Error al cargar la cola mixta.';
+    return;
+  }
+
+  const mixed = data.queue || data.mixedQueue || [];
+  if (!mixed.length) {
+    container.textContent = 'No hay canciones en la cola mixta.';
+    return;
+  }
+
+  container.innerHTML = '';
+
+  const currentName  = removeAccents(
+    (window.currentUserName || '').trim()
+  ).toLowerCase();
+  const currentTable = (window.currentUserTable || '').trim().toLowerCase();
+
+  mixed.forEach((item, idx) => {
+    const row = document.createElement('p');
+    row.className = 'queue-item-line';
+
+    if (idx === 0) {
+      row.classList.add('queue-item-is-current');
+    }
+
+    const itemTable   = (item.tableNumber || '').toString().trim().toLowerCase();
+    const itemNameRaw = (item.userName || '').toString().trim();
+    const itemNameNorm = removeAccents(itemNameRaw).toLowerCase();
+
+    const isCurrentUser =
+      currentName &&
+      currentTable &&
+      currentName === itemNameNorm &&
+      currentTable === itemTable;
+
+    let sourceLabel = '';
+    if (item.source === 'catalog') {
+      sourceLabel = ' [CATÁLOGO]';
+      row.classList.add('mixed-from-catalog');
+    } else if (item.source === 'manual') {
+      sourceLabel = ' [MANUAL]';
+      row.classList.add('mixed-from-manual');
+    }
+
+    const spanIndex = document.createElement('span');
+    spanIndex.textContent = `${idx + 1}. `;
+    row.appendChild(spanIndex);
+
+    const mesaLabelSpan = document.createElement('span');
+    mesaLabelSpan.textContent = 'Mesa ';
+    if (isCurrentUser) mesaLabelSpan.classList.add('queue-user-name-highlight');
+    row.appendChild(mesaLabelSpan);
+
+    const tableSpan = document.createElement('span');
+    tableSpan.textContent = item.tableNumber;
+    if (isCurrentUser) tableSpan.classList.add('queue-user-name-highlight');
+    row.appendChild(tableSpan);
+
+    const sep1 = document.createElement('span');
+    sep1.textContent = ' - ';
+    row.appendChild(sep1);
+
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = toUpperNoAccents(itemNameRaw);
+    if (isCurrentUser) nameSpan.classList.add('queue-user-name-highlight');
+    row.appendChild(nameSpan);
+
+    const sep2 = document.createElement('span');
+    sep2.textContent = ' - ';
+    row.appendChild(sep2);
+
+    const songSpan = document.createElement('span');
+    const titleText  = toUpperNoAccents(
+      (item.displaySongTitle || item.songTitle || '').toString()
+    );
+    const artistText = toUpperNoAccents(
+      (item.displaySongArtist || item.artist || '').toString()
+    );
+    songSpan.textContent = artistText
+      ? `${titleText} _ ${artistText}${sourceLabel}`
+      : `${titleText}${sourceLabel}`;
+    row.appendChild(songSpan);
+
+    container.appendChild(row);
+  });
+
+  const card = document.getElementById('mixed-queue-card');
+  if (card) card.style.display = 'block';
+}
+
+// ================== SUGERENCIAS ==================
+
 const btnSendSuggestion = document.getElementById('btn-send-suggestion');
 if (btnSendSuggestion) {
   btnSendSuggestion.onclick = async () => {
@@ -668,28 +903,38 @@ if (btnSendSuggestion) {
       return;
     }
 
-    const currentName  = (window.currentUserName  || '').trim().toLowerCase();
+    const currentName  = (window.currentUserName || '').trim().toLowerCase();
     const currentTable = (window.currentUserTable || '').trim().toLowerCase();
 
     const isUserInQueueNow = dataQueue.queue.some(item => {
       const itemTable = (item.tableNumber || '').trim().toLowerCase();
-      const itemName  = (item.userName    || '').toString().trim().toLowerCase();
-      return currentName && currentTable &&
-             currentName === itemName &&
-             currentTable === itemTable;
+      const itemName  = (item.userName || '')
+        .toString()
+        .trim()
+        .toLowerCase();
+      return (
+        currentName &&
+        currentTable &&
+        currentName === itemName &&
+        currentTable === itemTable
+      );
     });
 
     if (!isUserInQueueNow) {
       if (titleInput) titleInput.value = '';
       if (artistInput) artistInput.value = '';
-      alert('Solo puedes hacer una sugerencia cuando estás en la cola de participantes.');
+      alert(
+        'Solo puedes hacer una sugerencia cuando estás en la cola de participantes.'
+      );
       return;
     }
 
     if (hasSuggestedWhileInQueue) {
       if (titleInput) titleInput.value = '';
       if (artistInput) artistInput.value = '';
-      alert('Ya hiciste una sugerencia mientras estás en esta cola. Espera a que termine tu turno para sugerir de manera opcional otra.');
+      alert(
+        'Ya hiciste una sugerencia mientras estás en esta cola. Espera a que termine tu turno para sugerir de manera opcional otra.'
+      );
       return;
     }
 
@@ -709,7 +954,7 @@ if (btnSendSuggestion) {
           userName: loggedUser.name,
           tableNumber: loggedUser.table,
           title,
-          artist,
+          artist
         })
       });
 
@@ -730,35 +975,94 @@ if (btnSendSuggestion) {
   };
 }
 
+// ================== REGISTRO DE CANCIÓN MANUAL ==================
 
-// ========= Helpers =========
-function getResultsCard() {
-  return Array.from(document.querySelectorAll('.card'))
-    .find(card => {
-      const h3 = card.querySelector('h3');
-      return h3 && h3.textContent.includes('Resultados de búsqueda');
-    }) || null;
+const btnSendManual = document.getElementById('btn-send-manual');
+if (btnSendManual) {
+  btnSendManual.onclick = async () => {
+    if (!loggedUser) {
+      alert('Primero inicia sesión');
+      return;
+    }
+
+    const titleInput  = document.getElementById('manual-title');
+    const artistInput = document.getElementById('manual-artist');
+
+    let title  = titleInput ? titleInput.value.trim() : '';
+    let artist = artistInput ? artistInput.value.trim() : '';
+
+    if (!title || !artist) {
+      alert('Escribe título e intérprete para registrar la canción');
+      return;
+    }
+
+    title  = toUpperNoAccents(title);
+    artist = toUpperNoAccents(artist);
+
+    const singerName = window.__extraManualSingerName
+      ? window.__extraManualSingerName
+      : (window.currentSingerName || loggedUser.name);
+
+    let res;
+    let data;
+    try {
+      res = await fetch(`${API_BASE}/api/manual-queue`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userName: toUpperNoAccents(singerName),
+          tableNumber: loggedUser.table,
+          songTitle: title,
+          manualSongTitle:  title,
+          manualSongArtist: artist
+        })
+      });
+
+      data = await res.json();
+      console.log('Respuesta /api/manual-queue:', data);
+
+      if (!res.ok || !data.ok) {
+        alert(data.message || 'No se pudo registrar la canción manual');
+        return;
+      }
+    } catch (e) {
+      console.error(e);
+      alert('No se pudo conectar para registrar la canción manual');
+      return;
+    }
+
+    if (titleInput)  titleInput.value  = '';
+    if (artistInput) artistInput.value = '';
+    await loadManualQueue();
+    await loadMixedQueue();
+
+    if (data.message) {
+      alert(data.message);
+    } else {
+      alert('Canción manual registrada correctamente.');
+    }
+
+    if (window.__extraManualSingerName) {
+      window.__extraManualSingerName = null;
+    }
+
+    if (
+      typeof data.maxSongs === 'number' &&
+      typeof data.totalAfterInsert === 'number'
+    ) {
+      const restantes = data.maxSongs - data.totalAfterInsert;
+      if (restantes > 0) {
+        await preguntarOtraPersonaParaMesaManual(data.maxSongs);
+      }
+    }
+  };
 }
 
-function getQueueCard() {
-  return Array.from(document.querySelectorAll('.card'))
-    .find(card => {
-      const h3 = card.querySelector('h3');
-      return h3 && h3.textContent.includes('Cola de participantes');
-    }) || null;
-}
+// ================== Flujos multi‑persona ==================
 
-function removeAccents(str) {
-  return str
-    ? str.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    : '';
-}
-
-
-// ========== NUEVO: flujo reutilizable para agregar más personas de la mesa ==========
 async function preguntarOtraPersonaParaMesa(maxSongs) {
   try {
-    const resQueue = await fetch(`${API_BASE}/api/queue`, {
+    const resQueue = await fetch(`${API_BASE}/api/mixed-queue`, {
       cache: 'no-store'
     });
     const dataQueue = await resQueue.json();
@@ -779,12 +1083,12 @@ async function preguntarOtraPersonaParaMesa(maxSongs) {
     const remaining = maxSongs - countForTable;
 
     const wantAnother = confirm(
-      `La mesa ${loggedUser.table} puede registrar hasta ${maxSongs} canciones.\n` +
-      `Actualmente tiene ${countForTable} cancion(es) registradas.\n\n` +
-      `¿Quieres buscar otra canción para OTRA persona de esta misma mesa?\n` +
-      `Quedan ${remaining} lugar(es) \n\n` +
-      `Pulsa "Aceptar" para SÍ.\n` +
-      `Pulsa "Cancelar" para NO.`
+      `La mesa ${loggedUser.table} puede registrar hasta ${maxSongs} canción(es).\n` +
+        `Actualmente tiene ${countForTable} canción(es) registradas (sumando selección y manual).\n\n` +
+        `¿Quieres registrar OTRA canción para OTRA persona de esta misma mesa (por selección o registro manual)?\n` +
+        `Quedan ${remaining} lugar(es)\n\n` +
+        `Pulsa "Aceptar" para SÍ.\n` +
+        `Pulsa "Cancelar" para NO.`
     );
     if (!wantAnother) {
       return;
@@ -794,7 +1098,9 @@ async function preguntarOtraPersonaParaMesa(maxSongs) {
       'Escribe el nombre de la otra persona de esta mesa que cantará:'
     );
     if (!newNameRaw) {
-      alert('No se ingresó nombre. El registro se mantiene con las canciones actuales.');
+      alert(
+        'No se ingresó nombre. El registro se mantiene con las canciones actuales.'
+      );
       return;
     }
 
@@ -804,14 +1110,15 @@ async function preguntarOtraPersonaParaMesa(maxSongs) {
       return;
     }
 
-    const nameExists = fromThisTable.some(item =>
-      removeAccents((item.userName || '').toString().trim()).toLowerCase() ===
-      removeAccents(newName).toLowerCase()
+    const nameExists = fromThisTable.some(
+      item =>
+        removeAccents((item.userName || '').toString().trim()).toLowerCase() ===
+        removeAccents(newName).toLowerCase()
     );
     if (nameExists) {
       alert(
         `En la mesa ${loggedUser.table}, la persona "${newName}" ya tiene una canción registrada. ` +
-        'Debe ser otra persona distinta de esa mesa.'
+          'Debe ser otra persona distinta de esa mesa.'
       );
       return;
     }
@@ -819,124 +1126,140 @@ async function preguntarOtraPersonaParaMesa(maxSongs) {
     const extraSingerName = newName;
 
     alert(
-      `Perfecto, ahora puedes buscar otra canción para:\n` +
-      `Mesa ${loggedUser.table} - ${extraSingerName}\n\n` +
-      'Cuando selecciones la canción se completará el registr.'
+      `Perfecto, ahora registra otra canción para:\n` +
+        `Mesa ${loggedUser.table} - ${extraSingerName}\n\n` +
+        'Puedes hacerlo buscando una canción del catálogo o usando el registro manual.'
     );
+
+    window.currentSingerName = extraSingerName;
 
     const searchCard = document.getElementById('search-card');
     const btnToggle  = document.getElementById('btn-toggle-search-card');
     const queueDiv   = document.getElementById('queue');
 
-    if (searchCard) {
-      searchCard.style.display = 'block';
-    }
+    if (searchCard) searchCard.style.display = 'block';
     if (btnToggle) {
       btnToggle.textContent = 'Ocultar "Buscar canción"';
       btnToggle.style.display = 'block';
     }
-    if (queueDiv) {
-      queueDiv.style.maxHeight = '';
-    }
+    if (queueDiv) queueDiv.style.maxHeight = '';
 
-    const originalChooseSong = chooseSong;
-    window.chooseSong = async function (label) {
-      const confirmar2 = confirm(
-        `¿Confirmas que quieres registrar esta canción para:\n\nMesa ${loggedUser.table} - ${extraSingerName}\n\n${label}`
-      );
-      if (!confirmar2) return;
-
-      let res2;
-      try {
-        res2 = await fetch(`${API_BASE}/api/queue`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userName: extraSingerName,
-            tableNumber: loggedUser.table,
-            songTitle: label
-          })
-        });
-      } catch (err) {
-        console.error(err);
-        alert('No se pudo conectar para registrar la canción');
-        return;
-      }
-
-      let data2;
-      try {
-        data2 = await res2.json();
-      } catch (err) {
-        console.error(err);
-        alert('Respuesta inválida del servidor al registrar');
-        return;
-      }
-
-      if (!res2.ok || !data2.ok) {
-        alert(data2.message || 'No se pudo registrar');
-        return;
-      }
-
-      const artistInput = document.getElementById('artist');
-      const titleInput  = document.getElementById('title');
-      const songsDiv    = document.getElementById('songs');
-
-      if (artistInput) artistInput.value = '';
-      if (titleInput)  titleInput.value  = '';
-      if (songsDiv)    songsDiv.innerHTML = '';
-
-      const resultsCard2 = getResultsCard();
-      const searchCard2  = document.getElementById('search-card');
-      const btnToggle2   = document.getElementById('btn-toggle-search-card');
-      const queueDiv2    = document.getElementById('queue');
-
-      if (resultsCard2) resultsCard2.style.display = 'none';
-      if (searchCard2)  searchCard2.style.display  = 'none';
-      if (btnToggle2) {
-        btnToggle2.textContent = 'Mostrar "Buscar canción"';
-        btnToggle2.style.display = 'block';
-      }
-      if (queueDiv2) queueDiv2.style.maxHeight = '';
-
-      await loadQueue();
-
-      window.chooseSong = originalChooseSong;
-
-      if (maxSongs && maxSongs > 1) {
-        await preguntarOtraPersonaParaMesa(maxSongs);
-      }
-    };
   } catch (e) {
     console.error('Error en preguntarOtraPersonaParaMesa', e);
   }
 }
 
+async function preguntarOtraPersonaParaMesaManual(maxSongs) {
+  try {
+    const resQueue = await fetch(`${API_BASE}/api/mixed-queue`, {
+      cache: 'no-store'
+    });
+    const dataQueue = await resQueue.json();
+    if (!resQueue.ok || !dataQueue.ok || !Array.isArray(dataQueue.queue)) {
+      return;
+    }
 
-// Auto‑refresco de la cola
-setInterval(loadQueue, 5000);
+    const mesaNorm = (loggedUser.table || '').trim().toLowerCase();
+    const fromThisTable = dataQueue.queue.filter(
+      q => (q.tableNumber || '').toString().trim().toLowerCase() === mesaNorm
+    );
+    const countForTable = fromThisTable.length;
 
+    if (countForTable >= maxSongs) {
+      return;
+    }
 
-// ========== NUEVO: aplicar banderas de funciones del admin ==========
+    const remaining = maxSongs - countForTable;
+
+    const wantAnother = confirm(
+      `La mesa ${loggedUser.table} puede registrar hasta ${maxSongs} canción(es).\n` +
+        `Actualmente tiene ${countForTable} canción(es) registradas (sumando selección y manual).\n\n` +
+        `¿Quieres registrar OTRA canción para OTRA persona de esta misma mesa (ya sea por selección o registro manual)?\n` +
+        `Quedan ${remaining} lugar(es)\n\n` +
+        `Pulsa "Aceptar" para SÍ.\n` +
+        `Pulsa "Cancelar" para NO.`
+    );
+    if (!wantAnother) {
+      return;
+    }
+
+    const newNameRaw = prompt(
+      'Escribe el nombre de la otra persona de esta mesa que cantará (puede registrar por selección o manual):'
+    );
+    if (!newNameRaw) {
+      alert(
+        'No se ingresó nombre. El registro se mantiene con las canciones actuales.'
+      );
+      return;
+    }
+
+    let newName = removeAccents(newNameRaw.toString().trim()).toUpperCase();
+    if (!newName) {
+      alert('El nombre no puede quedar vacío.');
+      return;
+    }
+
+    const nameExists = fromThisTable.some(
+      item =>
+        removeAccents((item.userName || '').toString().trim()).toLowerCase() ===
+        removeAccents(newName).toLowerCase()
+    );
+    if (nameExists) {
+      alert(
+        `En la mesa ${loggedUser.table}, la persona "${newName}" ya tiene una canción registrada. ` +
+          'Debe ser otra persona distinta de esa mesa.'
+      );
+      return;
+    }
+
+    const extraSingerName = newName;
+
+    alert(
+      `Perfecto, ahora registra la siguiente canción para:\n` +
+        `Mesa ${loggedUser.table} - ${extraSingerName}\n\n` +
+        'Puedes hacerlo buscando una canción del catálogo o usando el registro manual.'
+    );
+
+    window.__extraManualSingerName = extraSingerName;
+    window.currentSingerName       = extraSingerName;
+  } catch (e) {
+    console.error('Error en preguntarOtraPersonaParaMesaManual', e);
+  }
+}
+
+// ================== APLICAR BANDERAS DE USUARIO ==================
+
 function applyUserFeatures(features) {
-  // Guardamos la última config por si el usuario se loguea después
   window.__lastUserFeatures = features;
 
-  const searchEnabled     = features.search !== false;     // por defecto true
-  const queueEnabled      = features.queue !== false;
-  const suggestionEnabled = features.suggestion !== false;
+  const searchEnabled         = features.search !== false;
+  const queueEnabled          = features.queue !== false;
+  const suggestionEnabled     = features.suggestion !== false;
+  const manualQueueEnabled    = features.manualQueue === true;
+  const manualRegisterEnabled = features.manualRegister === true;
+  const mixedQueueEnabled     = features.mixedQueue === true;
 
-  const searchCard           = document.getElementById('search-card');
-  const btnToggleSearchCard  = document.getElementById('btn-toggle-search-card');
-  const resultsCard          = getResultsCard();
+  const searchCard          = document.getElementById('search-card');
+  const btnToggleSearchCard = document.getElementById('btn-toggle-search-card');
+  const resultsCard         = getResultsCard();
 
-  const queueCard            = getQueueCard();
-  const btnToggleQueueCard   = document.getElementById('btn-toggle-queue-card');
-  const queueDiv             = document.getElementById('queue');
+  const queueCard      = getQueueCard();
+  const btnToggleQueue = document.getElementById('btn-toggle-queue-card');
+  const queueDiv       = document.getElementById('queue');
 
-  const suggestCard          = document.getElementById('suggest-card');
-  const btnToggleSuggestCard = document.getElementById('btn-toggle-suggest-card');
+  const suggestCard      = document.getElementById('suggest-card');
+  const btnToggleSuggest = document.getElementById('btn-toggle-suggest-card');
 
-  // Búsqueda
+  const manualCard      = document.getElementById('manual-card');
+  const manualQueueCard = document.getElementById('manual-queue-card');
+
+  const mixedCard = document.getElementById('mixed-queue-card');
+  const mixedList = document.getElementById('mixed-queue-list');
+
+  const btnToggleManualQueueCard = document.getElementById('btn-toggle-manual-queue-card');
+  const btnToggleMixedQueueCard  = document.getElementById('btn-toggle-mixed-queue-card');
+
+  // Buscar canción
   if (!searchEnabled) {
     if (searchCard) searchCard.style.display = 'none';
     if (resultsCard) resultsCard.style.display = 'none';
@@ -947,58 +1270,139 @@ function applyUserFeatures(features) {
   } else {
     if (btnToggleSearchCard) {
       btnToggleSearchCard.dataset.disabled = 'false';
-      // la visibilidad concreta se controla con tu lógica de login/toggle
       btnToggleSearchCard.style.display = loggedUser ? 'block' : 'none';
     }
-    // no forzamos mostrar la card: respetamos lo que esté por login/toggles
   }
 
-  // Cola de participantes
+  // Cola catálogo
   if (!queueEnabled) {
     if (queueCard) queueCard.style.display = 'none';
     if (queueDiv) queueDiv.innerHTML = '';
-    if (btnToggleQueueCard) {
-      btnToggleQueueCard.style.display = 'none';
-      btnToggleQueueCard.dataset.disabled = 'true';
+    if (btnToggleQueue) {
+      btnToggleQueue.style.display = 'none';
+      btnToggleQueue.dataset.disabled = 'true';
     }
   } else {
-    if (btnToggleQueueCard) {
-      btnToggleQueueCard.dataset.disabled = 'false';
-      btnToggleQueueCard.style.display = loggedUser ? 'block' : 'none';
+    if (btnToggleQueue) {
+      btnToggleQueue.dataset.disabled = 'false';
+      btnToggleQueue.style.display = loggedUser ? 'block' : 'none';
     }
   }
 
-  // Sugerencia de canción
+  // Sugerencias
   if (!suggestionEnabled) {
     if (suggestCard) suggestCard.style.display = 'none';
-    if (btnToggleSuggestCard) {
-      btnToggleSuggestCard.style.display = 'none';
-      btnToggleSuggestCard.dataset.disabled = 'true';
+    if (btnToggleSuggest) {
+      btnToggleSuggest.style.display = 'none';
+      btnToggleSuggest.dataset.disabled = 'true';
     }
   } else {
-    if (btnToggleSuggestCard) {
-      btnToggleSuggestCard.dataset.disabled = 'false';
-      btnToggleSuggestCard.style.display = loggedUser ? 'block' : 'none';
+    if (btnToggleSuggest) {
+      btnToggleSuggest.dataset.disabled = 'false';
+      btnToggleSuggest.style.display = loggedUser ? 'block' : 'none';
     }
+  }
+
+  // Registro manual (formulario)
+  if (!manualRegisterEnabled) {
+    if (manualCard) manualCard.style.display = 'none';
+  } else {
+    if (manualCard) manualCard.style.display = loggedUser ? 'block' : 'none';
+  }
+
+  // Cola manual (lista)
+  if (!manualQueueEnabled) {
+    if (manualQueueCard) manualQueueCard.style.display = 'none';
+    if (btnToggleManualQueueCard) {
+      btnToggleManualQueueCard.style.display = 'none';
+      btnToggleManualQueueCard.dataset.disabled = 'true';
+    }
+  } else {
+    if (btnToggleManualQueueCard) {
+      btnToggleManualQueueCard.dataset.disabled = 'false';
+      btnToggleManualQueueCard.style.display = loggedUser ? 'block' : 'none';
+      btnToggleManualQueueCard.textContent = 'Mostrar cola de participantes (carga manual)';
+    }
+    if (manualQueueCard) {
+      manualQueueCard.style.display = 'none';
+    }
+  }
+
+  // Cola mixta
+  if (!mixedQueueEnabled) {
+    if (mixedCard) mixedCard.style.display = 'none';
+    if (mixedList) mixedList.innerHTML = '';
+    if (btnToggleMixedQueueCard) {
+      btnToggleMixedQueueCard.style.display = 'none';
+      btnToggleMixedQueueCard.dataset.disabled = 'true';
+    }
+  } else {
+    if (btnToggleMixedQueueCard) {
+      btnToggleMixedQueueCard.dataset.disabled = 'false';
+      btnToggleMixedQueueCard.style.display = loggedUser ? 'block' : 'none';
+      btnToggleMixedQueueCard.textContent = 'Mostrar cola mixta de participantes';
+    }
+    if (mixedCard) mixedCard.style.display = 'none';
+    if (loggedUser) loadMixedQueue();
+  }
+
+  startAutoRefreshQueues(features);
+}
+
+// ================== AUTO-REFRESCO ==================
+
+function startAutoRefreshQueues(features) {
+  if (queueInterval) {
+    clearInterval(queueInterval);
+    queueInterval = null;
+  }
+  if (manualQueueInterval) {
+    clearInterval(manualQueueInterval);
+    manualQueueInterval = null;
+  }
+  if (mixedQueueInterval) {
+    clearInterval(mixedQueueInterval);
+    mixedQueueInterval = null;
+  }
+
+  if (!loggedUser) return;
+
+  if (features.queue) {
+    loadQueue();
+    queueInterval = setInterval(loadQueue, 5000);
+  }
+
+  if (features.manualQueue) {
+    loadManualQueue();
+    manualQueueInterval = setInterval(loadManualQueue, 5000);
+  }
+
+  if (features.mixedQueue) {
+    loadMixedQueue();
+    mixedQueueInterval = setInterval(loadMixedQueue, 5000);
   }
 }
 
+// ================== Refresco en vivo de userFeatures ==================
 
-// ========== NUEVO: polling en vivo de userFeatures ==========
 function areFeaturesDifferent(a, b) {
   if (!a && !b) return false;
   if (!a || !b) return true;
   return (
-    (a.search !== b.search) ||
-    (a.queue !== b.queue) ||
-    (a.suggestion !== b.suggestion)
+    a.search         !== b.search ||
+    a.queue          !== b.queue ||
+    a.suggestion     !== b.suggestion ||
+    a.manualQueue    !== b.manualQueue ||
+    a.manualRegister !== b.manualRegister ||
+    a.mixedQueue     !== b.mixedQueue
   );
 }
 
-// Polling suave cada 8 segundos para refrescar banderas en vivo
 setInterval(async () => {
   try {
-    const res = await fetch(`${API_BASE}/api/public-info`, { cache: 'no-store' });
+    const res = await fetch(`${API_BASE}/api/public-info`, {
+      cache: 'no-store'
+    });
     const data = await res.json();
     if (!res.ok || !data.ok) return;
 
