@@ -257,6 +257,10 @@ async function loadQueueAdmin() {
     queue.forEach((item, idx) => {
       const row = document.createElement('div');
       row.className = 'queue-admin-item-line';
+      if (idx === 0) {
+        row.style.background = '#bbf7d0';
+        row.style.color = '#111827';
+      }
 
       const content = document.createElement('div');
       content.className = 'queue-admin-item-content';
@@ -395,6 +399,10 @@ async function loadManualQueueAdmin() {
     queue.forEach((item, idx) => {
       const row = document.createElement('div');
       row.className = 'queue-admin-item-line';
+      if (idx === 0) {
+        row.style.background = '#bbf7d0';
+        row.style.color = '#111827';
+      }
 
       const content = document.createElement('div');
       content.className = 'queue-admin-item-content';
@@ -542,6 +550,10 @@ async function loadMixedQueueAdmin() {
     queue.forEach((item, idx) => {
       const row = document.createElement('div');
       row.className = 'queue-admin-item-line';
+      if (idx === 0) {
+        row.style.background = '#bbf7d0';
+        row.style.color = '#111827';
+      }
 
       // Clases de color para el borde
       if (item.source === 'catalog') {
@@ -561,23 +573,33 @@ async function loadMixedQueueAdmin() {
       const artistUpper    = toUpperNoAccents(item.displaySongArtist || item.artist || '');
       const tiempoEnCola   = formatTiempoEnCola(item.createdAt);
 
-      // Etiqueta visible de origen
-      let sourceLabel = '';
+      // Etiqueta visible de origen con color
+      const sourceLabelSpan = document.createElement('span');
       if (item.source === 'manual') {
-        sourceLabel = '[MANUAL]';
+        sourceLabelSpan.textContent = '[MANUAL]';
+        sourceLabelSpan.style.color = '#f97316';
+        sourceLabelSpan.style.fontWeight = '700';
       } else {
-        sourceLabel = '[CATÁLOGO]';
+        sourceLabelSpan.textContent = '[CATÁLOGO]';
+        sourceLabelSpan.style.color = '#22c55e';
+        sourceLabelSpan.style.fontWeight = '700';
       }
 
-      let linea = `${idx + 1}. ${sourceLabel} Mesa ${item.tableNumber} - ${userNameUpper} - ${songTitleUpper}`;
+      let lineaResto = ` Mesa ${item.tableNumber} - ${userNameUpper} - ${songTitleUpper}`;
       if (artistUpper) {
-        linea += ` _ ${artistUpper}`;
+        lineaResto += ` _ ${artistUpper}`;
       }
       if (tiempoEnCola) {
-        linea += ` | ${tiempoEnCola}`;
+        lineaResto += ` | ${tiempoEnCola}`;
       }
 
-      textSpan.textContent = linea;
+      const indexSpan = document.createElement('span');
+      indexSpan.textContent = `${idx + 1}. `;
+      textSpan.appendChild(indexSpan);
+      textSpan.appendChild(sourceLabelSpan);
+      const restoSpan = document.createElement('span');
+      restoSpan.textContent = lineaResto;
+      textSpan.appendChild(restoSpan);
       content.appendChild(textSpan);
 
       const actions = document.createElement('div');

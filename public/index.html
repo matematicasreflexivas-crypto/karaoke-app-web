@@ -221,10 +221,10 @@
     }
 
     .queue-item-is-current {
-      background: #f9fafb !important;
+      background: #bbf7d0 !important;
       color: #111827 !important;
-      border: 1px solid #a855f7 !important;
-      box-shadow: 0 0 0 2px rgba(168,85,247,0.6);
+      border: 1px solid #22c55e !important;
+      box-shadow: 0 0 0 2px rgba(34,197,94,0.6);
     }
 
     #user-content.layout {
@@ -378,9 +378,15 @@
         <div class="card" id="manual-card" style="display:none;">
           <h2>Registro manual</h2>
           <div class="form-group">
-            <input id="manual-title" type="text" placeholder="Título de la canción" />
-            <input id="manual-artist" type="text" placeholder="Intérprete" />
-            <button id="btn-send-manual" class="btn-primary">Registrar canción manual</button>
+            <div class="search-fields">
+              <div class="search-field">
+                <input id="manual-title" type="text" placeholder="Título de la canción" />
+              </div>
+              <div class="search-field">
+                <input id="manual-artist" type="text" placeholder="Intérprete" />
+              </div>
+            </div>
+            <button id="btn-send-manual" class="btn-primary" style="background: #22c55e;">Registrar canción manual</button>
           </div>
         </div>
 

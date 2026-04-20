@@ -50,10 +50,12 @@ function debounce(fn, delay = 400) {
 }
 
 function ensureResultsVisible() {
+  const resultsCard = document.getElementById('search-results-card');
   const searchCard = document.getElementById('search-card');
-  if (!searchCard) return;
+  const target = resultsCard && resultsCard.style.display !== 'none' ? resultsCard : searchCard;
+  if (!target) return;
   setTimeout(() => {
-    searchCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, 100);
 }
 
@@ -519,12 +521,24 @@ if (artistInput2) {
     if (!loggedUser) return;
     debouncedSearch();
   });
+  artistInput2.addEventListener('focus', () => {
+    setTimeout(() => {
+      const searchCard = document.getElementById('search-card');
+      if (searchCard) searchCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 300);
+  });
 }
 
 if (titleInput2) {
   titleInput2.addEventListener('input', () => {
     if (!loggedUser) return;
     debouncedSearch();
+  });
+  titleInput2.addEventListener('focus', () => {
+    setTimeout(() => {
+      const searchCard = document.getElementById('search-card');
+      if (searchCard) searchCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 300);
   });
 }
 
