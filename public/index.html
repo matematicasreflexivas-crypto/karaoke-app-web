@@ -120,6 +120,12 @@
       width: 100%;
     }
 
+    .btn-danger {
+      background: linear-gradient(135deg, #dc2626, #b91c1c);
+      color: #f9fafb;
+      width: 100%;
+    }
+
     /* Botones de control dinámicos: Estilo especial para que el usuario los distinga */
     .btn-toggle-action {
       background: #374151;
@@ -283,6 +289,10 @@
 
     <button id="btn-toggle-login-card" class="btn-primary top-toggle-login" style="display:none;">
       Mostrar datos de registro
+    </button>
+
+    <button id="btn-logout" class="btn-danger top-toggle-login" style="display:none;">
+      Cerrar sesión
     </button>
 
     <div class="card" id="login-card">

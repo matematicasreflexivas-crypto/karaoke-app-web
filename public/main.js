@@ -171,6 +171,9 @@ document.getElementById('btn-login').onclick = async () => {
     toggleLoginBtn.textContent = 'Mostrar datos de registro';
   }
 
+  const logoutBtn = document.getElementById('btn-logout');
+  if (logoutBtn) logoutBtn.style.display = 'block';
+
   if (searchCard) searchCard.style.display = 'block';
   if (btnToggleSearchCard) {
     btnToggleSearchCard.style.display = 'block';
@@ -209,6 +212,55 @@ document.getElementById('btn-login').onclick = async () => {
 
   startAutoRefreshQueues(window.__lastUserFeatures || {});
 };
+
+// ================== CERRAR SESIÓN ==================
+
+const btnLogout = document.getElementById('btn-logout');
+if (btnLogout) {
+  btnLogout.onclick = () => {
+    if (!confirm('¿Seguro que quieres cerrar la sesión?')) return;
+
+    // Detener intervalos de refresco
+    if (queueInterval)       { clearInterval(queueInterval);       queueInterval       = null; }
+    if (manualQueueInterval) { clearInterval(manualQueueInterval); manualQueueInterval = null; }
+    if (mixedQueueInterval)  { clearInterval(mixedQueueInterval);  mixedQueueInterval  = null; }
+
+    // Resetear estado de sesión
+    loggedUser               = null;
+    window.currentUserName   = null;
+    window.currentUserTable  = null;
+    window.currentSingerName = null;
+    hasSuggestedWhileInQueue = false;
+
+    // Ocultar contenido de usuario y mostrar login
+    const userContent = document.getElementById('user-content');
+    if (userContent) userContent.style.display = 'none';
+
+    const loginCard = document.getElementById('login-card');
+    if (loginCard) loginCard.style.display = 'block';
+
+    // Limpiar campos de login
+    const nameInput  = document.getElementById('name');
+    const tableInput = document.getElementById('table');
+    const passInput  = document.getElementById('pass');
+    if (nameInput)  nameInput.value  = '';
+    if (tableInput) tableInput.value = '';
+    if (passInput)  passInput.value  = '';
+
+    // Ocultar botones de toggle y logout
+    btnLogout.style.display = 'none';
+    const toggleLoginBtn = document.getElementById('btn-toggle-login-card');
+    if (toggleLoginBtn) toggleLoginBtn.style.display = 'none';
+
+    // Limpiar colas
+    const queueDiv = document.getElementById('queue');
+    if (queueDiv) queueDiv.innerHTML = '';
+    const manualQueueDiv = document.getElementById('manual-queue');
+    if (manualQueueDiv) manualQueueDiv.innerHTML = '';
+    const mixedQueueList = document.getElementById('mixed-queue-list');
+    if (mixedQueueList) mixedQueueList.innerHTML = '';
+  };
+}
 
 // ================== TOGGLE DE FICHA DE REGISTRO ==================
 
