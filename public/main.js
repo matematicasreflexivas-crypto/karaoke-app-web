@@ -227,9 +227,8 @@ function logout() {
   window.__lastUserFeatures     = null;
   hasSuggestedWhileInQueue      = false;
 
-  // Limpiar almacenamiento
-  try { localStorage.clear();   } catch (e) { /* ignorar */ }
-  try { sessionStorage.clear(); } catch (e) { /* ignorar */ }
+  // Limpiar almacenamiento de sesión de la aplicación
+  try { sessionStorage.removeItem('karaokeUser'); } catch (e) { /* ignorar */ }
 
   // Ocultar contenido de usuario y mostrar login
   const userContent   = document.getElementById('user-content');
