@@ -244,6 +244,13 @@
     .mixed-from-catalog { border-left: 3px solid #22c55e; }
     .mixed-from-manual { border-left: 3px solid #f97316; }
 
+    .btn-logout {
+      background: linear-gradient(135deg, #dc2626, #b91c1c);
+      color: #f9fafb;
+      width: 100%;
+      margin-bottom: 4px;
+    }
+
     @media (min-width: 768px) {
       .container { width: 480px; }
     }
@@ -311,6 +318,9 @@
     <div id="user-content" class="layout" style="display:none;">
 
       <div class="top-buttons">
+        <button id="btn-logout" class="btn-logout" style="display:none;">
+          Cerrar sesión
+        </button>
         <button id="btn-toggle-search-card" class="btn-primary btn-toggle-action" style="display:none;">
           Ocultar "Buscar canción"
         </button>

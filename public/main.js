@@ -166,6 +166,9 @@ document.getElementById('btn-login').onclick = async () => {
   if (loginCard) loginCard.style.display = 'none';
   if (userContent) userContent.style.display = 'block';
 
+  const btnLogoutEl = document.getElementById('btn-logout');
+  if (btnLogoutEl) btnLogoutEl.style.display = 'block';
+
   if (toggleLoginBtn) {
     toggleLoginBtn.style.display = 'block';
     toggleLoginBtn.textContent = 'Mostrar datos de registro';
@@ -209,6 +212,56 @@ document.getElementById('btn-login').onclick = async () => {
 
   startAutoRefreshQueues(window.__lastUserFeatures || {});
 };
+
+// ================== LOGOUT DE USUARIO ==================
+
+function logout() {
+  loggedUser = null;
+  window.currentUserName = null;
+  window.currentUserTable = null;
+  window.currentSingerName = null;
+  window.__extraManualSingerName = null;
+  hasSuggestedWhileInQueue = false;
+
+  localStorage.clear();
+  sessionStorage.clear();
+
+  if (queueInterval)       { clearInterval(queueInterval);       queueInterval       = null; }
+  if (manualQueueInterval) { clearInterval(manualQueueInterval); manualQueueInterval = null; }
+  if (mixedQueueInterval)  { clearInterval(mixedQueueInterval);  mixedQueueInterval  = null; }
+
+  const userContent   = document.getElementById('user-content');
+  const loginCard     = document.getElementById('login-card');
+  const btnLogout     = document.getElementById('btn-logout');
+  const toggleLoginBtn = document.getElementById('btn-toggle-login-card');
+
+  if (userContent)    userContent.style.display   = 'none';
+  if (loginCard)      loginCard.style.display      = 'block';
+  if (btnLogout)      btnLogout.style.display      = 'none';
+  if (toggleLoginBtn) toggleLoginBtn.style.display = 'none';
+
+  const toggleIds = [
+    'btn-toggle-search-card',
+    'btn-toggle-queue-card',
+    'btn-toggle-manual-queue-card',
+    'btn-toggle-mixed-queue-card',
+    'btn-toggle-suggest-card'
+  ];
+  toggleIds.forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.style.display = 'none';
+  });
+
+  ['name', 'table', 'pass'].forEach(id => {
+    const inp = document.getElementById(id);
+    if (inp) inp.value = '';
+  });
+
+  window.scrollTo(0, 0);
+}
+
+const btnLogout = document.getElementById('btn-logout');
+if (btnLogout) btnLogout.onclick = logout;
 
 // ================== TOGGLE DE FICHA DE REGISTRO ==================
 
