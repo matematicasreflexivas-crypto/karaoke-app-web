@@ -392,6 +392,40 @@ if (btnToggleSuggestCard2) {
   };
 }
 
+// toggle cola manual
+const btnToggleManualQueueCard2 = document.getElementById('btn-toggle-manual-queue-card');
+if (btnToggleManualQueueCard2) {
+  btnToggleManualQueueCard2.onclick = () => {
+    if (btnToggleManualQueueCard2.dataset.disabled === 'true') return;
+
+    const manualQueueCard = document.getElementById('manual-queue-card');
+    if (!manualQueueCard) return;
+
+    const visible = manualQueueCard.style.display !== 'none';
+    manualQueueCard.style.display = visible ? 'none' : 'block';
+    btnToggleManualQueueCard2.textContent = visible
+      ? 'Mostrar cola de participantes (carga manual)'
+      : 'Ocultar cola de participantes (carga manual)';
+  };
+}
+
+// toggle cola mixta
+const btnToggleMixedQueueCard2 = document.getElementById('btn-toggle-mixed-queue-card');
+if (btnToggleMixedQueueCard2) {
+  btnToggleMixedQueueCard2.onclick = () => {
+    if (btnToggleMixedQueueCard2.dataset.disabled === 'true') return;
+
+    const mixedQueueCard = document.getElementById('mixed-queue-card');
+    if (!mixedQueueCard) return;
+
+    const visible = mixedQueueCard.style.display !== 'none';
+    mixedQueueCard.style.display = visible ? 'none' : 'block';
+    btnToggleMixedQueueCard2.textContent = visible
+      ? 'Mostrar cola mixta de participantes'
+      : 'Ocultar cola mixta de participantes';
+  };
+}
+
 // búsqueda en vivo
 const artistInput2 = document.getElementById('artist');
 const titleInput2  = document.getElementById('title');
@@ -566,6 +600,7 @@ async function loadQueue() {
   const div = document.getElementById('queue');
   if (!div) return;
 
+  const savedScroll = div.scrollTop;
   div.innerHTML = '';
 
   if (!data.ok) {
@@ -632,6 +667,8 @@ async function loadQueue() {
     div.appendChild(p);
   });
 
+  div.scrollTop = savedScroll;
+
   if (!isUserInQueue) {
     hasSuggestedWhileInQueue = false;
   }
@@ -664,6 +701,7 @@ async function loadManualQueue() {
   div.style.maxHeight = '60vh';
   div.style.overflowY = 'auto';
 
+  const savedScroll = div.scrollTop;
   div.innerHTML = '';
 
   if (!data.ok) {
@@ -738,6 +776,8 @@ async function loadManualQueue() {
 
     div.appendChild(p);
   });
+
+  div.scrollTop = savedScroll;
 }
 
 // ================== COLA MIXTA ==================
@@ -756,7 +796,7 @@ async function loadMixedQueue() {
     return;
   }
 
-  container.textContent = 'Cargando cola mixta...';
+  const savedScroll = container.scrollTop;
 
   let res, data;
   try {
@@ -854,6 +894,8 @@ async function loadMixedQueue() {
 
     container.appendChild(row);
   });
+
+  container.scrollTop = savedScroll;
 
   const card = document.getElementById('mixed-queue-card');
   if (card) card.style.display = 'block';
@@ -1321,10 +1363,12 @@ function applyUserFeatures(features) {
     if (btnToggleManualQueueCard) {
       btnToggleManualQueueCard.dataset.disabled = 'false';
       btnToggleManualQueueCard.style.display = loggedUser ? 'block' : 'none';
-      btnToggleManualQueueCard.textContent = 'Mostrar cola de participantes (carga manual)';
+      btnToggleManualQueueCard.textContent = loggedUser
+        ? 'Ocultar cola de participantes (carga manual)'
+        : 'Mostrar cola de participantes (carga manual)';
     }
     if (manualQueueCard) {
-      manualQueueCard.style.display = 'none';
+      manualQueueCard.style.display = loggedUser ? 'block' : 'none';
     }
   }
 
@@ -1340,9 +1384,11 @@ function applyUserFeatures(features) {
     if (btnToggleMixedQueueCard) {
       btnToggleMixedQueueCard.dataset.disabled = 'false';
       btnToggleMixedQueueCard.style.display = loggedUser ? 'block' : 'none';
-      btnToggleMixedQueueCard.textContent = 'Mostrar cola mixta de participantes';
+      btnToggleMixedQueueCard.textContent = loggedUser
+        ? 'Ocultar cola mixta de participantes'
+        : 'Mostrar cola mixta de participantes';
     }
-    if (mixedCard) mixedCard.style.display = 'none';
+    if (mixedCard) mixedCard.style.display = loggedUser ? 'block' : 'none';
     if (loggedUser) loadMixedQueue();
   }
 
