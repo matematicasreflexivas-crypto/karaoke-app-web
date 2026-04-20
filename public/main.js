@@ -166,6 +166,9 @@ document.getElementById('btn-login').onclick = async () => {
   if (loginCard) loginCard.style.display = 'none';
   if (userContent) userContent.style.display = 'block';
 
+  const btnLogout = document.getElementById('btn-logout');
+  if (btnLogout) btnLogout.style.display = 'block';
+
   if (toggleLoginBtn) {
     toggleLoginBtn.style.display = 'block';
     toggleLoginBtn.textContent = 'Mostrar datos de registro';
@@ -389,6 +392,111 @@ if (btnToggleSuggestCard2) {
     btnToggleSuggestCard2.textContent = visible
       ? 'Mostrar sugerencia de canción'
       : 'Ocultar sugerencia de canción';
+  };
+}
+
+// toggle cola manual
+const btnToggleManualQueueCard = document.getElementById('btn-toggle-manual-queue-card');
+if (btnToggleManualQueueCard) {
+  btnToggleManualQueueCard.onclick = () => {
+    if (btnToggleManualQueueCard.dataset.disabled === 'true') return;
+
+    const manualQueueCard = document.getElementById('manual-queue-card');
+    if (!manualQueueCard) return;
+
+    const visible = manualQueueCard.style.display !== 'none';
+    if (visible) {
+      manualQueueCard.style.display = 'none';
+      btnToggleManualQueueCard.textContent = 'Mostrar cola de participantes (carga manual)';
+    } else {
+      manualQueueCard.style.display = 'block';
+      btnToggleManualQueueCard.textContent = 'Ocultar cola de participantes (carga manual)';
+    }
+  };
+}
+
+// toggle cola mixta
+const btnToggleMixedQueueCard = document.getElementById('btn-toggle-mixed-queue-card');
+if (btnToggleMixedQueueCard) {
+  btnToggleMixedQueueCard.onclick = () => {
+    if (btnToggleMixedQueueCard.dataset.disabled === 'true') return;
+
+    const mixedCard = document.getElementById('mixed-queue-card');
+    if (!mixedCard) return;
+
+    const visible = mixedCard.style.display !== 'none';
+    if (visible) {
+      mixedCard.style.display = 'none';
+      btnToggleMixedQueueCard.textContent = 'Mostrar cola mixta de participantes';
+    } else {
+      mixedCard.style.display = 'block';
+      btnToggleMixedQueueCard.textContent = 'Ocultar cola mixta de participantes';
+    }
+  };
+}
+
+// ================== CERRAR SESIÓN ==================
+
+function logout() {
+  // Detener todos los refrescos automáticos
+  if (queueInterval)       { clearInterval(queueInterval);       queueInterval       = null; }
+  if (manualQueueInterval) { clearInterval(manualQueueInterval); manualQueueInterval = null; }
+  if (mixedQueueInterval)  { clearInterval(mixedQueueInterval);  mixedQueueInterval  = null; }
+
+  // Limpiar estado de sesión
+  loggedUser               = null;
+  window.currentUserName   = null;
+  window.currentUserTable  = null;
+  window.currentSingerName = null;
+  hasSuggestedWhileInQueue = false;
+
+  // Limpiar contenidos de las colas
+  const queueDiv    = document.getElementById('queue');
+  const manualQueue = document.getElementById('manual-queue');
+  const mixedQueue  = document.getElementById('mixed-queue-list');
+  if (queueDiv)    queueDiv.innerHTML    = '';
+  if (manualQueue) manualQueue.innerHTML = '';
+  if (mixedQueue)  mixedQueue.innerHTML  = '';
+
+  // Ocultar pantalla de usuario, mostrar tarjeta de login
+  const loginCard   = document.getElementById('login-card');
+  const userContent = document.getElementById('user-content');
+  if (loginCard)   loginCard.style.display   = 'block';
+  if (userContent) userContent.style.display = 'none';
+
+  // Ocultar botón de cerrar sesión y toggle de ficha de registro
+  const btnLogout      = document.getElementById('btn-logout');
+  const toggleLoginBtn = document.getElementById('btn-toggle-login-card');
+  if (btnLogout)      btnLogout.style.display      = 'none';
+  if (toggleLoginBtn) toggleLoginBtn.style.display = 'none';
+
+  // Ocultar todos los botones de toggle de secciones
+  [
+    'btn-toggle-search-card',
+    'btn-toggle-queue-card',
+    'btn-toggle-manual-queue-card',
+    'btn-toggle-mixed-queue-card',
+    'btn-toggle-suggest-card'
+  ].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.style.display = 'none';
+  });
+
+  // Limpiar campos del formulario de login
+  const nameInput  = document.getElementById('name');
+  const tableInput = document.getElementById('table');
+  const passInput  = document.getElementById('pass');
+  if (nameInput)  nameInput.value  = '';
+  if (tableInput) tableInput.value = '';
+  if (passInput)  passInput.value  = '';
+}
+
+const btnLogoutEl = document.getElementById('btn-logout');
+if (btnLogoutEl) {
+  btnLogoutEl.onclick = () => {
+    if (confirm('¿Cerrar sesión?')) {
+      logout();
+    }
   };
 }
 
