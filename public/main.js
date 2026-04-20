@@ -210,7 +210,84 @@ document.getElementById('btn-login').onclick = async () => {
   startAutoRefreshQueues(window.__lastUserFeatures || {});
 };
 
-// ================== TOGGLE DE FICHA DE REGISTRO ==================
+// ================== LOGOUT DE USUARIO ==================
+
+function performLogout() {
+  // Detener todos los intervalos de refresco
+  if (queueInterval)       { clearInterval(queueInterval);       queueInterval       = null; }
+  if (manualQueueInterval) { clearInterval(manualQueueInterval); manualQueueInterval = null; }
+  if (mixedQueueInterval)  { clearInterval(mixedQueueInterval);  mixedQueueInterval  = null; }
+
+  // Limpiar estado de sesión
+  loggedUser                   = null;
+  window.currentUserName       = null;
+  window.currentUserTable      = null;
+  window.currentSingerName     = null;
+  window.__extraManualSingerName = null;
+  hasSuggestedWhileInQueue     = false;
+
+  // Limpiar contenido de las colas
+  const queueDiv      = document.getElementById('queue');
+  const manualQueueDiv = document.getElementById('manual-queue');
+  const mixedQueueDiv  = document.getElementById('mixed-queue-list');
+  if (queueDiv)       queueDiv.innerHTML       = '';
+  if (manualQueueDiv) manualQueueDiv.innerHTML = '';
+  if (mixedQueueDiv)  mixedQueueDiv.innerHTML  = '';
+
+  // Ocultar contenido de usuario y mostrar login
+  const userContent  = document.getElementById('user-content');
+  const loginCard    = document.getElementById('login-card');
+  const toggleLoginBtn = document.getElementById('btn-toggle-login-card');
+
+  if (userContent)    userContent.style.display  = 'none';
+  if (loginCard)      loginCard.style.display     = 'block';
+  if (toggleLoginBtn) toggleLoginBtn.style.display = 'none';
+
+  // Limpiar campos del formulario de login
+  const nameInput  = document.getElementById('name');
+  const tableInput = document.getElementById('table');
+  const passInput  = document.getElementById('pass');
+  if (nameInput)  nameInput.value  = '';
+  if (tableInput) tableInput.value = '';
+  if (passInput)  passInput.value  = '';
+
+  // Resetear los botones de toggle a estado inicial (ocultos)
+  const toggleIds = [
+    'btn-toggle-search-card',
+    'btn-toggle-queue-card',
+    'btn-toggle-manual-queue-card',
+    'btn-toggle-mixed-queue-card',
+    'btn-toggle-suggest-card'
+  ];
+  toggleIds.forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.style.display = 'none';
+  });
+
+  // Resetear visibilidad de secciones a estado pre-login
+  const searchCard     = document.getElementById('search-card');
+  const suggestCard    = document.getElementById('suggest-card');
+  const manualCard     = document.getElementById('manual-card');
+  const manualQueueCard = document.getElementById('manual-queue-card');
+  const mixedQueueCard  = document.getElementById('mixed-queue-card');
+  const queueCard       = document.getElementById('queue-card');
+
+  if (searchCard)      searchCard.style.display      = 'block';
+  if (suggestCard)     suggestCard.style.display      = 'none';
+  if (manualCard)      manualCard.style.display       = 'none';
+  if (manualQueueCard) manualQueueCard.style.display  = 'none';
+  if (mixedQueueCard)  mixedQueueCard.style.display   = 'none';
+  if (queueCard)       queueCard.style.display        = 'block';
+}
+
+const btnLogout = document.getElementById('btn-logout');
+if (btnLogout) {
+  btnLogout.onclick = () => {
+    performLogout();
+  };
+}
+
+
 
 const toggleLoginBtn2 = document.getElementById('btn-toggle-login-card');
 if (toggleLoginBtn2) {
@@ -391,6 +468,41 @@ if (btnToggleSuggestCard2) {
       : 'Ocultar sugerencia de canción';
   };
 }
+
+// toggle cola manual
+const btnToggleManualQueueCard2 = document.getElementById('btn-toggle-manual-queue-card');
+if (btnToggleManualQueueCard2) {
+  btnToggleManualQueueCard2.onclick = () => {
+    if (btnToggleManualQueueCard2.dataset.disabled === 'true') return;
+
+    const manualQueueCard = document.getElementById('manual-queue-card');
+    if (!manualQueueCard) return;
+
+    const visible = manualQueueCard.style.display !== 'none';
+    manualQueueCard.style.display = visible ? 'none' : 'block';
+    btnToggleManualQueueCard2.textContent = visible
+      ? 'Mostrar cola de participantes (carga manual)'
+      : 'Ocultar cola de participantes (carga manual)';
+  };
+}
+
+// toggle cola mixta
+const btnToggleMixedQueueCard2 = document.getElementById('btn-toggle-mixed-queue-card');
+if (btnToggleMixedQueueCard2) {
+  btnToggleMixedQueueCard2.onclick = () => {
+    if (btnToggleMixedQueueCard2.dataset.disabled === 'true') return;
+
+    const mixedQueueCard = document.getElementById('mixed-queue-card');
+    if (!mixedQueueCard) return;
+
+    const visible = mixedQueueCard.style.display !== 'none';
+    mixedQueueCard.style.display = visible ? 'none' : 'block';
+    btnToggleMixedQueueCard2.textContent = visible
+      ? 'Mostrar cola mixta de participantes'
+      : 'Ocultar cola mixta de participantes';
+  };
+}
+
 
 // búsqueda en vivo
 const artistInput2 = document.getElementById('artist');
