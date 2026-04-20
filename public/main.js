@@ -210,6 +210,56 @@ document.getElementById('btn-login').onclick = async () => {
   startAutoRefreshQueues(window.__lastUserFeatures || {});
 };
 
+// ================== CERRAR SESIÓN ==================
+
+function doLogout() {
+  // Detener todos los intervalos de refresco
+  if (queueInterval) { clearInterval(queueInterval); queueInterval = null; }
+  if (manualQueueInterval) { clearInterval(manualQueueInterval); manualQueueInterval = null; }
+  if (mixedQueueInterval) { clearInterval(mixedQueueInterval); mixedQueueInterval = null; }
+
+  // Limpiar estado de sesión
+  loggedUser = null;
+  window.currentUserName   = null;
+  window.currentUserTable  = null;
+  window.currentSingerName = null;
+  hasSuggestedWhileInQueue = false;
+  window.__extraManualSingerName = null;
+
+  // Ocultar panel de usuario y mostrar login
+  const userContent = document.getElementById('user-content');
+  if (userContent) userContent.style.display = 'none';
+
+  const loginCard = document.getElementById('login-card');
+  if (loginCard) loginCard.style.display = 'block';
+
+  const toggleLoginBtn = document.getElementById('btn-toggle-login-card');
+  if (toggleLoginBtn) toggleLoginBtn.style.display = 'none';
+
+  // Limpiar campos del formulario de login
+  const nameInput  = document.getElementById('name');
+  const tableInput = document.getElementById('table');
+  const passInput  = document.getElementById('pass');
+  if (nameInput)  nameInput.value  = '';
+  if (tableInput) tableInput.value = '';
+  if (passInput)  passInput.value  = '';
+
+  // Limpiar colas
+  const queueDiv    = document.getElementById('queue');
+  const manualQueue = document.getElementById('manual-queue');
+  const mixedList   = document.getElementById('mixed-queue-list');
+  if (queueDiv)    queueDiv.innerHTML    = '';
+  if (manualQueue) manualQueue.innerHTML = '';
+  if (mixedList)   mixedList.innerHTML   = '';
+}
+
+const btnLogout = document.getElementById('btn-logout');
+if (btnLogout) {
+  btnLogout.onclick = () => {
+    doLogout();
+  };
+}
+
 // ================== TOGGLE DE FICHA DE REGISTRO ==================
 
 const toggleLoginBtn2 = document.getElementById('btn-toggle-login-card');
