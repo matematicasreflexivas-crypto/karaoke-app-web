@@ -229,6 +229,40 @@ if (toggleLoginBtn2) {
   };
 }
 
+// ================== CERRAR SESIÓN ==================
+
+const btnLogout = document.getElementById('btn-logout');
+if (btnLogout) {
+  btnLogout.onclick = () => {
+    loggedUser = null;
+    window.currentUserName   = null;
+    window.currentUserTable  = null;
+    window.currentSingerName = null;
+    window.__extraManualSingerName = null;
+    window.__lastUserFeatures = null;
+    hasSuggestedWhileInQueue = false;
+
+    if (queueInterval)       { clearInterval(queueInterval);       queueInterval       = null; }
+    if (manualQueueInterval) { clearInterval(manualQueueInterval); manualQueueInterval = null; }
+    if (mixedQueueInterval)  { clearInterval(mixedQueueInterval);  mixedQueueInterval  = null; }
+
+    const loginCard   = document.getElementById('login-card');
+    const userContent = document.getElementById('user-content');
+    const toggleBtn   = document.getElementById('btn-toggle-login-card');
+
+    if (loginCard)   { loginCard.style.display   = 'block'; }
+    if (userContent) { userContent.style.display = 'none';  }
+    if (toggleBtn)   { toggleBtn.style.display   = 'none';  }
+
+    const nameInput  = document.getElementById('name');
+    const tableInput = document.getElementById('table');
+    const passInput  = document.getElementById('pass');
+    if (nameInput)  nameInput.value  = '';
+    if (tableInput) tableInput.value = '';
+    if (passInput)  passInput.value  = '';
+  };
+}
+
 // ================== Búsqueda ==================
 
 const debouncedSearch = debounce(performSearch, 400);
