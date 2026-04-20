@@ -13,6 +13,7 @@ window.currentSingerName = null;
 let queueInterval       = null;
 let manualQueueInterval = null;
 let mixedQueueInterval  = null;
+let publicInfoInterval  = null;
 
 // ================== Helpers generales ==================
 
@@ -100,8 +101,10 @@ async function loadPublicInfo() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  loadPublicInfo();
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadPublicInfo();
+  await restoreSession();
+  startPublicInfoRefresh();
 });
 
 // ================== LOGIN DE USUARIO ==================
@@ -150,6 +153,8 @@ document.getElementById('btn-login').onclick = async () => {
   window.currentUserTable  = table.trim();
   window.currentSingerName = name.trim();
 
+  localStorage.setItem('karaokeSession', JSON.stringify({ name, table, pass }));
+
   alert('Ingresaste como ' + name);
 
   const loginCard            = document.getElementById('login-card');
@@ -165,6 +170,9 @@ document.getElementById('btn-login').onclick = async () => {
 
   if (loginCard) loginCard.style.display = 'none';
   if (userContent) userContent.style.display = 'block';
+
+  const logoutBtn = document.getElementById('btn-logout');
+  if (logoutBtn) logoutBtn.style.display = 'block';
 
   if (toggleLoginBtn) {
     toggleLoginBtn.style.display = 'block';
@@ -208,6 +216,7 @@ document.getElementById('btn-login').onclick = async () => {
   await loadMixedQueue();
 
   startAutoRefreshQueues(window.__lastUserFeatures || {});
+  startPublicInfoRefresh();
 };
 
 // ================== TOGGLE DE FICHA DE REGISTRO ==================
@@ -1398,21 +1407,207 @@ function areFeaturesDifferent(a, b) {
   );
 }
 
-setInterval(async () => {
-  try {
-    const res = await fetch(`${API_BASE}/api/public-info`, {
-      cache: 'no-store'
-    });
-    const data = await res.json();
-    if (!res.ok || !data.ok) return;
-
-    const newFeatures = data.userFeatures || {};
-    const last = window.__lastUserFeatures || {};
-
-    if (areFeaturesDifferent(last, newFeatures)) {
-      applyUserFeatures(newFeatures);
-    }
-  } catch (e) {
-    console.error('Error refrescando userFeatures en vivo', e);
+function startPublicInfoRefresh() {
+  if (publicInfoInterval) {
+    clearInterval(publicInfoInterval);
+    publicInfoInterval = null;
   }
-}, 8000);
+  publicInfoInterval = setInterval(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/public-info`, {
+        cache: 'no-store'
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.ok) return;
+
+      const newFeatures = data.userFeatures || {};
+      const last = window.__lastUserFeatures || {};
+
+      if (areFeaturesDifferent(last, newFeatures)) {
+        applyUserFeatures(newFeatures);
+      }
+    } catch (e) {
+      console.error('Error refrescando userFeatures en vivo', e);
+    }
+  }, 8000);
+}
+
+// ================== CERRAR SESIÓN ==================
+
+function logout() {
+  // Detener todos los intervalos de refresco
+  if (queueInterval)       { clearInterval(queueInterval);       queueInterval       = null; }
+  if (manualQueueInterval) { clearInterval(manualQueueInterval); manualQueueInterval = null; }
+  if (mixedQueueInterval)  { clearInterval(mixedQueueInterval);  mixedQueueInterval  = null; }
+  if (publicInfoInterval)  { clearInterval(publicInfoInterval);  publicInfoInterval  = null; }
+
+  // Limpiar estado de sesión en memoria
+  loggedUser                     = null;
+  window.currentUserName         = null;
+  window.currentUserTable        = null;
+  window.currentSingerName       = null;
+  window.__extraManualSingerName = null;
+  hasSuggestedWhileInQueue       = false;
+
+  // Limpiar persistencia local
+  localStorage.removeItem('karaokeSession');
+
+  // Limpiar contenido de colas y búsquedas
+  const queueDiv       = document.getElementById('queue');
+  const manualQueueDiv = document.getElementById('manual-queue');
+  const mixedQueueDiv  = document.getElementById('mixed-queue-list');
+  const songsDiv       = document.getElementById('songs');
+  const resultsCard    = getResultsCard();
+
+  if (queueDiv)       queueDiv.innerHTML        = '';
+  if (manualQueueDiv) manualQueueDiv.innerHTML  = '';
+  if (mixedQueueDiv)  mixedQueueDiv.innerHTML   = '';
+  if (songsDiv)       songsDiv.innerHTML        = '';
+  if (resultsCard)    resultsCard.style.display = 'none';
+
+  // Restaurar inputs de login
+  const nameInput  = document.getElementById('name');
+  const tableInput = document.getElementById('table');
+  const passInput  = document.getElementById('pass');
+  if (nameInput)  nameInput.value  = '';
+  if (tableInput) tableInput.value = '';
+  if (passInput)  passInput.value  = '';
+
+  // Restaurar UI al estado pre-login
+  const loginCard      = document.getElementById('login-card');
+  const userContent    = document.getElementById('user-content');
+  const toggleLoginBtn = document.getElementById('btn-toggle-login-card');
+  const logoutBtn      = document.getElementById('btn-logout');
+
+  if (loginCard)      loginCard.style.display      = 'block';
+  if (userContent)    userContent.style.display    = 'none';
+  if (toggleLoginBtn) toggleLoginBtn.style.display = 'none';
+  if (logoutBtn)      logoutBtn.style.display      = 'none';
+}
+
+const btnLogout = document.getElementById('btn-logout');
+if (btnLogout) {
+  btnLogout.onclick = () => {
+    if (confirm('¿Seguro que quieres cerrar sesión?')) {
+      logout();
+    }
+  };
+}
+
+// ================== RESTAURAR SESIÓN (al recargar) ==================
+
+async function restoreSession() {
+  let saved;
+  try {
+    saved = localStorage.getItem('karaokeSession');
+  } catch (e) {
+    return;
+  }
+  if (!saved) return;
+
+  let session;
+  try {
+    session = JSON.parse(saved);
+  } catch (e) {
+    localStorage.removeItem('karaokeSession');
+    return;
+  }
+
+  if (!session || !session.name || !session.table || !session.pass) {
+    localStorage.removeItem('karaokeSession');
+    return;
+  }
+
+  // Re-autenticar silenciosamente para validar que las credenciales siguen siendo válidas
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/api/user/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: session.name, table: session.table, password: session.pass })
+    });
+  } catch (e) {
+    // Error de red: mantener sesión y reconstruir UI para estancia estable
+    console.warn('No se pudo validar sesión guardada (error de red); se mantiene intacta.', e);
+    _applyRestoredSession(session);
+    return;
+  }
+
+  let data;
+  try {
+    data = await res.json();
+  } catch (e) {
+    console.warn('Respuesta inválida al restaurar sesión; se mantiene intacta.');
+    _applyRestoredSession(session);
+    return;
+  }
+
+  if (!res.ok || !data.ok) {
+    // Credenciales ya no válidas (ej. contraseña cambiada): limpiar sesión guardada
+    localStorage.removeItem('karaokeSession');
+    return;
+  }
+
+  _applyRestoredSession(session);
+}
+
+function _applyRestoredSession(session) {
+  loggedUser = { name: session.name, table: session.table, pass: session.pass };
+  window.currentUserName   = session.name;
+  window.currentUserTable  = session.table;
+  window.currentSingerName = session.name;
+
+  const loginCard           = document.getElementById('login-card');
+  const userContent         = document.getElementById('user-content');
+  const toggleLoginBtn      = document.getElementById('btn-toggle-login-card');
+  const logoutBtn           = document.getElementById('btn-logout');
+  const searchCard          = document.getElementById('search-card');
+  const btnToggleSearchCard = document.getElementById('btn-toggle-search-card');
+  const btnSearch           = document.getElementById('btn-search');
+  const btnToggleQueueCard  = document.getElementById('btn-toggle-queue-card');
+  const btnToggleSuggestCard = document.getElementById('btn-toggle-suggest-card');
+  const suggestCard          = document.getElementById('suggest-card');
+
+  if (loginCard)   loginCard.style.display   = 'none';
+  if (userContent) userContent.style.display = 'block';
+
+  if (logoutBtn) logoutBtn.style.display = 'block';
+  if (toggleLoginBtn) {
+    toggleLoginBtn.style.display = 'block';
+    toggleLoginBtn.textContent   = 'Mostrar datos de registro';
+  }
+
+  if (searchCard) searchCard.style.display = 'block';
+  if (btnToggleSearchCard) {
+    btnToggleSearchCard.style.display = 'block';
+    btnToggleSearchCard.textContent   = 'Ocultar "Buscar canción"';
+  }
+  if (btnSearch) btnSearch.style.display = 'none';
+
+  const resultsCard = getResultsCard();
+  if (resultsCard) resultsCard.style.display = 'none';
+
+  const queueCard = getQueueCard();
+  if (queueCard) queueCard.style.display = 'block';
+
+  if (btnToggleQueueCard) {
+    btnToggleQueueCard.style.display = 'block';
+    btnToggleQueueCard.textContent   = 'Ocultar cola de participantes';
+  }
+
+  if (btnToggleSuggestCard) {
+    btnToggleSuggestCard.style.display = 'block';
+    btnToggleSuggestCard.textContent   = 'Mostrar sugerencia de canción';
+  }
+  if (suggestCard) suggestCard.style.display = 'none';
+
+  if (window.__lastUserFeatures) {
+    applyUserFeatures(window.__lastUserFeatures);
+  }
+
+  loadQueue();
+  loadManualQueue();
+  loadMixedQueue();
+  startAutoRefreshQueues(window.__lastUserFeatures || {});
+}
