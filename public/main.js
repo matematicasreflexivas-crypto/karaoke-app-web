@@ -1,13 +1,24 @@
 const API_BASE = '';
 
-let manualMaxSongsPerTable = 1; // valor maestro leído de public-info
+let manualMaxSongsPerTable = 1;
 let loggedUser = null;
 window.currentUserName  = null;
 window.currentUserTable = null;
 let hasSuggestedWhileInQueue = false;
 
-// Nombre del participante actual con el que se registra la canción.
 window.currentSingerName = null;
+
+// Estado de visibilidad de secciones (para mantenerlas ocultas si el usuario las oculta)
+let queueCardHidden = false;
+let searchCardHidden = false;
+let manualCardHidden = false;
+let manualQueueCardHidden = false;
+let mixedQueueCardHidden = false;
+let suggestCardHidden = false;
+
+// Banderas para rastrear estado inicial
+let initialFeaturesApplied = false;
+let lastScrollPosition = 0;
 
 // intervalos de refresco
 let queueInterval       = null;
@@ -94,7 +105,12 @@ async function loadPublicInfo() {
 
     const features = data.userFeatures || {};
     window.__lastUserFeatures = features;
-    applyUserFeatures(features);
+
+    // Solo aplicar features si es la primera vez
+    if (!initialFeaturesApplied && !loggedUser) {
+      applyUserFeatures(features);
+      initialFeaturesApplied = true;
+    }
   } catch (e) {
     console.error('Error cargando info pública', e);
   }
@@ -162,6 +178,8 @@ document.getElementById('btn-login').onclick = async () => {
   const btnToggleQueueCard   = document.getElementById('btn-toggle-queue-card');
   const btnToggleSuggestCard = document.getElementById('btn-toggle-suggest-card');
   const suggestCard          = document.getElementById('suggest-card');
+  const btnToggleManualCard  = document.getElementById('btn-toggle-manual-card');
+  const manualCard           = document.getElementById('manual-card');
 
   if (loginCard) loginCard.style.display = 'none';
   if (userContent) userContent.style.display = 'block';
@@ -198,6 +216,24 @@ document.getElementById('btn-login').onclick = async () => {
   if (suggestCard) {
     suggestCard.style.display = 'none';
   }
+
+  if (btnToggleManualCard) {
+    btnToggleManualCard.style.display = 'block';
+    // El texto y la visibilidad final los decide applyUserFeatures según manualRegister
+  }
+  // Importante: ya NO forzamos aquí el manualCard a 'none';
+  // applyUserFeatures se encargará de abrirlo si manualRegister está activado.
+  // if (manualCard) {
+  //   manualCard.style.display = 'none';
+  // }
+
+  // Resetear banderas de visibilidad
+  queueCardHidden = false;
+  searchCardHidden = false;
+  manualCardHidden = false;
+  manualQueueCardHidden = false;
+  mixedQueueCardHidden = false;
+  suggestCardHidden = false;
 
   if (window.__lastUserFeatures) {
     applyUserFeatures(window.__lastUserFeatures);
@@ -247,11 +283,19 @@ async function performSearch() {
   const title  = titleInput.value.trim();
 
   const hayTextoBusqueda = !!(artist || title);
-
   if (hayTextoBusqueda) {
     div.style.maxHeight = '60vh';
+
+    setTimeout(() => {
+      const resultsCardEl = getResultsCard();
+      if (resultsCardEl) {
+        resultsCardEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 300);
   } else {
     div.style.maxHeight = '22vh';
+    if (resultsCard) resultsCard.style.display = 'none';
+    return;
   }
 
   if (!hayTextoBusqueda) {
@@ -335,19 +379,24 @@ if (btnToggleSearchCard2) {
     if (btnToggleSearchCard2.dataset.disabled === 'true') return;
 
     const searchCard = document.getElementById('search-card');
-    const queueDiv   = document.getElementById('queue');
+    const topButtonsContainer = document.getElementById('top-buttons-container');
     if (!searchCard) return;
 
     const visible = searchCard.style.display !== 'none';
 
     if (visible) {
       searchCard.style.display = 'none';
+      searchCardHidden = true;
       btnToggleSearchCard2.textContent = 'Mostrar "Buscar canción"';
-      if (queueDiv) queueDiv.style.maxHeight = '';
+      setTimeout(() => {
+        if (topButtonsContainer) {
+          topButtonsContainer.classList.add('expanded');
+        }
+      }, 100);
     } else {
       searchCard.style.display = 'block';
+      searchCardHidden = false;
       btnToggleSearchCard2.textContent = 'Ocultar "Buscar canción"';
-      if (queueDiv) queueDiv.style.maxHeight = '';
     }
   };
 }
@@ -359,18 +408,86 @@ if (btnToggleQueueCard2) {
     if (btnToggleQueueCard2.dataset.disabled === 'true') return;
 
     const queueCard = getQueueCard();
-    const queueDiv  = document.getElementById('queue');
-    if (!queueCard || !queueDiv) return;
+    if (!queueCard) return;
 
     const visible = queueCard.style.display !== 'none';
 
     if (visible) {
       queueCard.style.display = 'none';
+      queueCardHidden = true;
       btnToggleQueueCard2.textContent = 'Mostrar cola de participantes';
     } else {
       queueCard.style.display = 'block';
+      queueCardHidden = false;
       btnToggleQueueCard2.textContent = 'Ocultar cola de participantes';
-      queueDiv.style.maxHeight = '';
+    }
+  };
+}
+
+// toggle registro manual
+const btnToggleManualCard2 = document.getElementById('btn-toggle-manual-card');
+if (btnToggleManualCard2) {
+  btnToggleManualCard2.onclick = () => {
+    if (btnToggleManualCard2.dataset.disabled === 'true') return;
+    const manualCard = document.getElementById('manual-card');
+    if (!manualCard) return;
+
+    const visible = manualCard.style.display !== 'none';
+
+    if (visible) {
+      manualCard.style.display = 'none';
+      manualCardHidden = true;
+      btnToggleManualCard2.textContent = 'Mostrar "Registro manual"';
+    } else {
+      manualCard.style.display = 'block';
+      manualCardHidden = false;
+      btnToggleManualCard2.textContent = 'Ocultar "Registro manual"';
+    }
+  };
+}
+
+// toggle cola manual
+const btnToggleManualQueueCard2 = document.getElementById('btn-toggle-manual-queue-card');
+if (btnToggleManualQueueCard2) {
+  btnToggleManualQueueCard2.onclick = () => {
+    if (btnToggleManualQueueCard2.dataset.disabled === 'true') return;
+
+    const manualQueueCard = document.getElementById('manual-queue-card');
+    if (!manualQueueCard) return;
+
+    const visible = manualQueueCard.style.display !== 'none';
+
+    if (visible) {
+      manualQueueCard.style.display = 'none';
+      manualQueueCardHidden = true;
+      btnToggleManualQueueCard2.textContent = 'Mostrar cola de participantes (carga manual)';
+    } else {
+      manualQueueCard.style.display = 'block';
+      manualQueueCardHidden = false;
+      btnToggleManualQueueCard2.textContent = 'Ocultar cola de participantes (carga manual)';
+    }
+  };
+}
+
+// toggle cola mixta
+const btnToggleMixedQueueCard2 = document.getElementById('btn-toggle-mixed-queue-card');
+if (btnToggleMixedQueueCard2) {
+  btnToggleMixedQueueCard2.onclick = () => {
+    if (btnToggleMixedQueueCard2.dataset.disabled === 'true') return;
+
+    const mixedQueueCard = document.getElementById('mixed-queue-card');
+    if (!mixedQueueCard) return;
+
+    const visible = mixedQueueCard.style.display !== 'none';
+
+    if (visible) {
+      mixedQueueCard.style.display = 'none';
+      mixedQueueCardHidden = true;
+      btnToggleMixedQueueCard2.textContent = 'Mostrar cola mixta de participantes';
+    } else {
+      mixedQueueCard.style.display = 'block';
+      mixedQueueCardHidden = false;
+      btnToggleMixedQueueCard2.textContent = 'Ocultar cola mixta de participantes';
     }
   };
 }
@@ -386,6 +503,7 @@ if (btnToggleSuggestCard2) {
 
     const visible = suggestCard.style.display !== 'none';
     suggestCard.style.display = visible ? 'none' : 'block';
+    suggestCardHidden = visible;
     btnToggleSuggestCard2.textContent = visible
       ? 'Mostrar sugerencia de canción'
       : 'Ocultar sugerencia de canción';
@@ -494,11 +612,6 @@ async function chooseSong(songLabel) {
       btnToggle.style.display = 'block';
     }
 
-    const queueDiv = document.getElementById('queue');
-    if (queueDiv && searchCard) {
-      queueDiv.style.maxHeight = '';
-    }
-
     return;
   }
 
@@ -506,7 +619,6 @@ async function chooseSong(songLabel) {
   if (resultsCard) resultsCard.style.display = 'none';
 
   const searchCard = document.getElementById('search-card');
-  const queueDiv   = document.getElementById('queue');
   if (searchCard) searchCard.style.display = 'none';
 
   const btnToggle = document.getElementById('btn-toggle-search-card');
@@ -514,8 +626,6 @@ async function chooseSong(songLabel) {
     btnToggle.textContent = 'Mostrar "Buscar canción"';
     btnToggle.style.display = 'block';
   }
-
-  if (queueDiv) queueDiv.style.maxHeight = '';
 
   if (songsDiv) songsDiv.style.maxHeight = '22vh';
 
@@ -660,9 +770,6 @@ async function loadManualQueue() {
 
   const div = document.getElementById('manual-queue');
   if (!div) return;
-
-  div.style.maxHeight = '60vh';
-  div.style.overflowY = 'auto';
 
   div.innerHTML = '';
 
@@ -856,7 +963,9 @@ async function loadMixedQueue() {
   });
 
   const card = document.getElementById('mixed-queue-card');
-  if (card) card.style.display = 'block';
+  if (card && !mixedQueueCardHidden) {
+    card.style.display = 'block';
+  }
 }
 
 // ================== SUGERENCIAS ==================
@@ -1135,14 +1244,12 @@ async function preguntarOtraPersonaParaMesa(maxSongs) {
 
     const searchCard = document.getElementById('search-card');
     const btnToggle  = document.getElementById('btn-toggle-search-card');
-    const queueDiv   = document.getElementById('queue');
 
     if (searchCard) searchCard.style.display = 'block';
     if (btnToggle) {
       btnToggle.textContent = 'Ocultar "Buscar canción"';
       btnToggle.style.display = 'block';
     }
-    if (queueDiv) queueDiv.style.maxHeight = '';
 
   } catch (e) {
     console.error('Error en preguntarOtraPersonaParaMesa', e);
@@ -1227,129 +1334,7 @@ async function preguntarOtraPersonaParaMesaManual(maxSongs) {
   }
 }
 
-// ================== APLICAR BANDERAS DE USUARIO ==================
-
-function applyUserFeatures(features) {
-  window.__lastUserFeatures = features;
-
-  const searchEnabled         = features.search !== false;
-  const queueEnabled          = features.queue !== false;
-  const suggestionEnabled     = features.suggestion !== false;
-  const manualQueueEnabled    = features.manualQueue === true;
-  const manualRegisterEnabled = features.manualRegister === true;
-  const mixedQueueEnabled     = features.mixedQueue === true;
-
-  const searchCard          = document.getElementById('search-card');
-  const btnToggleSearchCard = document.getElementById('btn-toggle-search-card');
-  const resultsCard         = getResultsCard();
-
-  const queueCard      = getQueueCard();
-  const btnToggleQueue = document.getElementById('btn-toggle-queue-card');
-  const queueDiv       = document.getElementById('queue');
-
-  const suggestCard      = document.getElementById('suggest-card');
-  const btnToggleSuggest = document.getElementById('btn-toggle-suggest-card');
-
-  const manualCard      = document.getElementById('manual-card');
-  const manualQueueCard = document.getElementById('manual-queue-card');
-
-  const mixedCard = document.getElementById('mixed-queue-card');
-  const mixedList = document.getElementById('mixed-queue-list');
-
-  const btnToggleManualQueueCard = document.getElementById('btn-toggle-manual-queue-card');
-  const btnToggleMixedQueueCard  = document.getElementById('btn-toggle-mixed-queue-card');
-
-  // Buscar canción
-  if (!searchEnabled) {
-    if (searchCard) searchCard.style.display = 'none';
-    if (resultsCard) resultsCard.style.display = 'none';
-    if (btnToggleSearchCard) {
-      btnToggleSearchCard.style.display = 'none';
-      btnToggleSearchCard.dataset.disabled = 'true';
-    }
-  } else {
-    if (btnToggleSearchCard) {
-      btnToggleSearchCard.dataset.disabled = 'false';
-      btnToggleSearchCard.style.display = loggedUser ? 'block' : 'none';
-    }
-  }
-
-  // Cola catálogo
-  if (!queueEnabled) {
-    if (queueCard) queueCard.style.display = 'none';
-    if (queueDiv) queueDiv.innerHTML = '';
-    if (btnToggleQueue) {
-      btnToggleQueue.style.display = 'none';
-      btnToggleQueue.dataset.disabled = 'true';
-    }
-  } else {
-    if (btnToggleQueue) {
-      btnToggleQueue.dataset.disabled = 'false';
-      btnToggleQueue.style.display = loggedUser ? 'block' : 'none';
-    }
-  }
-
-  // Sugerencias
-  if (!suggestionEnabled) {
-    if (suggestCard) suggestCard.style.display = 'none';
-    if (btnToggleSuggest) {
-      btnToggleSuggest.style.display = 'none';
-      btnToggleSuggest.dataset.disabled = 'true';
-    }
-  } else {
-    if (btnToggleSuggest) {
-      btnToggleSuggest.dataset.disabled = 'false';
-      btnToggleSuggest.style.display = loggedUser ? 'block' : 'none';
-    }
-  }
-
-  // Registro manual (formulario)
-  if (!manualRegisterEnabled) {
-    if (manualCard) manualCard.style.display = 'none';
-  } else {
-    if (manualCard) manualCard.style.display = loggedUser ? 'block' : 'none';
-  }
-
-  // Cola manual (lista)
-  if (!manualQueueEnabled) {
-    if (manualQueueCard) manualQueueCard.style.display = 'none';
-    if (btnToggleManualQueueCard) {
-      btnToggleManualQueueCard.style.display = 'none';
-      btnToggleManualQueueCard.dataset.disabled = 'true';
-    }
-  } else {
-    if (btnToggleManualQueueCard) {
-      btnToggleManualQueueCard.dataset.disabled = 'false';
-      btnToggleManualQueueCard.style.display = loggedUser ? 'block' : 'none';
-      btnToggleManualQueueCard.textContent = 'Mostrar cola de participantes (carga manual)';
-    }
-    if (manualQueueCard) {
-      manualQueueCard.style.display = 'none';
-    }
-  }
-
-  // Cola mixta
-  if (!mixedQueueEnabled) {
-    if (mixedCard) mixedCard.style.display = 'none';
-    if (mixedList) mixedList.innerHTML = '';
-    if (btnToggleMixedQueueCard) {
-      btnToggleMixedQueueCard.style.display = 'none';
-      btnToggleMixedQueueCard.dataset.disabled = 'true';
-    }
-  } else {
-    if (btnToggleMixedQueueCard) {
-      btnToggleMixedQueueCard.dataset.disabled = 'false';
-      btnToggleMixedQueueCard.style.display = loggedUser ? 'block' : 'none';
-      btnToggleMixedQueueCard.textContent = 'Mostrar cola mixta de participantes';
-    }
-    if (mixedCard) mixedCard.style.display = 'none';
-    if (loggedUser) loadMixedQueue();
-  }
-
-  startAutoRefreshQueues(features);
-}
-
-// ================== AUTO-REFRESCO ==================
+// ================== AUTO REFRESH COLAS ==================
 
 function startAutoRefreshQueues(features) {
   if (queueInterval) {
@@ -1367,40 +1352,198 @@ function startAutoRefreshQueues(features) {
 
   if (!loggedUser) return;
 
-  if (features.queue) {
-    loadQueue();
-    queueInterval = setInterval(loadQueue, 5000);
+  // Cola catálogo
+  if (features.queue !== false) {
+    queueInterval = setInterval(() => {
+      loadQueue().catch(err => console.error('Error auto loadQueue', err));
+    }, 8000);
   }
 
+  // Cola manual
   if (features.manualQueue) {
-    loadManualQueue();
-    manualQueueInterval = setInterval(loadManualQueue, 5000);
+    manualQueueInterval = setInterval(() => {
+      loadManualQueue().catch(err => console.error('Error auto loadManualQueue', err));
+    }, 8000);
   }
 
+  // Cola mixta
   if (features.mixedQueue) {
-    loadMixedQueue();
-    mixedQueueInterval = setInterval(loadMixedQueue, 5000);
+    mixedQueueInterval = setInterval(() => {
+      loadMixedQueue().catch(err => console.error('Error auto loadMixedQueue', err));
+    }, 10000);
   }
 }
 
-// ================== Refresco en vivo de userFeatures ==================
+// ================== APLICAR FEATURES ==================
+
+function applyUserFeatures(features) {
+  const searchEnabled         = !!features.search;
+  const queueEnabled          = features.queue !== false;
+  const manualRegisterEnabled = !!features.manualRegister;
+  const manualQueueEnabled    = !!features.manualQueue;
+  const mixedQueueEnabled     = !!features.mixedQueue;
+  const suggestionEnabled     = !!features.suggestion;
+
+  const searchCard          = document.getElementById('search-card');
+  const btnToggleSearchCard = document.getElementById('btn-toggle-search-card');
+
+  const queueCard           = getQueueCard();
+  const btnToggleQueueCard  = document.getElementById('btn-toggle-queue-card');
+
+  const manualCard          = document.getElementById('manual-card');
+  const btnToggleManualCard = document.getElementById('btn-toggle-manual-card');
+
+  const manualQueueCard          = document.getElementById('manual-queue-card');
+  const btnToggleManualQueueCard = document.getElementById('btn-toggle-manual-queue-card');
+
+  const mixedQueueCard          = document.getElementById('mixed-queue-card');
+  const btnToggleMixedQueueCard = document.getElementById('btn-toggle-mixed-queue-card');
+
+  const suggestCard          = document.getElementById('suggest-card');
+  const btnToggleSuggestCard = document.getElementById('btn-toggle-suggest-card');
+
+  // Buscar
+  if (!searchEnabled) {
+    if (searchCard) searchCard.style.display = 'none';
+    if (btnToggleSearchCard) {
+      btnToggleSearchCard.style.display = 'none';
+      btnToggleSearchCard.dataset.disabled = 'true';
+    }
+    searchCardHidden = true;
+  } else {
+    if (searchCard && !searchCardHidden && loggedUser) {
+      searchCard.style.display = 'block';
+    }
+    if (btnToggleSearchCard) {
+      btnToggleSearchCard.dataset.disabled = 'false';
+      btnToggleSearchCard.style.display = loggedUser ? 'block' : 'none';
+      btnToggleSearchCard.textContent = searchCardHidden
+        ? 'Mostrar "Buscar canción"'
+        : 'Ocultar "Buscar canción"';
+    }
+  }
+
+  // Cola catálogo
+  if (!queueEnabled) {
+    if (queueCard) queueCard.style.display = 'none';
+    if (btnToggleQueueCard) {
+      btnToggleQueueCard.style.display = 'none';
+      btnToggleQueueCard.dataset.disabled = 'true';
+    }
+    queueCardHidden = true;
+  } else {
+    if (queueCard && !queueCardHidden && loggedUser) {
+      queueCard.style.display = 'block';
+    }
+    if (btnToggleQueueCard) {
+      btnToggleQueueCard.dataset.disabled = 'false';
+      btnToggleQueueCard.style.display = loggedUser ? 'block' : 'none';
+      btnToggleQueueCard.textContent = queueCardHidden
+        ? 'Mostrar cola de participantes'
+        : 'Ocultar cola de participantes';
+    }
+  }
+
+  // Registro manual (formulario)
+  if (!manualRegisterEnabled) {
+    if (manualCard) manualCard.style.display = 'none';
+    if (btnToggleManualCard) {
+      btnToggleManualCard.style.display = 'none';
+      btnToggleManualCard.dataset.disabled = 'true';
+    }
+    manualCardHidden = true;
+  } else {
+    if (manualCard && loggedUser) {
+      // Siempre abierto si el feature está activo
+      manualCard.style.display = 'block';
+    }
+    if (btnToggleManualCard) {
+      btnToggleManualCard.dataset.disabled = 'false';
+      btnToggleManualCard.style.display = loggedUser ? 'block' : 'none';
+      btnToggleManualCard.textContent = 'Ocultar "Registro manual"';
+    }
+    manualCardHidden = false;
+  }
+
+  // Cola manual
+  if (!manualQueueEnabled) {
+    if (manualQueueCard) manualQueueCard.style.display = 'none';
+    if (btnToggleManualQueueCard) {
+      btnToggleManualQueueCard.style.display = 'none';
+      btnToggleManualQueueCard.dataset.disabled = 'true';
+    }
+    manualQueueCardHidden = true;
+  } else {
+    if (manualQueueCard && !manualQueueCardHidden && loggedUser) {
+      manualQueueCard.style.display = 'block';
+    }
+    if (btnToggleManualQueueCard) {
+      btnToggleManualQueueCard.dataset.disabled = 'false';
+      btnToggleManualQueueCard.style.display = loggedUser ? 'block' : 'none';
+      btnToggleManualQueueCard.textContent = manualQueueCardHidden
+        ? 'Mostrar cola de participantes (carga manual)'
+        : 'Ocultar cola de participantes (carga manual)';
+    }
+  }
+
+  // Cola mixta
+  if (!mixedQueueEnabled) {
+    if (mixedQueueCard) mixedQueueCard.style.display = 'none';
+    if (btnToggleMixedQueueCard) {
+      btnToggleMixedQueueCard.style.display = 'none';
+      btnToggleMixedQueueCard.dataset.disabled = 'true';
+    }
+    mixedQueueCardHidden = true;
+  } else {
+    if (mixedQueueCard && !mixedQueueCardHidden && loggedUser) {
+      mixedQueueCard.style.display = 'block';
+    }
+    if (btnToggleMixedQueueCard) {
+      btnToggleMixedQueueCard.dataset.disabled = 'false';
+      btnToggleMixedQueueCard.style.display = loggedUser ? 'block' : 'none';
+      btnToggleMixedQueueCard.textContent = mixedQueueCardHidden
+        ? 'Mostrar cola mixta de participantes'
+        : 'Ocultar cola mixta de participantes';
+    }
+  }
+
+  // Sugerencias
+  if (!suggestionEnabled) {
+    if (suggestCard) suggestCard.style.display = 'none';
+    if (btnToggleSuggestCard) {
+      btnToggleSuggestCard.style.display = 'none';
+      btnToggleSuggestCard.dataset.disabled = 'true';
+    }
+    suggestCardHidden = true;
+  } else {
+    if (suggestCard && !suggestCardHidden && loggedUser) {
+      suggestCard.style.display = 'block';
+    }
+    if (btnToggleSuggestCard) {
+      btnToggleSuggestCard.dataset.disabled = 'false';
+      btnToggleSuggestCard.style.display = loggedUser ? 'block' : 'none';
+      btnToggleSuggestCard.textContent = suggestCardHidden
+        ? 'Mostrar sugerencia de canción'
+        : 'Ocultar sugerencia de canción';
+    }
+  }
+
+  startAutoRefreshQueues(features);
+}
+
+// ================== REFRESCO EN VIVO DE FEATURES ==================
 
 function areFeaturesDifferent(a, b) {
-  if (!a && !b) return false;
-  if (!a || !b) return true;
-  return (
-    a.search         !== b.search ||
-    a.queue          !== b.queue ||
-    a.suggestion     !== b.suggestion ||
-    a.manualQueue    !== b.manualQueue ||
-    a.manualRegister !== b.manualRegister ||
-    a.mixedQueue     !== b.mixedQueue
-  );
+  const keys = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
+  for (const k of keys) {
+    if (a[k] !== b[k]) return true;
+  }
+  return false;
 }
 
 setInterval(async () => {
   try {
-    const res = await fetch(`${API_BASE}/api/public-info`, {
+    const res  = await fetch(`${API_BASE}/api/public-info`, {
       cache: 'no-store'
     });
     const data = await res.json();
@@ -1410,6 +1553,7 @@ setInterval(async () => {
     const last = window.__lastUserFeatures || {};
 
     if (areFeaturesDifferent(last, newFeatures)) {
+      window.__lastUserFeatures = newFeatures;
       applyUserFeatures(newFeatures);
     }
   } catch (e) {

@@ -3,6 +3,22 @@ const API_BASE = '';
 
 let adminLogged = false;
 
+// Flags de visibilidad de secciones
+let queueAdminHidden       = false;
+let manualQueueAdminHidden = false;
+let mixedQueueAdminHidden  = false;
+let historyHidden          = true;
+let suggestionsHidden      = true;
+let tablesHidden           = false;
+let inicioHidden           = false;
+
+// Intervalos de refresco
+let queueAdminInterval       = null;
+let manualQueueAdminInterval = null;
+let mixedQueueAdminInterval  = null;
+let historyInterval          = null;
+let suggestionsInterval      = null;
+
 // Utilidad: quitar acentos y convertir a mayúsculas
 function toUpperNoAccents(text) {
   if (!text) return '';
@@ -19,12 +35,12 @@ function formatTiempoEnCola(createdAt) {
   const created = new Date(createdAt);
   if (Number.isNaN(created.getTime())) return '';
 
-  const now = new Date();
-  const diffMs = now - created;
+  const now     = new Date();
+  const diffMs  = now - created;
   const diffMin = Math.floor(diffMs / 60000);
   const diffHrs = Math.floor(diffMin / 60);
 
-  if (diffMin < 1) return 'Hace menos de 1 min';
+  if (diffMin < 1)  return 'Hace menos de 1 min';
   if (diffMin < 60) return `Hace ${diffMin} min`;
   if (diffHrs === 1) return 'Hace 1 hora';
   return `Hace ${diffHrs} horas`;
@@ -36,17 +52,14 @@ function smoothRefreshContainer(div, renderFn) {
   const prevScrollTop = div.scrollTop;
   const prevOverflowY = div.style.overflowY;
 
-  // Congelamos scroll visualmente mientras se repinta
   div.style.overflowY = 'hidden';
-
   renderFn();
-
-  // Restauramos scroll y overflow
-  div.scrollTop = prevScrollTop;
-  div.style.overflowY = prevOverflowY || 'auto';
+  div.scrollTop        = prevScrollTop;
+  div.style.overflowY  = prevOverflowY || 'auto';
 }
 
-// Login de administrador
+// ================== LOGIN ADMIN ==================
+
 document.getElementById('btn-admin-login').onclick = async () => {
   const pass = document.getElementById('admin-pass').value.trim();
   if (!pass) {
@@ -54,13 +67,20 @@ document.getElementById('btn-admin-login').onclick = async () => {
     return;
   }
 
-  const res = await fetch(`${API_BASE}/api/admin/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password: pass })
-  });
+  let res, data;
+  try {
+    res = await fetch(`${API_BASE}/api/admin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pass })
+    });
+    data = await res.json();
+  } catch (e) {
+    console.error(e);
+    alert('No se pudo conectar para iniciar sesión');
+    return;
+  }
 
-  const data = await res.json();
   if (!res.ok || !data.ok) {
     alert(data.message || 'Contraseña incorrecta');
     return;
@@ -70,12 +90,12 @@ document.getElementById('btn-admin-login').onclick = async () => {
   document.getElementById('admin-panel').style.display = 'block';
 
   // Colas
-  loadQueueAdmin();        // cola normal (catálogo)
-  loadManualQueueAdmin();  // cola manual
-  loadMixedQueueAdmin();   // cola mixta
+  await loadQueueAdmin();
+  await loadManualQueueAdmin();
+  await loadMixedQueueAdmin();
 
   loadTablesAdmin();
-  startAutoRefreshAdmin();
+  setupToggleButtons();
   setupHistoryButtons();
   setupSuggestionsSection();
   setupQueueOpenButtons();
@@ -88,6 +108,16 @@ document.getElementById('btn-admin-login').onclick = async () => {
   // Ajustes cola manual + pantalla pública
   loadManualQueueSettingsAdmin();
   setupManualQueueSettingsControls();
+
+  // Control de cola para pantalla pública
+  loadPublicQueueDisplayPreference();
+  setupPublicQueueDisplayButton();
+
+  // Botones limpiar colas
+  setupClearMixedQueueButton();
+  setupClearManualQueueButton();
+
+  startAutoRefreshAdmin();
 
   // Parche: forzar máximo de canciones manuales por mesa a 1000 (opcional)
   try {
@@ -102,6 +132,31 @@ document.getElementById('btn-admin-login').onclick = async () => {
   } catch (e) {
     console.error('No se pudo aplicar manualMaxSongsPerTable=1000', e);
   }
+
+  // Inicializar botón de cerrar sesión admin (HTML: btn-admin-logout)
+  const btnAdminLogout  = document.getElementById('btn-admin-logout');
+  const adminLoginCard  = document.getElementById('admin-login-card') || document.getElementById('admin-login');
+  const adminPanel      = document.getElementById('admin-panel');
+  if (btnAdminLogout) {
+    btnAdminLogout.onclick = () => {
+      if (!adminLogged) return;
+      const ok = confirm('¿Seguro que quieres cerrar sesión de administrador?');
+      if (!ok) return;
+
+      adminLogged = false;
+      clearAllIntervals();
+
+      if (adminPanel) adminPanel.style.display = 'none';
+      if (adminLoginCard) adminLoginCard.style.display = 'block';
+
+      // Limpieza sencilla de campos de contraseña visibles
+      const passInputIds = ['admin-pass', 'old-admin-pass', 'new-admin-pass', 'admin-pass-user-change', 'admin-pass-app-title'];
+      passInputIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+    };
+  }
 };
 
 // Limpiar toda la cola normal (catálogo)
@@ -110,8 +165,15 @@ document.getElementById('btn-clear-all').onclick = async () => {
   const ok = confirm('¿Seguro que quieres eliminar todos los registros de la cola catálogo?');
   if (!ok) return;
 
-  await fetch(`${API_BASE}/api/queue`, { method: 'DELETE' });
+  try {
+    await fetch(`${API_BASE}/api/queue`, { method: 'DELETE' });
+  } catch (e) {
+    console.error(e);
+    alert('No se pudo limpiar la cola catálogo');
+    return;
+  }
   loadQueueAdmin();
+  loadMixedQueueAdmin();
 };
 
 // Subir Excel
@@ -131,10 +193,17 @@ document.getElementById('form-upload').onsubmit = async (e) => {
   const formData = new FormData();
   formData.append('excel', fileInput.files[0]);
 
-  const res = await fetch(`${API_BASE}/api/songs/upload`, {
-    method: 'POST',
-    body: formData
-  });
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/api/songs/upload`, {
+      method: 'POST',
+      body: formData
+    });
+  } catch (e) {
+    console.error(e);
+    alert('No se pudo subir el Excel');
+    return;
+  }
 
   const text = await res.text();
 
@@ -155,25 +224,18 @@ document.getElementById('form-upload').onsubmit = async (e) => {
 };
 
 // ========== COLA ADMIN: CATÁLOGO ==========
+
 async function loadQueueAdmin() {
   const div = document.getElementById('queue-admin');
   if (!div) return;
 
-  let res;
+  let res, data;
   try {
-    res = await fetch(`${API_BASE}/api/queue`);
-  } catch (e) {
-    console.error(e);
-    div.textContent = 'No se pudo conectar para cargar la cola';
-    return;
-  }
-
-  let data;
-  try {
+    res  = await fetch(`${API_BASE}/api/queue`, { cache: 'no-store' });
     data = await res.json();
   } catch (e) {
     console.error(e);
-    div.textContent = 'Respuesta inválida al cargar cola';
+    div.textContent = 'No se pudo conectar para cargar la cola';
     return;
   }
 
@@ -186,6 +248,11 @@ async function loadQueueAdmin() {
 
   smoothRefreshContainer(div, () => {
     div.innerHTML = '';
+
+    if (!queue.length) {
+      div.textContent = 'No hay participantes en la cola.';
+      return;
+    }
 
     queue.forEach((item, idx) => {
       const row = document.createElement('div');
@@ -218,14 +285,14 @@ async function loadQueueAdmin() {
 
       const btnDel = document.createElement('button');
       btnDel.textContent = 'Eliminar';
-      btnDel.className = 'btn-danger btn-queue-admin';
+      btnDel.className   = 'btn-danger btn-queue-admin';
       btnDel.onclick = async () => {
         const ok = confirm('¿Marcar esta canción como atendida y quitarla de la cola?');
         if (!ok) return;
 
         let resDel, dataDel;
         try {
-          resDel = await fetch(`${API_BASE}/api/queue/${item.id}`, { method: 'DELETE' });
+          resDel  = await fetch(`${API_BASE}/api/queue/${item.id}`, { method: 'DELETE' });
           dataDel = await resDel.json();
         } catch (e) {
           alert('No se pudo conectar para eliminar de la cola');
@@ -237,19 +304,20 @@ async function loadQueueAdmin() {
           return;
         }
 
-        const fromInput = document.getElementById('history-from');
-        const toInput   = document.getElementById('history-to');
+        const fromInput   = document.getElementById('history-from');
+        const toInput     = document.getElementById('history-to');
         const fromDateStr = fromInput ? fromInput.value : '';
         const toDateStr   = toInput   ? toInput.value   : '';
 
         await loadQueueAdmin();
         loadHistoryAdmin(fromDateStr, toDateStr);
+        loadMixedQueueAdmin();
       };
       actions.appendChild(btnDel);
 
       const btnEdit = document.createElement('button');
       btnEdit.textContent = 'Editar';
-      btnEdit.className = 'btn-secondary btn-queue-admin';
+      btnEdit.className   = 'btn-secondary btn-queue-admin';
       btnEdit.onclick = async () => {
         const nuevoTitulo = prompt(
           'Escribe el nuevo título de la canción:',
@@ -282,6 +350,7 @@ async function loadQueueAdmin() {
         }
 
         await loadQueueAdmin();
+        loadMixedQueueAdmin();
       };
       actions.appendChild(btnEdit);
 
@@ -293,25 +362,18 @@ async function loadQueueAdmin() {
 }
 
 // ========== COLA ADMIN (MANUAL) ==========
+
 async function loadManualQueueAdmin() {
   const div = document.getElementById('manual-queue-admin');
   if (!div) return;
 
-  let res;
+  let res, data;
   try {
-    res = await fetch(`${API_BASE}/api/manual-queue`);
-  } catch (e) {
-    console.error(e);
-    div.textContent = 'No se pudo conectar para cargar la cola manual';
-    return;
-  }
-
-  let data;
-  try {
+    res  = await fetch(`${API_BASE}/api/manual-queue`, { cache: 'no-store' });
     data = await res.json();
   } catch (e) {
     console.error(e);
-    div.textContent = 'Respuesta inválida al cargar cola manual';
+    div.textContent = 'No se pudo conectar para cargar la cola manual';
     return;
   }
 
@@ -361,16 +423,14 @@ async function loadManualQueueAdmin() {
 
       const btnDel = document.createElement('button');
       btnDel.textContent = 'Eliminar';
-      btnDel.className = 'btn-danger btn-queue-admin';
+      btnDel.className   = 'btn-danger btn-queue-admin';
       btnDel.onclick = async () => {
         const ok = confirm('¿Quitar este registro de la cola manual?');
         if (!ok) return;
 
         let resDel, dataDel;
         try {
-          resDel = await fetch(`${API_BASE}/api/manual-queue/${item.id}`, {
-            method: 'DELETE'
-          });
+          resDel  = await fetch(`${API_BASE}/api/manual-queue/${item.id}`, { method: 'DELETE' });
           dataDel = await resDel.json();
         } catch (e) {
           alert('Error al eliminar de la cola manual');
@@ -383,12 +443,13 @@ async function loadManualQueueAdmin() {
         }
 
         await loadManualQueueAdmin();
+        loadMixedQueueAdmin();
       };
       actions.appendChild(btnDel);
 
       const btnEdit = document.createElement('button');
       btnEdit.textContent = 'Editar';
-      btnEdit.className = 'btn-secondary btn-queue-admin';
+      btnEdit.className   = 'btn-secondary btn-queue-admin';
       btnEdit.onclick = async () => {
         const nuevoTitulo = prompt(
           'Escribe el nuevo título de la canción (manual):',
@@ -436,6 +497,7 @@ async function loadManualQueueAdmin() {
         }
 
         await loadManualQueueAdmin();
+        loadMixedQueueAdmin();
       };
       actions.appendChild(btnEdit);
 
@@ -447,35 +509,23 @@ async function loadManualQueueAdmin() {
 }
 
 // ========== COLA ADMIN (MIXTA) ==========
+
 async function loadMixedQueueAdmin() {
   const div = document.getElementById('mixed-queue-admin');
   if (!div) return;
 
-  let res;
+  let res, data;
   try {
-    res = await fetch(`${API_BASE}/api/mixed-queue`, { cache: 'no-store' });
+    res  = await fetch(`${API_BASE}/api/mixed-queue`, { cache: 'no-store' });
+    data = await res.json();
   } catch (e) {
     console.error(e);
     div.textContent = 'No se pudo conectar para cargar la cola mixta';
     return;
   }
 
-  if (!res.ok) {
-    div.textContent = 'La cola mixta aún no está disponible (endpoint no implementado o error).';
-    return;
-  }
-
-  let data;
-  try {
-    data = await res.json();
-  } catch (e) {
-    console.error(e);
-    div.textContent = 'Respuesta inválida al cargar cola mixta';
-    return;
-  }
-
-  if (!data.ok) {
-    div.textContent = data.message || 'Error cargando cola mixta';
+  if (!res.ok || !data.ok) {
+    div.textContent = data.message || 'La cola mixta aún no está disponible.';
     return;
   }
 
@@ -493,6 +543,13 @@ async function loadMixedQueueAdmin() {
       const row = document.createElement('div');
       row.className = 'queue-admin-item-line';
 
+      // Clases de color para el borde
+      if (item.source === 'catalog') {
+        row.classList.add('mixed-from-catalog');
+      } else if (item.source === 'manual') {
+        row.classList.add('mixed-from-manual');
+      }
+
       const content = document.createElement('div');
       content.className = 'queue-admin-item-content';
 
@@ -503,7 +560,14 @@ async function loadMixedQueueAdmin() {
       const songTitleUpper = toUpperNoAccents(item.displaySongTitle || item.songTitle || '');
       const artistUpper    = toUpperNoAccents(item.displaySongArtist || item.artist || '');
       const tiempoEnCola   = formatTiempoEnCola(item.createdAt);
-      const sourceLabel    = item.source === 'manual' ? '[MANUAL]' : '[CATÁLOGO]';
+
+      // Etiqueta visible de origen
+      let sourceLabel = '';
+      if (item.source === 'manual') {
+        sourceLabel = '[MANUAL]';
+      } else {
+        sourceLabel = '[CATÁLOGO]';
+      }
 
       let linea = `${idx + 1}. ${sourceLabel} Mesa ${item.tableNumber} - ${userNameUpper} - ${songTitleUpper}`;
       if (artistUpper) {
@@ -521,7 +585,7 @@ async function loadMixedQueueAdmin() {
 
       const btnDel = document.createElement('button');
       btnDel.textContent = 'Eliminar';
-      btnDel.className = 'btn-danger btn-queue-admin';
+      btnDel.className   = 'btn-danger btn-queue-admin';
       btnDel.onclick = async () => {
         const ok = confirm('¿Quitar este registro de la cola mixta?');
         if (!ok) return;
@@ -555,6 +619,95 @@ async function loadMixedQueueAdmin() {
         }
       };
       actions.appendChild(btnDel);
+
+      const btnEdit = document.createElement('button');
+      btnEdit.textContent = 'Editar';
+      btnEdit.className   = 'btn-secondary btn-queue-admin';
+      btnEdit.onclick = async () => {
+        const isManual = item.source === 'manual';
+
+        if (isManual) {
+          const nuevoTitulo = prompt(
+            'Escribe el nuevo título de la canción:',
+            item.displaySongTitle || item.songTitle || ''
+          );
+          if (nuevoTitulo === null) return;
+
+          const limpioTitulo = nuevoTitulo.trim();
+          if (!limpioTitulo) {
+            alert('El título no puede quedar vacío');
+            return;
+          }
+
+          const nuevoArtista = prompt(
+            'Escribe el nuevo intérprete:',
+            item.displaySongArtist || item.artist || ''
+          );
+          if (nuevoArtista === null) return;
+
+          const limpioArtista = nuevoArtista.trim();
+          if (!limpioArtista) {
+            alert('El intérprete no puede quedar vacío');
+            return;
+          }
+
+          let resEdit, dataEdit;
+          try {
+            resEdit = await fetch(`${API_BASE}/api/manual-queue/${item.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                manualSongTitle:  limpioTitulo,
+                manualSongArtist: limpioArtista
+              })
+            });
+            dataEdit = await resEdit.json();
+          } catch (e) {
+            alert('Error al editar la canción manual');
+            return;
+          }
+
+          if (!resEdit.ok || !dataEdit.ok) {
+            alert(dataEdit.message || 'No se pudo actualizar la canción manual');
+            return;
+          }
+        } else {
+          const nuevoTitulo = prompt(
+            'Escribe el nuevo título de la canción:',
+            item.displaySongTitle || item.songTitle || ''
+          );
+          if (nuevoTitulo === null) return;
+
+          const limpio = nuevoTitulo.trim();
+          if (!limpio) {
+            alert('El título no puede quedar vacío');
+            return;
+          }
+
+          let resEdit, dataEdit;
+          try {
+            resEdit = await fetch(`${API_BASE}/api/queue/${item.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ songTitle: limpio })
+            });
+            dataEdit = await resEdit.json();
+          } catch (e) {
+            alert('Error al editar la canción');
+            return;
+          }
+
+          if (!resEdit.ok || !dataEdit.ok) {
+            alert(dataEdit.message || 'No se pudo actualizar la canción');
+            return;
+          }
+        }
+
+        await loadMixedQueueAdmin();
+        loadQueueAdmin();
+        loadManualQueueAdmin();
+      };
+      actions.appendChild(btnEdit);
 
       content.appendChild(actions);
       row.appendChild(content);
@@ -606,6 +759,7 @@ function setupClearMixedQueueButton() {
 }
 
 // ========= HISTORIAL EN PANEL ADMIN =========
+
 async function loadHistoryAdmin(fromDateStr, toDateStr) {
   const div = document.getElementById('history-admin');
   if (!div) return;
@@ -614,21 +768,13 @@ async function loadHistoryAdmin(fromDateStr, toDateStr) {
 
   div.innerHTML = 'Cargando historial...';
 
-  let res;
+  let res, data;
   try {
-    res = await fetch(`${API_BASE}/api/history`);
-  } catch (e) {
-    console.error(e);
-    div.textContent = 'No se pudo conectar para cargar historial';
-    return;
-  }
-
-  let data;
-  try {
+    res  = await fetch(`${API_BASE}/api/history`, { cache: 'no-store' });
     data = await res.json();
   } catch (e) {
     console.error(e);
-    div.textContent = 'Respuesta inválida al cargar historial';
+    div.textContent = 'No se pudo conectar para cargar historial';
     return;
   }
 
@@ -681,7 +827,7 @@ async function loadHistoryAdmin(fromDateStr, toDateStr) {
 
     const fechaRegistro = h.createdAt ? new Date(h.createdAt).toLocaleString('es-MX') : '';
     const fechaAtendida = h.playedAt ? new Date(h.playedAt).toLocaleString('es-MX') : '';
-    const lugarCola     = (h.queuePosition != null && h.queueTotal != null)
+    const lugarCola = (h.queuePosition != null && h.queueTotal != null)
       ? ` | Lugar en cola: ${h.queuePosition}/${h.queueTotal}`
       : '';
 
@@ -723,9 +869,9 @@ async function exportHistoryCsv() {
     }
 
     const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
+    const url  = window.URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
     const fecha = new Date().toISOString().slice(0, 10);
     a.download = `historial_karaoke_${fecha}.csv`;
     document.body.appendChild(a);
@@ -740,34 +886,41 @@ async function exportHistoryCsv() {
 
 // Botones de historial
 function setupHistoryButtons() {
-  const btnShowHistory   = document.getElementById('btn-show-history');
-  const btnExportHistory = document.getElementById('btn-export-history');
-  const btnClearHistory  = document.getElementById('btn-clear-history');
-  const historyContainer = document.getElementById('history-admin');
+  const btnShowHistory    = document.getElementById('btn-show-history');
+  const btnExportHistory  = document.getElementById('btn-export-history');
+  const btnClearHistory   = document.getElementById('btn-clear-history');
+  const historyContainer  = document.getElementById('history-admin');
 
   const inputFrom      = document.getElementById('history-from');
   const inputTo        = document.getElementById('history-to');
   const btnApplyFilter = document.getElementById('btn-apply-history-filter');
 
   if (btnShowHistory && historyContainer) {
+    historyContainer.style.display = 'none';
+    historyHidden = true;
+
     btnShowHistory.onclick = async () => {
       if (!adminLogged) {
         alert('Primero inicia sesión como admin');
         return;
       }
 
-      const isHidden = historyContainer.style.display === 'none';
+      const isHidden = historyHidden;
 
       if (isHidden) {
         const fromDateStr = inputFrom ? inputFrom.value : '';
         const toDateStr   = inputTo   ? inputTo.value   : '';
         await loadHistoryAdmin(fromDateStr, toDateStr);
         historyContainer.style.display = 'block';
-        btnShowHistory.textContent = 'Ocultar historial';
+        btnShowHistory.textContent     = 'Ocultar historial';
+        historyHidden = false;
       } else {
         historyContainer.style.display = 'none';
-        btnShowHistory.textContent = 'Ver historial';
+        btnShowHistory.textContent     = 'Ver historial';
+        historyHidden = true;
       }
+
+      startAutoRefreshAdmin();
     };
   }
 
@@ -785,6 +938,8 @@ function setupHistoryButtons() {
       if (btnShowHistory2) {
         btnShowHistory2.textContent = 'Ocultar historial';
       }
+      historyHidden = false;
+      startAutoRefreshAdmin();
     };
   }
 
@@ -836,6 +991,7 @@ function setupHistoryButtons() {
 }
 
 // ========= SUGERENCIAS DE CANCIONES (ADMIN) =========
+
 async function loadSongSuggestions() {
   const container = document.getElementById('suggestions-list');
   if (!container) return;
@@ -844,21 +1000,13 @@ async function loadSongSuggestions() {
 
   container.innerHTML = 'Cargando sugerencias...';
 
-  let res;
+  let res, data;
   try {
-    res = await fetch(`${API_BASE}/api/song-suggestions`);
-  } catch (e) {
-    console.error(e);
-    container.textContent = 'No se pudo cargar la lista de sugerencias.';
-    return;
-  }
-
-  let data;
-  try {
+    res  = await fetch(`${API_BASE}/api/song-suggestions`, { cache: 'no-store' });
     data = await res.json();
   } catch (e) {
     console.error(e);
-    container.textContent = 'Respuesta inválida del servidor.';
+    container.textContent = 'No se pudo cargar la lista de sugerencias.';
     return;
   }
 
@@ -904,13 +1052,13 @@ async function loadSongSuggestions() {
 
     const btnDelete = document.createElement('button');
     btnDelete.textContent = 'Eliminar sugerencia';
-    btnDelete.className = 'btn-danger btn-queue-admin';
+    btnDelete.className   = 'btn-danger btn-queue-admin';
     btnDelete.onclick = async () => {
       const ok = confirm('¿Seguro que deseas eliminar esta sugerencia?');
       if (!ok) return;
 
       try {
-        const resDel = await fetch(`${API_BASE}/api/song-suggestions/${s.id}`, {
+        const resDel  = await fetch(`${API_BASE}/api/song-suggestions/${s.id}`, {
           method: 'DELETE'
         });
         const dataDel = await resDel.json();
@@ -941,29 +1089,57 @@ function setupSuggestionsSection() {
   const btnExportSuggestions     = document.getElementById('btn-export-suggestions');
   const btnClearSuggestions      = document.getElementById('btn-clear-suggestions');
 
+  if (suggestionsList) {
+    suggestionsList.style.display = 'none';
+    suggestionsHidden = true;
+  }
+
   if (btnToggleSuggestionsCard && suggestionsList) {
     btnToggleSuggestionsCard.onclick = () => {
       if (!adminLogged) {
         alert('Primero inicia sesión como admin');
         return;
       }
-      const isHidden = suggestionsList.style.display === 'none';
+      const isHidden = suggestionsHidden;
       if (isHidden) {
         suggestionsList.style.display = 'block';
+        suggestionsHidden = false;
         loadSongSuggestions();
       } else {
         suggestionsList.style.display = 'none';
+        suggestionsHidden = true;
       }
+      startAutoRefreshAdmin();
     };
   }
 
   if (btnExportSuggestions) {
-    btnExportSuggestions.onclick = () => {
+    btnExportSuggestions.onclick = async () => {
       if (!adminLogged) {
         alert('Primero inicia sesión como admin');
         return;
       }
-      window.location.href = `${API_BASE}/api/song-suggestions/export`;
+      try {
+        const res = await fetch(`${API_BASE}/api/song-suggestions/export`);
+        if (!res.ok) {
+          const text = await res.text();
+          alert('No se pudo exportar sugerencias: ' + text);
+          return;
+        }
+        const blob = await res.blob();
+        const url  = window.URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        const fecha = new Date().toISOString().slice(0, 10);
+        a.download = `sugerencias_karaoke_${fecha}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      } catch (e) {
+        console.error(e);
+        alert('Error al exportar sugerencias');
+      }
     };
   }
 
@@ -991,7 +1167,7 @@ function setupSuggestionsSection() {
           alert(data.message || 'No se pudieron eliminar las sugerencias');
           return;
         }
-        loadSongSuggestions();
+        suggestionsList.innerHTML = 'No hay sugerencias registradas.';
       } catch (e) {
         console.error(e);
         alert('No se pudo conectar para limpiar las sugerencias');
@@ -1109,21 +1285,13 @@ async function loadTablesAdmin() {
 
   div.innerHTML = 'Cargando mesas...';
 
-  let res;
+  let res, data;
   try {
-    res = await fetch(`${API_BASE}/api/tables`);
-  } catch (e) {
-    console.error(e);
-    div.textContent = 'No se pudo conectar para cargar mesas';
-    return;
-  }
-
-  let data;
-  try {
+    res  = await fetch(`${API_BASE}/api/tables`);
     data = await res.json();
   } catch (e) {
     console.error(e);
-    div.textContent = 'Respuesta inválida al cargar mesas';
+    div.textContent = 'No se pudo conectar para cargar mesas';
     return;
   }
 
@@ -1150,17 +1318,17 @@ async function loadTablesAdmin() {
     row.appendChild(span);
 
     const inputMax = document.createElement('input');
-    inputMax.type = 'number';
-    inputMax.min = '1';
-    inputMax.step = '1';
+    inputMax.type  = 'number';
+    inputMax.min   = '1';
+    inputMax.step  = '1';
     inputMax.value = maxSongs;
-    inputMax.style.width = '70px';
+    inputMax.style.width      = '70px';
     inputMax.style.marginLeft = '8px';
     row.appendChild(inputMax);
 
     const btnSaveMax = document.createElement('button');
     btnSaveMax.textContent = 'Guardar límite';
-    btnSaveMax.className = 'btn-secondary btn-queue-admin';
+    btnSaveMax.className   = 'btn-secondary btn-queue-admin';
     btnSaveMax.style.marginLeft = '6px';
     btnSaveMax.onclick = async () => {
       if (!adminLogged) {
@@ -1194,7 +1362,7 @@ async function loadTablesAdmin() {
 
     const btnDelete = document.createElement('button');
     btnDelete.textContent = 'Eliminar';
-    btnDelete.className = 'btn-danger btn-queue-admin';
+    btnDelete.className   = 'btn-danger btn-queue-admin';
     btnDelete.style.marginLeft = '6px';
     btnDelete.onclick = async () => {
       const ok = confirm(`¿Seguro que quieres eliminar la mesa ${t.tableNumber}?`);
@@ -1247,7 +1415,7 @@ function setupAddTableButton() {
       return;
     }
 
-    const inputMax = document.getElementById('new-table-max-songs');
+    const inputMax  = document.getElementById('new-table-max-songs');
     let maxSongsVal = 1;
     if (inputMax) {
       const parsed = parseInt(inputMax.value, 10);
@@ -1256,25 +1424,17 @@ function setupAddTableButton() {
       }
     }
 
-    let res;
+    let res, data;
     try {
       res = await fetch(`${API_BASE}/api/tables`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tableNumber: value, maxSongs: maxSongsVal })
       });
-    } catch (e) {
-      console.error(e);
-      alert('No se pudo conectar para agregar mesa');
-      return;
-    }
-
-    let data;
-    try {
       data = await res.json();
     } catch (e) {
       console.error(e);
-      alert('Respuesta inválida del servidor al agregar mesa');
+      alert('No se pudo conectar para agregar mesa');
       return;
     }
 
@@ -1303,23 +1463,15 @@ function setupClearTablesButton() {
     const ok = confirm('¿Seguro que quieres eliminar TODAS las mesas?');
     if (!ok) return;
 
-    let res;
+    let res, data;
     try {
       res = await fetch(`${API_BASE}/api/tables`, {
         method: 'DELETE'
       });
-    } catch (e) {
-      console.error(e);
-      alert('No se pudo conectar para limpiar las mesas');
-      return;
-    }
-
-    let data;
-    try {
       data = await res.json();
     } catch (e) {
       console.error(e);
-      alert('Respuesta inválida del servidor al limpiar mesas');
+      alert('No se pudo conectar para limpiar las mesas');
       return;
     }
 
@@ -1332,7 +1484,7 @@ function setupClearTablesButton() {
   };
 }
 
-// Botón para limpiar TODA la cola manual
+// Botón para limpiar TODA la cola manual (versión nueva)
 function setupClearManualQueueButton() {
   const btnClearManual = document.getElementById('btn-clear-manual-queue');
   if (!btnClearManual) return;
@@ -1365,6 +1517,7 @@ function setupClearManualQueueButton() {
       }
 
       loadManualQueueAdmin();
+      loadMixedQueueAdmin();
     } catch (e) {
       console.error(e);
       alert('No se pudo conectar para limpiar la cola manual');
@@ -1372,190 +1525,198 @@ function setupClearManualQueueButton() {
   };
 }
 
-// Mostrar/ocultar LISTADOS e INICIO
-function setupToggleSections() {
-  const tablesContainer      = document.getElementById('tables-admin');
-  const queueContainer       = document.getElementById('queue-admin');
-  const manualQueueContainer = document.getElementById('manual-queue-admin');
-  const mixedQueueContainer  = document.getElementById('mixed-queue-admin');
-  const inicioSection        = document.getElementById('inicio-admin-section');
-  const loginCard            = document.getElementById('admin-login');
+// ========= TOGGLES DE SECCIONES PRINCIPALES =========
 
-  const btnToggleTables      = document.getElementById('btn-toggle-tables');
-  const btnToggleQueue       = document.getElementById('btn-toggle-queue');
-  const btnToggleManualQueue = document.getElementById('btn-toggle-manual-queue');
-  const btnToggleMixedQueue  = document.getElementById('btn-toggle-mixed-queue');
-  const btnToggleInicio      = document.getElementById('btn-toggle-inicio');
-
-  if (btnToggleTables && tablesContainer) {
-    btnToggleTables.onclick = () => {
-      const isHidden = tablesContainer.style.display === 'none';
-      tablesContainer.style.display = isHidden ? 'block' : 'none';
-    };
-  }
-
-  if (btnToggleQueue && queueContainer) {
-    btnToggleQueue.onclick = () => {
-      const isHidden = queueContainer.style.display === 'none';
-      queueContainer.style.display = isHidden ? 'block' : 'none';
-    };
-  }
-
-  if (btnToggleManualQueue && manualQueueContainer) {
-    btnToggleManualQueue.onclick = () => {
-      const isHidden = manualQueueContainer.style.display === 'none';
-      manualQueueContainer.style.display = isHidden ? 'block' : 'none';
-    };
-  }
-
-  if (btnToggleMixedQueue && mixedQueueContainer) {
-    btnToggleMixedQueue.onclick = () => {
-      const isHidden = mixedQueueContainer.style.display === 'none';
-      mixedQueueContainer.style.display = isHidden ? 'block' : 'none';
-    };
-  }
-
-  if (btnToggleInicio && inicioSection && loginCard) {
+function setupToggleButtons() {
+  // Inicio (cambio de contraseñas / título)
+  const btnToggleInicio = document.getElementById('btn-toggle-inicio');
+  const inicioSection   = document.getElementById('inicio-admin-section');
+  if (btnToggleInicio && inicioSection) {
+    inicioHidden = false;
+    inicioSection.style.display = 'block';
     btnToggleInicio.onclick = () => {
-      const isHidden   = inicioSection.style.display === 'none';
-      const newDisplay = isHidden ? 'block' : 'none';
-      inicioSection.style.display = newDisplay;
-      loginCard.style.display     = newDisplay;
+      if (!adminLogged) {
+        alert('Primero inicia sesión como admin');
+        return;
+      }
+      const visible = !inicioHidden;
+      if (visible) {
+        inicioSection.style.display = 'none';
+        inicioHidden = true;
+      } else {
+        inicioSection.style.display = 'block';
+        inicioHidden = false;
+      }
     };
+  }
+
+  // Cola catálogo
+  const btnToggleQueue = document.getElementById('btn-toggle-queue');
+  const queueDiv       = document.getElementById('queue-admin');
+  if (btnToggleQueue && queueDiv) {
+    queueAdminHidden = false;
+    queueDiv.style.display = 'block';
+    btnToggleQueue.onclick = () => {
+      if (!adminLogged) {
+        alert('Primero inicia sesión como admin');
+        return;
+      }
+      const visible = !queueAdminHidden;
+      if (visible) {
+        queueDiv.style.display = 'none';
+        queueAdminHidden = true;
+        btnToggleQueue.textContent = 'Mostrar cola de participantes';
+      } else {
+        queueDiv.style.display = 'block';
+        queueAdminHidden = false;
+        btnToggleQueue.textContent = 'Ocultar cola de participantes';
+        loadQueueAdmin();
+      }
+      startAutoRefreshAdmin();
+    };
+    btnToggleQueue.textContent = 'Ocultar cola de participantes';
+  }
+
+  // Cola manual
+  const btnToggleManualQueue = document.getElementById('btn-toggle-manual-queue');
+  const manualQueueDiv       = document.getElementById('manual-queue-admin');
+  if (btnToggleManualQueue && manualQueueDiv) {
+    manualQueueAdminHidden = false;
+    manualQueueDiv.style.display = 'block';
+    btnToggleManualQueue.onclick = () => {
+      if (!adminLogged) {
+        alert('Primero inicia sesión como admin');
+        return;
+      }
+      const visible = !manualQueueAdminHidden;
+      if (visible) {
+        manualQueueDiv.style.display = 'none';
+        manualQueueAdminHidden = true;
+        btnToggleManualQueue.textContent = 'Mostrar cola manual';
+      } else {
+        manualQueueDiv.style.display = 'block';
+        manualQueueAdminHidden = false;
+        btnToggleManualQueue.textContent = 'Ocultar cola manual';
+        loadManualQueueAdmin();
+      }
+      startAutoRefreshAdmin();
+    };
+    btnToggleManualQueue.textContent = 'Ocultar cola manual';
+  }
+
+  // Cola mixta
+  const btnToggleMixedQueue = document.getElementById('btn-toggle-mixed-queue');
+  const mixedQueueDiv       = document.getElementById('mixed-queue-admin');
+  if (btnToggleMixedQueue && mixedQueueDiv) {
+    mixedQueueAdminHidden = false;
+    mixedQueueDiv.style.display = 'block';
+    btnToggleMixedQueue.onclick = () => {
+      if (!adminLogged) {
+        alert('Primero inicia sesión como admin');
+        return;
+      }
+      const visible = !mixedQueueAdminHidden;
+      if (visible) {
+        mixedQueueDiv.style.display = 'none';
+        mixedQueueAdminHidden = true;
+        btnToggleMixedQueue.textContent = 'Mostrar cola mixta';
+      } else {
+        mixedQueueDiv.style.display = 'block';
+        mixedQueueAdminHidden = false;
+        btnToggleMixedQueue.textContent = 'Ocultar cola mixta';
+        loadMixedQueueAdmin();
+      }
+      startAutoRefreshAdmin();
+    };
+    btnToggleMixedQueue.textContent = 'Ocultar cola mixta';
+  }
+
+  // Listado de mesas
+  const btnToggleTables = document.getElementById('btn-toggle-tables');
+  const tablesDiv       = document.getElementById('tables-admin');
+  if (btnToggleTables && tablesDiv) {
+    tablesHidden = false;
+    tablesDiv.style.display = 'block';
+    btnToggleTables.onclick = () => {
+      if (!adminLogged) {
+        alert('Primero inicia sesión como admin');
+        return;
+      }
+      const visible = !tablesHidden;
+      if (visible) {
+        tablesDiv.style.display = 'none';
+        tablesHidden = true;
+        btnToggleTables.textContent = 'Mostrar mesas';
+      } else {
+        tablesDiv.style.display = 'block';
+        tablesHidden = false;
+        btnToggleTables.textContent = 'Ocultar mesas';
+        loadTablesAdmin();
+      }
+    };
+    btnToggleTables.textContent = 'Ocultar mesas';
   }
 }
 
-// Cambiar contraseña de administrador
-document.getElementById('btn-change-admin-pass').onclick = async () => {
-  if (!adminLogged) {
-    alert('Primero inicia sesión como admin');
-    return;
+// ========= AUTO-REFRESCO SECCIONES =========
+
+function clearAllIntervals() {
+  if (queueAdminInterval) {
+    clearInterval(queueAdminInterval);
+    queueAdminInterval = null;
   }
-
-  const oldPass = document.getElementById('old-admin-pass').value.trim();
-  const newPass = document.getElementById('new-admin-pass').value.trim();
-
-  if (!oldPass || !newPass) {
-    alert('Escribe la contraseña actual y la nueva');
-    return;
+  if (manualQueueAdminInterval) {
+    clearInterval(manualQueueAdminInterval);
+    manualQueueAdminInterval = null;
   }
-
-  const res = await fetch(`${API_BASE}/api/admin/change-password`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ oldPassword: oldPass, newPassword: newPass })
-  });
-
-  const data = await res.json();
-  if (!res.ok || !data.ok) {
-    alert(data.message || 'No se pudo cambiar la contraseña');
-    return;
+  if (mixedQueueAdminInterval) {
+    clearInterval(mixedQueueAdminInterval);
+    mixedQueueAdminInterval = null;
   }
-
-  alert('Contraseña de administrador cambiada correctamente');
-  document.getElementById('old-admin-pass').value = '';
-  document.getElementById('new-admin-pass').value = '';
-};
-
-// Cambiar contraseña de usuario
-document.getElementById('btn-change-user-pass').onclick = async () => {
-  if (!adminLogged) {
-    alert('Primero inicia sesión como admin');
-    return;
+  if (historyInterval) {
+    clearInterval(historyInterval);
+    historyInterval = null;
   }
-
-  const adminPassForChange = document
-    .getElementById('admin-pass-user-change')
-    .value.trim();
-  const newUserPass = document.getElementById('new-user-pass').value.trim();
-
-  if (!adminPassForChange || !newUserPass) {
-    alert('Escribe la contraseña de administrador y la nueva contraseña de usuario');
-    return;
+  if (suggestionsInterval) {
+    clearInterval(suggestionsInterval);
+    suggestionsInterval = null;
   }
-
-  const res = await fetch(`${API_BASE}/api/admin/change-user-password`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      adminPassword: adminPassForChange,
-      newUserPassword: newUserPass
-    })
-  });
-
-  const data = await res.json();
-  if (!res.ok || !data.ok) {
-    alert(data.message || 'No se pudo cambiar la contraseña de usuario');
-    return;
-  }
-
-  alert('Contraseña de usuario cambiada correctamente');
-
-  document.getElementById('admin-pass-user-change').value = '';
-  document.getElementById('new-user-pass').value = '';
-};
-
-// Cambiar título de la aplicación (nombre del bar)
-document.getElementById('btn-change-app-title').onclick = async () => {
-  if (!adminLogged) {
-    alert('Primero inicia sesión como admin');
-    return;
-  }
-
-  const adminPass = document.getElementById('admin-pass-app-title').value.trim();
-  const newTitle  = document.getElementById('new-app-title').value.trim();
-
-  if (!adminPass || !newTitle) {
-    alert('Escribe la contraseña de administrador y el nuevo título');
-    return;
-  }
-
-  let res;
-  try {
-    res = await fetch(`${API_BASE}/api/admin/change-app-title`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        adminPassword: adminPass,
-        newTitle
-      })
-    });
-  } catch (e) {
-    console.error(e);
-    alert('No se pudo conectar para cambiar el título');
-    return;
-  }
-
-  let data;
-  try {
-    data = await res.json();
-  } catch (e) {
-    alert('Respuesta inválida del servidor al cambiar el título');
-    return;
-  }
-
-  if (!res.ok || !data.ok) {
-    alert(data.message || 'No se pudo cambiar el título');
-    return;
-  }
-
-  alert('Título actualizado correctamente');
-
-  document.getElementById('admin-pass-app-title').value = '';
-};
-
-// Intervalo para auto‑refrescar solo cuando el admin está logueado
-let adminIntervalId = null;
+}
 
 function startAutoRefreshAdmin() {
-  if (adminIntervalId) return;
-  adminIntervalId = setInterval(() => {
-    if (adminLogged) {
-      loadQueueAdmin();
-      loadManualQueueAdmin();
-      loadMixedQueueAdmin();
-    }
-  }, 5000);
+  clearAllIntervals();
+  if (!adminLogged) return;
+
+  if (!queueAdminHidden) {
+    loadQueueAdmin();
+    queueAdminInterval = setInterval(loadQueueAdmin, 5000);
+  }
+
+  if (!manualQueueAdminHidden) {
+    loadManualQueueAdmin();
+    manualQueueAdminInterval = setInterval(loadManualQueueAdmin, 5000);
+  }
+
+  if (!mixedQueueAdminHidden) {
+    loadMixedQueueAdmin();
+    mixedQueueAdminInterval = setInterval(loadMixedQueueAdmin, 5000);
+  }
+
+  if (!historyHidden) {
+    const fromInput   = document.getElementById('history-from');
+    const toInput     = document.getElementById('history-to');
+    const fromDateStr = fromInput ? fromInput.value : '';
+    const toDateStr   = toInput   ? toInput.value   : '';
+    loadHistoryAdmin(fromDateStr, toDateStr);
+    historyInterval = setInterval(() => {
+      loadHistoryAdmin(fromDateStr, toDateStr);
+    }, 15000);
+  }
+
+  if (!suggestionsHidden) {
+    loadSongSuggestions();
+    suggestionsInterval = setInterval(loadSongSuggestions, 15000);
+  }
 }
 
 // ========= LEER Y GUARDAR BANDERAS DE PANTALLA DE USUARIO =========
@@ -1564,8 +1725,8 @@ async function loadUserFeaturesAdmin() {
   const cbQueue          = document.getElementById('feature-user-queue');
   const cbSuggestion     = document.getElementById('feature-user-suggestion');
   const cbManualQueue    = document.getElementById('feature-user-manual-queue');
-  const cbManualRegister = document.getElementById('feature-user-manual-register'); // NUEVO
-  const cbMixedQueue     = document.getElementById('feature-user-mixed-queue');     // NUEVO
+  const cbManualRegister = document.getElementById('feature-user-manual-register');
+  const cbMixedQueue     = document.getElementById('feature-user-mixed-queue');
 
   if (!cbSearch || !cbQueue || !cbSuggestion || !cbManualQueue || !cbManualRegister || !cbMixedQueue) {
     return;
@@ -1602,8 +1763,8 @@ function setupUserFeaturesControls() {
   const cbQueue          = document.getElementById('feature-user-queue');
   const cbSuggestion     = document.getElementById('feature-user-suggestion');
   const cbManualQueue    = document.getElementById('feature-user-manual-queue');
-  const cbManualRegister = document.getElementById('feature-user-manual-register'); // NUEVO
-  const cbMixedQueue     = document.getElementById('feature-user-mixed-queue');     // NUEVO
+  const cbManualRegister = document.getElementById('feature-user-manual-register');
+  const cbMixedQueue     = document.getElementById('feature-user-mixed-queue');
 
   if (!btnSave || !cbSearch || !cbQueue || !cbSuggestion || !cbManualQueue || !cbManualRegister || !cbMixedQueue) {
     return;
@@ -1729,15 +1890,185 @@ function setupManualQueueSettingsControls() {
   };
 }
 
+// ========= CONTROL DE COLA PARA PANTALLA PÚBLICA =========
+async function loadPublicQueueDisplayPreference() {
+  const select = document.getElementById('public-queue-display');
+  if (!select) return;
+
+  try {
+    const res  = await fetch(`${API_BASE}/api/public-info`);
+    const data = await res.json();
+    if (!res.ok || !data.ok) return;
+
+    const preference = data.publicQueueDisplay || 'catalog';
+    select.value = preference;
+  } catch (e) {
+    console.error('Error leyendo preferencia de cola pública', e);
+  }
+}
+
+function setupPublicQueueDisplayButton() {
+  const btnSave = document.getElementById('btn-save-public-queue-display');
+  const select  = document.getElementById('public-queue-display');
+  if (!btnSave || !select) return;
+
+  btnSave.onclick = async () => {
+    if (!adminLogged) {
+      alert('Primero inicia sesión como admin');
+      return;
+    }
+
+    const preference = select.value;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/set-public-queue-display`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adminPassword: document.getElementById('admin-pass').value.trim(),
+          publicQueueDisplay: preference
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        alert(data.message || 'No se pudo guardar la preferencia');
+        return;
+      }
+
+      alert(`Pantalla pública configurada para mostrar: ${
+        preference === 'catalog' ? 'Cola de catálogo' :
+        preference === 'manual' ? 'Cola manual' :
+        'Cola mixta'
+      }`);
+    } catch (e) {
+      console.error(e);
+      alert('No se pudo conectar para guardar la preferencia');
+    }
+  };
+}
+
+// ========= CAMBIO DE CONTRASEÑAS Y TÍTULO =========
+
+// Cambiar contraseña de administrador
+document.getElementById('btn-change-admin-pass').onclick = async () => {
+  if (!adminLogged) {
+    alert('Primero inicia sesión como admin');
+    return;
+  }
+
+  const oldPass = document.getElementById('old-admin-pass').value.trim();
+  const newPass = document.getElementById('new-admin-pass').value.trim();
+
+  if (!oldPass || !newPass) {
+    alert('Escribe la contraseña actual y la nueva');
+    return;
+  }
+
+  const res  = await fetch(`${API_BASE}/api/admin/change-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ oldPassword: oldPass, newPassword: newPass })
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.ok) {
+    alert(data.message || 'No se pudo cambiar la contraseña');
+    return;
+  }
+
+  alert('Contraseña de administrador cambiada correctamente');
+  document.getElementById('old-admin-pass').value = '';
+  document.getElementById('new-admin-pass').value = '';
+};
+
+// Cambiar contraseña de usuario
+document.getElementById('btn-change-user-pass').onclick = async () => {
+  if (!adminLogged) {
+    alert('Primero inicia sesión como admin');
+    return;
+  }
+
+  const adminPassForChange = document
+    .getElementById('admin-pass-user-change')
+    .value.trim();
+  const newUserPass = document.getElementById('new-user-pass').value.trim();
+
+  if (!adminPassForChange || !newUserPass) {
+    alert('Escribe la contraseña de administrador y la nueva contraseña de usuario');
+    return;
+  }
+
+  const res  = await fetch(`${API_BASE}/api/admin/change-user-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      adminPassword: adminPassForChange,
+      newUserPassword: newUserPass
+    })
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.ok) {
+    alert(data.message || 'No se pudo cambiar la contraseña de usuario');
+    return;
+  }
+
+  alert('Contraseña de usuario cambiada correctamente');
+
+  document.getElementById('admin-pass-user-change').value = '';
+  document.getElementById('new-user-pass').value = '';
+};
+
+// Cambiar título de la aplicación (nombre del bar)
+document.getElementById('btn-change-app-title').onclick = async () => {
+  if (!adminLogged) {
+    alert('Primero inicia sesión como admin');
+    return;
+  }
+
+  const adminPass = document.getElementById('admin-pass-app-title').value.trim();
+  const newTitle  = document.getElementById('new-app-title').value.trim();
+
+  if (!adminPass || !newTitle) {
+    alert('Escribe la contraseña de administrador y el nuevo título');
+    return;
+  }
+
+  let res, data;
+  try {
+    res = await fetch(`${API_BASE}/api/admin/change-app-title`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        adminPassword: adminPass,
+        newTitle
+      })
+    });
+    data = await res.json();
+  } catch (e) {
+    console.error(e);
+    alert('No se pudo conectar para cambiar el título');
+    return;
+  }
+
+  if (!res.ok || !data.ok) {
+    alert(data.message || 'No se pudo cambiar el título');
+    return;
+  }
+
+  alert('Título actualizado correctamente');
+
+  document.getElementById('admin-pass-app-title').value = '';
+};
+
 // ========= INICIALIZACIÓN =========
 document.addEventListener('DOMContentLoaded', () => {
   setupAddTableButton();
   setupClearTablesButton();
   setupClearManualQueueButton();
   setupClearMixedQueueButton();
-  setupToggleSections();
   setupHistoryButtons();
   setupSuggestionsSection();
+  setupPublicQueueDisplayButton();
 });
-
-// (fin de admin.js)

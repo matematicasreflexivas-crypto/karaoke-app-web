@@ -36,16 +36,15 @@
       margin: 0 auto;
       display: flex;
       flex-direction: column;
+      height: 100vh;
     }
 
-    /* Título principal */
     h1 {
       font-size: 1.1rem;
       text-align: center;
       margin-bottom: 6px;
     }
 
-    /* Títulos secundarios */
     h2 {
       font-size: 1.05rem;
       margin: 6px 0 4px;
@@ -62,7 +61,7 @@
       padding: 8px 10px;
       margin-bottom: 8px;
       box-shadow: 0 4px 8px rgba(0,0,0,0.25);
-      position: relative; /* Asegura que el flujo sea manejable */
+      position: relative;
     }
 
     .form-group {
@@ -120,12 +119,20 @@
       width: 100%;
     }
 
-    /* Botones de control dinámicos: Estilo especial para que el usuario los distinga */
     .btn-toggle-action {
-      background: #374151;
-      border: 1px solid #4b5563;
+      background: linear-gradient(135deg, #4f46e5, #a855f7);
+      color: #f9fafb;
+      width: 100%;
       font-size: 0.85rem;
       margin-bottom: 4px;
+    }
+
+    .btn-logout-danger {
+      background: #dc2626;
+      color: #f9fafb;
+      width: 100%;
+      font-size: 0.9rem;
+      margin-top: 4px;
     }
 
     .section-title-row {
@@ -143,24 +150,27 @@
       color: #9ca3af;
     }
 
-    .top-buttons {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      margin-bottom: 12px;
-      /* Sticky para que no se pierdan al hacer scroll hacia abajo */
-      position: sticky;
-      top: 0;
-      background: #050816;
-      z-index: 100;
-      padding-top: 4px;
-    }
+.top-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+  position: relative;
+  background: #050816;
+  z-index: 10;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.top-buttons button {
+  min-height: 40px;
+  flex-shrink: 0;
+}
 
     .top-toggle-login {
       margin-bottom: 12px;
     }
 
-    /* Resultados de búsqueda */
     #songs {
       margin-top: 4px;
       max-height: 15vh;
@@ -221,24 +231,43 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
+      flex: 1;
+      overflow-y: auto;
+      min-height: 0;
     }
 
-    /* SCROLL VERTICAL MEJORADO PARA TODAS LAS COLAS */
     .queue-scroll {
       margin-top: 4px;
       padding-right: 4px;
-      max-height: 50vh; /* Altura controlada para el scroll */
+      max-height: 50vh;
       overflow-y: auto !important;
       overflow-x: hidden;
       scrollbar-width: thin;
       scrollbar-color: #4b5563 #111827;
     }
 
-    /* Layout dinámico para apilar secciones */
     #middle-section {
       display: flex;
       flex-direction: column;
       gap: 12px;
+      flex: 1;
+      overflow-y: auto;
+      min-height: 0;
+    }
+
+    /* contenedor horizontal de colas */
+    .queues-row-wrapper {
+      display: flex;
+      flex-direction: row;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .queues-row-wrapper .queue-card {
+      min-width: 260px;
+      flex-shrink: 0;
     }
 
     .mixed-from-catalog { border-left: 3px solid #22c55e; }
@@ -256,13 +285,11 @@
         .replace(/[\u0300-\u036f]/g, '')
         .toUpperCase();
     }
-
     document.addEventListener('DOMContentLoaded', () => {
       const loginCard = document.getElementById('login-card');
       const loginInputs = ['name', 'table', 'pass']
         .map(id => document.getElementById(id))
         .filter(Boolean);
-
       loginInputs.forEach(inp => {
         inp.addEventListener('focus', () => {
           if (!loginCard) return;
@@ -280,7 +307,6 @@
 <body>
   <div class="container">
     <h1>Karaoke - Pantalla de usuario</h1>
-
     <button id="btn-toggle-login-card" class="btn-primary top-toggle-login" style="display:none;">
       Mostrar datos de registro
     </button>
@@ -310,20 +336,23 @@
 
     <div id="user-content" class="layout" style="display:none;">
 
-      <div class="top-buttons">
-        <button id="btn-toggle-search-card" class="btn-primary btn-toggle-action" style="display:none;">
+      <div class="top-buttons" id="top-buttons-container">
+        <button id="btn-toggle-search-card" class="btn-toggle-action" style="display:none;">
           Ocultar "Buscar canción"
         </button>
-        <button id="btn-toggle-queue-card" class="btn-primary btn-toggle-action" style="display:none;">
-          Ocultar cola de participantes
+        <button id="btn-toggle-queue-card" class="btn-toggle-action" style="display:none;">
+          Mostrar cola de participantes
         </button>
-        <button id="btn-toggle-manual-queue-card" class="btn-primary btn-toggle-action" style="display:none;">
+        <button id="btn-toggle-manual-card" class="btn-toggle-action" style="display:none;">
+          Mostrar "Registro manual"
+        </button>
+        <button id="btn-toggle-manual-queue-card" class="btn-toggle-action" style="display:none;">
           Mostrar cola manual
         </button>
-        <button id="btn-toggle-mixed-queue-card" class="btn-primary btn-toggle-action" style="display:none;">
+        <button id="btn-toggle-mixed-queue-card" class="btn-toggle-action" style="display:none;">
           Mostrar cola mixta
         </button>
-        <button id="btn-toggle-suggest-card" class="btn-primary btn-toggle-action" style="display:none;">
+        <button id="btn-toggle-suggest-card" class="btn-toggle-action" style="display:none;">
           Mostrar sugerencia de canción
         </button>
       </div>
@@ -346,21 +375,21 @@
           </div>
         </div>
 
-        <div class="card" id="suggest-card" style="display:none;">
-          <h2>Sugerir canción</h2>
-          <div class="form-group">
-            <input id="suggest-title" type="text" placeholder="Título" />
-            <input id="suggest-artist" type="text" placeholder="Artista" />
-            <button id="btn-send-suggestion" class="btn-primary">Enviar sugerencia</button>
-          </div>
-        </div>
-
         <div class="card" id="manual-card" style="display:none;">
           <h2>Registro manual</h2>
           <div class="form-group">
             <input id="manual-title" type="text" placeholder="Título de la canción" />
             <input id="manual-artist" type="text" placeholder="Intérprete" />
             <button id="btn-send-manual" class="btn-primary">Registrar canción manual</button>
+          </div>
+        </div>
+
+        <div class="card" id="suggest-card" style="display:none;">
+          <h2>Sugerir canción</h2>
+          <div class="form-group">
+            <input id="suggest-title" type="text" placeholder="Título" />
+            <input id="suggest-artist" type="text" placeholder="Artista" />
+            <button id="btn-send-suggestion" class="btn-primary">Enviar sugerencia</button>
           </div>
         </div>
       </div>
@@ -371,21 +400,29 @@
           <div id="songs"></div>
         </div>
 
-        <div class="card queue-card" id="queue-card">
-          <h3>Cola de participantes</h3>
-          <div id="queue" class="queue-scroll"></div>
-        </div>
+        <!-- Bloque de colas con scroll horizontal -->
+        <div class="queues-row-wrapper">
+          <div class="card queue-card" id="queue-card" style="display:none;">
+            <h3>Cola de participantes</h3>
+            <div id="queue" class="queue-scroll"></div>
+          </div>
 
-        <div class="card queue-card" id="manual-queue-card" style="display:none;">
-          <h3>Participantes (Carga manual)</h3>
-          <div id="manual-queue" class="queue-scroll"></div>
-        </div>
+          <div class="card queue-card" id="manual-queue-card" style="display:none;">
+            <h3>Participantes (Carga manual)</h3>
+            <div id="manual-queue" class="queue-scroll"></div>
+          </div>
 
-        <div class="card queue-card" id="mixed-queue-card" style="display:none;">
-          <h3>Cola mixta (General)</h3>
-          <div id="mixed-queue-list" class="queue-scroll"></div>
+          <div class="card queue-card" id="mixed-queue-card" style="display:none;">
+            <h3>Cola mixta (General)</h3>
+            <div id="mixed-queue-list" class="queue-scroll"></div>
+          </div>
         </div>
       </div>
+
+      <button id="btn-logout" class="btn-logout-danger">
+        Cerrar sesión
+      </button>
+
     </div>
   </div>
 

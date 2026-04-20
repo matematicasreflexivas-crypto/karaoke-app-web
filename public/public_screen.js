@@ -1,16 +1,31 @@
 const API_BASE = '';
 
-
 // ---------------------- COLA ----------------------
 
-async function fetchQueue() {
+async function fetchQueue(queueType = 'catalog') {
   try {
-    const res = await fetch(`${API_BASE}/api/queue`);
+    let endpoint = `${API_BASE}/api/queue`;
+    
+    if (queueType === 'manual') {
+      endpoint = `${API_BASE}/api/manual-queue`;
+    } else if (queueType === 'mixed') {
+      endpoint = `${API_BASE}/api/mixed-queue`;
+    }
+
+    const res = await fetch(endpoint);
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error(data.message || 'Error cola');
+    
+    // Normalizar respuesta según tipo de cola
+    if (queueType === 'manual') {
+      return data.queue || [];
+    } else if (queueType === 'mixed') {
+      return data.queue || data.mixedQueue || [];
+    }
+    
     return data.queue || [];
   } catch (e) {
-    console.error('Error cargando cola pública', e);
+    console.error(`Error cargando cola pública (${queueType})`, e);
     return null;
   }
 }
@@ -26,7 +41,8 @@ async function fetchPublicInfo() {
     return {
       userPassword: data.userPassword || '',
       appTitle: data.appTitle || 'Karaoke',
-      qrImageFile: data.qrImageFile || 'qr.png'
+      qrImageFile: data.qrImageFile || 'qr.png',
+      publicQueueDisplay: data.publicQueueDisplay || 'catalog'
     };
   } catch (e) {
     console.error('Error cargando info pública', e);
@@ -72,8 +88,21 @@ function renderQueue(queue) {
 
     const mesa = item.tableNumber ? `Mesa ${item.tableNumber}` : 'Mesa N/D';
     const name = item.userName ? item.userName.toString().toUpperCase() : 'SIN NOMBRE';
-    const song = item.songTitle || 'Canción desconocida';
-    const artist = item.artist || '';
+    
+    // Para cola manual y mixta, usar displaySongTitle y displaySongArtist
+    // Para cola catálogo, usar songTitle y artist
+    let song = '';
+    let artist = '';
+
+    if (item.displaySongTitle) {
+      // Es una cola manual o mixta
+      song = item.displaySongTitle || 'Canción desconocida';
+      artist = item.displaySongArtist || '';
+    } else {
+      // Es cola catálogo
+      song = item.songTitle || 'Canción desconocida';
+      artist = item.artist || '';
+    }
 
     const line = document.createElement('div');
     line.className = 'queue-item-line';
@@ -152,10 +181,14 @@ function renderPublicInfo(info) {
 // ---------------------- REFRESH ----------------------
 
 async function refreshPublicScreen() {
-  const [queue, info] = await Promise.all([
-    fetchQueue(),
-    fetchPublicInfo()
-  ]);
+  const info = await fetchPublicInfo();
+  
+  // Obtener el tipo de cola que debe mostrar
+  const queueType = info?.publicQueueDisplay || 'catalog';
+  
+  console.log('Cargando cola de tipo:', queueType);
+  
+  const queue = await fetchQueue(queueType);
 
   if (queue !== null) renderQueue(queue);
   renderPublicInfo(info);
