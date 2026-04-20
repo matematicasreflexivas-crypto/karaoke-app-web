@@ -14,7 +14,9 @@ let queueInterval       = null;
 let manualQueueInterval = null;
 let mixedQueueInterval  = null;
 
-// Banderas de visibilidad de secciones (true = oculto por el usuario mediante toggle)
+// Banderas de visibilidad de secciones.
+// true = la sección está oculta (por defecto o porque el usuario la cerró con el toggle).
+// suggestCardHidden comienza en true porque la sección de sugerencias está cerrada por defecto.
 let searchCardHidden      = false;
 let queueCardHidden       = false;
 let suggestCardHidden     = true;
@@ -787,8 +789,10 @@ async function loadMixedQueue() {
     return;
   }
 
-  const savedScroll = container.scrollTop;
-  if (!container.hasChildNodes()) {
+  // Preserve scroll position only when the container already has content.
+  const hasContent = container.hasChildNodes();
+  const savedScroll = hasContent ? container.scrollTop : 0;
+  if (!hasContent) {
     container.textContent = 'Cargando cola mixta...';
   }
 
