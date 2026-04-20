@@ -68,9 +68,12 @@ async function preserveScrollAndReload(loadFn) {
   } catch (err) {
     console.error('Error en recarga de cola', err);
   }
-  if (scrollContainer) {
-    scrollContainer.scrollTop = savedTop;
-  }
+  // Restaurar después de que el DOM se actualice
+  requestAnimationFrame(() => {
+    if (scrollContainer) {
+      scrollContainer.scrollTop = savedTop;
+    }
+  });
 }
 
 function getResultsCard() {
