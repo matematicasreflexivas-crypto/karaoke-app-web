@@ -199,6 +199,9 @@ document.getElementById('btn-login').onclick = async () => {
     suggestCard.style.display = 'none';
   }
 
+  const btnLogoutEl = document.getElementById('btn-logout');
+  if (btnLogoutEl) btnLogoutEl.style.display = 'block';
+
   if (window.__lastUserFeatures) {
     applyUserFeatures(window.__lastUserFeatures);
   }
@@ -226,6 +229,54 @@ if (toggleLoginBtn2) {
       loginCard.style.display = 'block';
       toggleLoginBtn2.textContent = 'Ocultar datos de registro';
     }
+  };
+}
+
+// ================== CERRAR SESIÓN ==================
+
+const btnLogout = document.getElementById('btn-logout');
+if (btnLogout) {
+  btnLogout.onclick = () => {
+    loggedUser = null;
+    window.currentUserName  = null;
+    window.currentUserTable = null;
+    window.currentSingerName = null;
+    window.__extraManualSingerName = null;
+    hasSuggestedWhileInQueue = false;
+
+    if (queueInterval)       { clearInterval(queueInterval);       queueInterval = null; }
+    if (manualQueueInterval) { clearInterval(manualQueueInterval); manualQueueInterval = null; }
+    if (mixedQueueInterval)  { clearInterval(mixedQueueInterval);  mixedQueueInterval = null; }
+
+    const userContent = document.getElementById('user-content');
+    if (userContent) userContent.style.display = 'none';
+
+    const loginCard = document.getElementById('login-card');
+    if (loginCard) loginCard.style.display = 'block';
+
+    const toggleLoginBtn = document.getElementById('btn-toggle-login-card');
+    if (toggleLoginBtn) toggleLoginBtn.style.display = 'none';
+
+    [
+      'btn-toggle-search-card',
+      'btn-toggle-queue-card',
+      'btn-toggle-manual-card',
+      'btn-toggle-manual-queue-card',
+      'btn-toggle-mixed-queue-card',
+      'btn-toggle-suggest-card'
+    ].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) btn.style.display = 'none';
+    });
+
+    btnLogout.style.display = 'none';
+
+    ['name', 'table', 'pass'].forEach(id => {
+      const input = document.getElementById(id);
+      if (input) input.value = '';
+    });
+
+    window.scrollTo(0, 0);
   };
 }
 
