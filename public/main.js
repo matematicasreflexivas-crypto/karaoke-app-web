@@ -392,6 +392,93 @@ if (btnToggleSuggestCard2) {
   };
 }
 
+// toggle cola manual
+const btnToggleManualQueueCard2 = document.getElementById('btn-toggle-manual-queue-card');
+if (btnToggleManualQueueCard2) {
+  btnToggleManualQueueCard2.onclick = () => {
+    if (btnToggleManualQueueCard2.dataset.disabled === 'true') return;
+
+    const manualQueueCard = document.getElementById('manual-queue-card');
+    if (!manualQueueCard) return;
+
+    const visible = manualQueueCard.style.display !== 'none';
+    if (visible) {
+      manualQueueCard.style.display = 'none';
+      btnToggleManualQueueCard2.textContent = 'Mostrar cola de participantes (carga manual)';
+    } else {
+      manualQueueCard.style.display = 'block';
+      btnToggleManualQueueCard2.textContent = 'Ocultar cola de participantes (carga manual)';
+    }
+  };
+}
+
+// toggle cola mixta
+const btnToggleMixedQueueCard2 = document.getElementById('btn-toggle-mixed-queue-card');
+if (btnToggleMixedQueueCard2) {
+  btnToggleMixedQueueCard2.onclick = () => {
+    if (btnToggleMixedQueueCard2.dataset.disabled === 'true') return;
+
+    const mixedCard = document.getElementById('mixed-queue-card');
+    if (!mixedCard) return;
+
+    const visible = mixedCard.style.display !== 'none';
+    if (visible) {
+      mixedCard.style.display = 'none';
+      btnToggleMixedQueueCard2.textContent = 'Mostrar cola mixta de participantes';
+    } else {
+      mixedCard.style.display = 'block';
+      btnToggleMixedQueueCard2.textContent = 'Ocultar cola mixta de participantes';
+    }
+  };
+}
+
+// cerrar sesión
+const btnLogout = document.getElementById('btn-logout');
+if (btnLogout) {
+  btnLogout.onclick = () => {
+    if (!confirm('¿Seguro que quieres cerrar sesión?')) return;
+
+    if (queueInterval)       { clearInterval(queueInterval);       queueInterval       = null; }
+    if (manualQueueInterval) { clearInterval(manualQueueInterval); manualQueueInterval = null; }
+    if (mixedQueueInterval)  { clearInterval(mixedQueueInterval);  mixedQueueInterval  = null; }
+
+    loggedUser                     = null;
+    window.currentUserName         = null;
+    window.currentUserTable        = null;
+    window.currentSingerName       = null;
+    window.__extraManualSingerName = null;
+    hasSuggestedWhileInQueue       = false;
+
+    const userContent    = document.getElementById('user-content');
+    const loginCard      = document.getElementById('login-card');
+    const toggleLoginBtn = document.getElementById('btn-toggle-login-card');
+    const passInput      = document.getElementById('pass');
+
+    if (userContent)    userContent.style.display    = 'none';
+    if (loginCard)      loginCard.style.display      = 'block';
+    if (toggleLoginBtn) toggleLoginBtn.style.display = 'none';
+    if (passInput)      passInput.value              = '';
+
+    [
+      'btn-toggle-search-card',
+      'btn-toggle-queue-card',
+      'btn-toggle-manual-queue-card',
+      'btn-toggle-mixed-queue-card',
+      'btn-toggle-suggest-card'
+    ].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) btn.style.display = 'none';
+    });
+
+    const queueDiv       = document.getElementById('queue');
+    const manualQueueDiv = document.getElementById('manual-queue');
+    const mixedQueueDiv  = document.getElementById('mixed-queue-list');
+    if (queueDiv)       queueDiv.innerHTML       = '';
+    if (manualQueueDiv) manualQueueDiv.innerHTML = '';
+    if (mixedQueueDiv)  mixedQueueDiv.innerHTML  = '';
+  };
+}
+
 // búsqueda en vivo
 const artistInput2 = document.getElementById('artist');
 const titleInput2  = document.getElementById('title');
