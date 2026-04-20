@@ -59,6 +59,20 @@ function ensureResultsVisible() {
   }, 100);
 }
 
+// Preserva la posición de scroll del contenedor principal durante recargas de colas
+async function preserveScrollAndReload(loadFn) {
+  const scrollContainer = document.getElementById('user-content');
+  const savedTop = scrollContainer ? scrollContainer.scrollTop : 0;
+  try {
+    await loadFn();
+  } catch (err) {
+    console.error('Error en recarga de cola', err);
+  }
+  if (scrollContainer) {
+    scrollContainer.scrollTop = savedTop;
+  }
+}
+
 function getResultsCard() {
   return (
     Array.from(document.querySelectorAll('.card')).find(card => {
@@ -202,13 +216,13 @@ document.getElementById('btn-login').onclick = async () => {
   if (resultsCard) resultsCard.style.display = 'none';
 
   const queueCard = getQueueCard();
-  if (queueCard) queueCard.style.display = 'block';
+  if (queueCard) queueCard.style.display = 'none';
 
   if (queueDiv) queueDiv.style.maxHeight = '';
 
   if (btnToggleQueueCard) {
     btnToggleQueueCard.style.display = 'block';
-    btnToggleQueueCard.textContent = 'Ocultar cola de participantes';
+    btnToggleQueueCard.textContent = 'Mostrar cola de participantes';
   }
 
   if (btnToggleSuggestCard) {
@@ -230,11 +244,12 @@ document.getElementById('btn-login').onclick = async () => {
   // }
 
   // Resetear banderas de visibilidad
-  queueCardHidden = false;
+  // Las colas inician ocultas; el usuario las despliega con el botón "Mostrar"
+  queueCardHidden = true;
   searchCardHidden = false;
   manualCardHidden = false;
-  manualQueueCardHidden = false;
-  mixedQueueCardHidden = false;
+  manualQueueCardHidden = true;
+  mixedQueueCardHidden = true;
   suggestCardHidden = false;
 
   if (window.__lastUserFeatures) {
@@ -509,6 +524,67 @@ if (btnToggleSuggestCard2) {
     btnToggleSuggestCard2.textContent = visible
       ? 'Mostrar sugerencia de canción'
       : 'Ocultar sugerencia de canción';
+  };
+}
+
+// ================== CERRAR SESIÓN (USUARIO) ==================
+
+const btnLogout = document.getElementById('btn-logout');
+if (btnLogout) {
+  btnLogout.onclick = () => {
+    // Detener intervalos de refresco
+    if (queueInterval) { clearInterval(queueInterval); queueInterval = null; }
+    if (manualQueueInterval) { clearInterval(manualQueueInterval); manualQueueInterval = null; }
+    if (mixedQueueInterval) { clearInterval(mixedQueueInterval); mixedQueueInterval = null; }
+
+    // Limpiar estado
+    loggedUser = null;
+    window.currentUserName = null;
+    window.currentUserTable = null;
+    window.currentSingerName = null;
+    hasSuggestedWhileInQueue = false;
+    initialFeaturesApplied = false;
+
+    // Resetear banderas
+    queueCardHidden = false;
+    searchCardHidden = false;
+    manualCardHidden = false;
+    manualQueueCardHidden = false;
+    mixedQueueCardHidden = false;
+    suggestCardHidden = false;
+
+    // Ocultar contenido de usuario
+    const userContent = document.getElementById('user-content');
+    if (userContent) userContent.style.display = 'none';
+
+    // Mostrar login card
+    const loginCard = document.getElementById('login-card');
+    if (loginCard) loginCard.style.display = 'block';
+
+    // Ocultar botón de toggle login
+    const toggleLoginBtn = document.getElementById('btn-toggle-login-card');
+    if (toggleLoginBtn) toggleLoginBtn.style.display = 'none';
+
+    // Limpiar inputs
+    const nameInput = document.getElementById('name');
+    const tableInput = document.getElementById('table');
+    const passInput = document.getElementById('pass');
+    if (nameInput) nameInput.value = '';
+    if (tableInput) tableInput.value = '';
+    if (passInput) passInput.value = '';
+
+    // Limpiar resultados y colas
+    const songsDiv = document.getElementById('songs');
+    if (songsDiv) songsDiv.innerHTML = '';
+    const queueDiv = document.getElementById('queue');
+    if (queueDiv) queueDiv.innerHTML = '';
+    const manualQueueDiv = document.getElementById('manual-queue');
+    if (manualQueueDiv) manualQueueDiv.innerHTML = '';
+    const mixedQueueDiv = document.getElementById('mixed-queue-list');
+    if (mixedQueueDiv) mixedQueueDiv.innerHTML = '';
+
+    const resultsCard = document.getElementById('search-results-card');
+    if (resultsCard) resultsCard.style.display = 'none';
   };
 }
 
@@ -925,12 +1001,9 @@ async function loadMixedQueue() {
       currentName === itemNameNorm &&
       currentTable === itemTable;
 
-    let sourceLabel = '';
     if (item.source === 'catalog') {
-      sourceLabel = ' [CATÁLOGO]';
       row.classList.add('mixed-from-catalog');
     } else if (item.source === 'manual') {
-      sourceLabel = ' [MANUAL]';
       row.classList.add('mixed-from-manual');
     }
 
@@ -969,8 +1042,8 @@ async function loadMixedQueue() {
       (item.displaySongArtist || item.artist || '').toString()
     );
     songSpan.textContent = artistText
-      ? `${titleText} _ ${artistText}${sourceLabel}`
-      : `${titleText}${sourceLabel}`;
+      ? `${titleText} _ ${artistText}`
+      : `${titleText}`;
     row.appendChild(songSpan);
 
     container.appendChild(row);
@@ -1369,21 +1442,21 @@ function startAutoRefreshQueues(features) {
   // Cola catálogo
   if (features.queue !== false) {
     queueInterval = setInterval(() => {
-      loadQueue().catch(err => console.error('Error auto loadQueue', err));
+      preserveScrollAndReload(() => loadQueue());
     }, 8000);
   }
 
   // Cola manual
   if (features.manualQueue) {
     manualQueueInterval = setInterval(() => {
-      loadManualQueue().catch(err => console.error('Error auto loadManualQueue', err));
+      preserveScrollAndReload(() => loadManualQueue());
     }, 8000);
   }
 
   // Cola mixta
   if (features.mixedQueue) {
     mixedQueueInterval = setInterval(() => {
-      loadMixedQueue().catch(err => console.error('Error auto loadMixedQueue', err));
+      preserveScrollAndReload(() => loadMixedQueue());
     }, 10000);
   }
 }
