@@ -199,6 +199,9 @@ document.getElementById('btn-login').onclick = async () => {
     suggestCard.style.display = 'none';
   }
 
+  const btnLogout = document.getElementById('btn-logout');
+  if (btnLogout) btnLogout.style.display = 'block';
+
   if (window.__lastUserFeatures) {
     applyUserFeatures(window.__lastUserFeatures);
   }
@@ -389,6 +392,105 @@ if (btnToggleSuggestCard2) {
     btnToggleSuggestCard2.textContent = visible
       ? 'Mostrar sugerencia de canción'
       : 'Ocultar sugerencia de canción';
+  };
+}
+
+// toggle cola manual
+const btnToggleManualQueueCard2 = document.getElementById('btn-toggle-manual-queue-card');
+if (btnToggleManualQueueCard2) {
+  btnToggleManualQueueCard2.onclick = () => {
+    if (btnToggleManualQueueCard2.dataset.disabled === 'true') return;
+
+    const manualQueueCard = document.getElementById('manual-queue-card');
+    if (!manualQueueCard) return;
+
+    const visible = manualQueueCard.style.display !== 'none';
+    if (visible) {
+      manualQueueCard.style.display = 'none';
+      btnToggleManualQueueCard2.textContent = 'Mostrar cola de participantes (carga manual)';
+    } else {
+      manualQueueCard.style.display = 'block';
+      btnToggleManualQueueCard2.textContent = 'Ocultar cola de participantes (carga manual)';
+    }
+  };
+}
+
+// toggle cola mixta
+const btnToggleMixedQueueCard2 = document.getElementById('btn-toggle-mixed-queue-card');
+if (btnToggleMixedQueueCard2) {
+  btnToggleMixedQueueCard2.onclick = () => {
+    if (btnToggleMixedQueueCard2.dataset.disabled === 'true') return;
+
+    const mixedQueueCard = document.getElementById('mixed-queue-card');
+    if (!mixedQueueCard) return;
+
+    const visible = mixedQueueCard.style.display !== 'none';
+    if (visible) {
+      mixedQueueCard.style.display = 'none';
+      btnToggleMixedQueueCard2.textContent = 'Mostrar cola mixta de participantes';
+    } else {
+      mixedQueueCard.style.display = 'block';
+      btnToggleMixedQueueCard2.textContent = 'Ocultar cola mixta de participantes';
+    }
+  };
+}
+
+// ================== CERRAR SESIÓN ==================
+
+const btnLogout2 = document.getElementById('btn-logout');
+if (btnLogout2) {
+  btnLogout2.onclick = () => {
+    // Detener todos los intervalos de refresco
+    if (queueInterval)       { clearInterval(queueInterval);       queueInterval = null; }
+    if (manualQueueInterval) { clearInterval(manualQueueInterval); manualQueueInterval = null; }
+    if (mixedQueueInterval)  { clearInterval(mixedQueueInterval);  mixedQueueInterval = null; }
+
+    // Limpiar estado de sesión
+    loggedUser = null;
+    window.currentUserName   = null;
+    window.currentUserTable  = null;
+    window.currentSingerName = null;
+    window.__extraManualSingerName = null;
+    hasSuggestedWhileInQueue = false;
+
+    // Restaurar UI al estado pre-login
+    const loginCard   = document.getElementById('login-card');
+    const userContent = document.getElementById('user-content');
+    const toggleLoginBtn = document.getElementById('btn-toggle-login-card');
+
+    if (loginCard)    { loginCard.style.display = 'block'; }
+    if (userContent)  { userContent.style.display = 'none'; }
+    if (toggleLoginBtn) { toggleLoginBtn.style.display = 'none'; }
+    btnLogout2.style.display = 'none';
+
+    // Ocultar todos los botones toggle
+    const toggleIds = [
+      'btn-toggle-search-card',
+      'btn-toggle-queue-card',
+      'btn-toggle-manual-queue-card',
+      'btn-toggle-mixed-queue-card',
+      'btn-toggle-suggest-card'
+    ];
+    toggleIds.forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) btn.style.display = 'none';
+    });
+
+    // Limpiar campos del formulario de login
+    const nameInput  = document.getElementById('name');
+    const tableInput = document.getElementById('table');
+    const passInput  = document.getElementById('pass');
+    if (nameInput)  nameInput.value  = '';
+    if (tableInput) tableInput.value = '';
+    if (passInput)  passInput.value  = '';
+
+    // Limpiar colas
+    const queueDiv     = document.getElementById('queue');
+    const manualDiv    = document.getElementById('manual-queue');
+    const mixedDiv     = document.getElementById('mixed-queue-list');
+    if (queueDiv)  queueDiv.innerHTML  = '';
+    if (manualDiv) manualDiv.innerHTML = '';
+    if (mixedDiv)  mixedDiv.innerHTML  = '';
   };
 }
 
