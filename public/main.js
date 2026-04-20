@@ -1419,9 +1419,6 @@ function applyUserFeatures(features) {
       btnToggleSuggest.dataset.disabled = 'false';
       btnToggleSuggest.style.display = loggedUser ? 'block' : 'none';
     }
-    if (!suggestCardHidden && suggestCard) {
-      suggestCard.style.display = 'none';
-    }
   }
 
   // Registro manual (formulario)
