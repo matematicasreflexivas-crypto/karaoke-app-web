@@ -171,8 +171,8 @@ document.getElementById('btn-login').onclick = async () => {
     toggleLoginBtn.textContent = 'Mostrar datos de registro';
   }
 
-  const btnLogout = document.getElementById('btn-logout');
-  if (btnLogout) btnLogout.style.display = 'block';
+  const btnLogoutEl = document.getElementById('btn-logout');
+  if (btnLogoutEl) btnLogoutEl.style.display = 'block';
 
   if (searchCard) searchCard.style.display = 'block';
   if (btnToggleSearchCard) {
@@ -215,9 +215,9 @@ document.getElementById('btn-login').onclick = async () => {
 
 // ================== CERRAR SESIÓN ==================
 
-const btnLogout2 = document.getElementById('btn-logout');
-if (btnLogout2) {
-  btnLogout2.onclick = () => {
+const btnLogout = document.getElementById('btn-logout');
+if (btnLogout) {
+  btnLogout.onclick = () => {
     if (!confirm('¿Cerrar sesión?')) return;
 
     // Detener todos los intervalos de refresco
@@ -261,7 +261,7 @@ if (btnLogout2) {
     // Ocultar el botón de toggle de login y el propio botón de logout
     const toggleLoginBtn = document.getElementById('btn-toggle-login-card');
     if (toggleLoginBtn) toggleLoginBtn.style.display = 'none';
-    btnLogout2.style.display = 'none';
+    if (btnLogout) btnLogout.style.display = 'none';
   };
 }
 
