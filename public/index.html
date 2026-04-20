@@ -36,6 +36,7 @@
       margin: 0 auto;
       display: flex;
       flex-direction: column;
+      height: 100vh;
     }
 
     /* Título principal */
@@ -62,7 +63,7 @@
       padding: 8px 10px;
       margin-bottom: 8px;
       box-shadow: 0 4px 8px rgba(0,0,0,0.25);
-      position: relative; /* Asegura que el flujo sea manejable */
+      position: relative;
     }
 
     .form-group {
@@ -120,10 +121,11 @@
       width: 100%;
     }
 
-    /* Botones de control dinámicos: Estilo especial para que el usuario los distinga */
+    /* Botones de control dinámicos - MISMO COLOR QUE btn-primary */
     .btn-toggle-action {
-      background: #374151;
-      border: 1px solid #4b5563;
+      background: linear-gradient(135deg, #4f46e5, #a855f7);
+      color: #f9fafb;
+      width: 100%;
       font-size: 0.85rem;
       margin-bottom: 4px;
     }
@@ -148,12 +150,35 @@
       flex-direction: column;
       gap: 4px;
       margin-bottom: 12px;
-      /* Sticky para que no se pierdan al hacer scroll hacia abajo */
-      position: sticky;
-      top: 0;
+      position: relative;
       background: #050816;
-      z-index: 100;
+      z-index: 10;
       padding-top: 4px;
+      padding-bottom: 4px;
+      max-height: 50px;
+      overflow: hidden;
+      transition: max-height 0.3s ease-in-out;
+    }
+
+    .top-buttons.expanded {
+      max-height: 500px;
+      overflow: visible;
+    }
+
+    .top-buttons button {
+      min-height: 40px;
+      flex-shrink: 0;
+    }
+
+    .top-buttons button:first-child {
+      display: block !important;
+    }
+
+    .top-buttons:not(.expanded) button:not(:first-child) {
+      display: none !important;
+      visibility: hidden !important;
+      position: absolute !important;
+      pointer-events: none !important;
     }
 
     .top-toggle-login {
@@ -221,13 +246,16 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
+      flex: 1;
+      overflow-y: auto;
+      min-height: 0;
     }
 
     /* SCROLL VERTICAL MEJORADO PARA TODAS LAS COLAS */
     .queue-scroll {
       margin-top: 4px;
       padding-right: 4px;
-      max-height: 50vh; /* Altura controlada para el scroll */
+      max-height: 50vh;
       overflow-y: auto !important;
       overflow-x: hidden;
       scrollbar-width: thin;
@@ -239,6 +267,9 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
+      flex: 1;
+      overflow-y: auto;
+      min-height: 0;
     }
 
     .mixed-from-catalog { border-left: 3px solid #22c55e; }
@@ -310,20 +341,23 @@
 
     <div id="user-content" class="layout" style="display:none;">
 
-      <div class="top-buttons">
-        <button id="btn-toggle-search-card" class="btn-primary btn-toggle-action" style="display:none;">
+      <div class="top-buttons" id="top-buttons-container">
+        <button id="btn-toggle-search-card" class="btn-toggle-action" style="display:none;">
           Ocultar "Buscar canción"
         </button>
-        <button id="btn-toggle-queue-card" class="btn-primary btn-toggle-action" style="display:none;">
+        <button id="btn-toggle-queue-card" class="btn-toggle-action" style="display:none;">
           Ocultar cola de participantes
         </button>
-        <button id="btn-toggle-manual-queue-card" class="btn-primary btn-toggle-action" style="display:none;">
+        <button id="btn-toggle-manual-card" class="btn-toggle-action" style="display:none;">
+          Mostrar "Registro manual"
+        </button>
+        <button id="btn-toggle-manual-queue-card" class="btn-toggle-action" style="display:none;">
           Mostrar cola manual
         </button>
-        <button id="btn-toggle-mixed-queue-card" class="btn-primary btn-toggle-action" style="display:none;">
+        <button id="btn-toggle-mixed-queue-card" class="btn-toggle-action" style="display:none;">
           Mostrar cola mixta
         </button>
-        <button id="btn-toggle-suggest-card" class="btn-primary btn-toggle-action" style="display:none;">
+        <button id="btn-toggle-suggest-card" class="btn-toggle-action" style="display:none;">
           Mostrar sugerencia de canción
         </button>
       </div>
@@ -346,21 +380,21 @@
           </div>
         </div>
 
-        <div class="card" id="suggest-card" style="display:none;">
-          <h2>Sugerir canción</h2>
-          <div class="form-group">
-            <input id="suggest-title" type="text" placeholder="Título" />
-            <input id="suggest-artist" type="text" placeholder="Artista" />
-            <button id="btn-send-suggestion" class="btn-primary">Enviar sugerencia</button>
-          </div>
-        </div>
-
         <div class="card" id="manual-card" style="display:none;">
           <h2>Registro manual</h2>
           <div class="form-group">
             <input id="manual-title" type="text" placeholder="Título de la canción" />
             <input id="manual-artist" type="text" placeholder="Intérprete" />
             <button id="btn-send-manual" class="btn-primary">Registrar canción manual</button>
+          </div>
+        </div>
+
+        <div class="card" id="suggest-card" style="display:none;">
+          <h2>Sugerir canción</h2>
+          <div class="form-group">
+            <input id="suggest-title" type="text" placeholder="Título" />
+            <input id="suggest-artist" type="text" placeholder="Artista" />
+            <button id="btn-send-suggestion" class="btn-primary">Enviar sugerencia</button>
           </div>
         </div>
       </div>
