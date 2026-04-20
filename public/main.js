@@ -203,12 +203,69 @@ document.getElementById('btn-login').onclick = async () => {
     applyUserFeatures(window.__lastUserFeatures);
   }
 
+  const btnLogout = document.getElementById('btn-logout');
+  if (btnLogout) btnLogout.style.display = 'block';
+
   await loadQueue();
   await loadManualQueue();
   await loadMixedQueue();
 
   startAutoRefreshQueues(window.__lastUserFeatures || {});
 };
+
+// ================== CERRAR SESIÓN ==================
+
+function logout() {
+  loggedUser = null;
+  window.currentUserName = null;
+  window.currentUserTable = null;
+  window.currentSingerName = null;
+  window.__extraManualSingerName = null;
+  hasSuggestedWhileInQueue = false;
+
+  // Detener intervalos de refresco
+  if (queueInterval) { clearInterval(queueInterval); queueInterval = null; }
+  if (manualQueueInterval) { clearInterval(manualQueueInterval); manualQueueInterval = null; }
+  if (mixedQueueInterval) { clearInterval(mixedQueueInterval); mixedQueueInterval = null; }
+
+  // Mostrar login, ocultar contenido de usuario
+  const loginCard   = document.getElementById('login-card');
+  const userContent = document.getElementById('user-content');
+  const btnLogout   = document.getElementById('btn-logout');
+  if (loginCard)   loginCard.style.display   = 'block';
+  if (userContent) userContent.style.display = 'none';
+  if (btnLogout)   btnLogout.style.display   = 'none';
+
+  // Ocultar botón de toggle del login
+  const toggleLoginBtn = document.getElementById('btn-toggle-login-card');
+  if (toggleLoginBtn) toggleLoginBtn.style.display = 'none';
+
+  // Ocultar todos los botones de toggle de secciones
+  [
+    'btn-toggle-search-card',
+    'btn-toggle-queue-card',
+    'btn-toggle-manual-card',
+    'btn-toggle-manual-queue-card',
+    'btn-toggle-mixed-queue-card',
+    'btn-toggle-suggest-card'
+  ].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.style.display = 'none';
+  });
+
+  // Limpiar campos del formulario de login
+  ['name', 'table', 'pass'].forEach(id => {
+    const inp = document.getElementById(id);
+    if (inp) inp.value = '';
+  });
+
+  window.scrollTo(0, 0);
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  const btnLogout = document.getElementById('btn-logout');
+  if (btnLogout) btnLogout.onclick = logout;
+});
 
 // ================== TOGGLE DE FICHA DE REGISTRO ==================
 
