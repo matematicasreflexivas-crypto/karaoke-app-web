@@ -63,12 +63,14 @@
 
     input,
     button[type="submit"],
-    input[type="file"] {
+    input[type="file"],
+    select {
       width: 100%;
       font-size: 0.95rem;
     }
 
-    input {
+    input,
+    select {
       padding: 10px 12px;
       border-radius: 8px;
       border: 1px solid #4b5563;
@@ -194,7 +196,7 @@
       margin-top: 4px;
     }
 
-    /* Listado de mesas VERTICAL */
+    /* Listado de mesas */
     #tables-admin {
       margin-top: 8px;
       max-height: 45vh;
@@ -238,7 +240,7 @@
       margin-top: 4px;
     }
 
-    /* Cola manual admin (mismos estilos que cola normal) */
+    /* Cola manual admin */
     #manual-queue-admin {
       margin-top: 8px;
       max-height: 30vh;
@@ -248,7 +250,7 @@
       white-space: nowrap;
     }
 
-    /* Cola mixta admin (mismos estilos que cola normal) */
+    /* Cola mixta admin */
     #mixed-queue-admin {
       margin-top: 8px;
       max-height: 30vh;
@@ -318,7 +320,9 @@
               <input id="new-admin-pass" type="password" placeholder="Nueva contraseña" />
             </div>
 
-            <button id="btn-change-admin-pass" class="btn-secondary">Cambiar contraseña</button>
+            <button id="btn-change-admin-pass" class="btn-secondary">
+              Cambiar contraseña
+            </button>
           </div>
         </div>
 
@@ -430,13 +434,13 @@
             Permitir "Cola manual" (usuario escribe canción e intérprete)
           </label>
 
-          <!-- NUEVO: registro manual separado -->
+          <!-- Registro manual separado -->
           <label>
             <input type="checkbox" id="feature-user-manual-register">
             Permitir "Registro manual" (formulario para escribir canción e intérprete)
           </label>
 
-          <!-- NUEVO: cola mixta -->
+          <!-- Cola mixta -->
           <label>
             <input type="checkbox" id="feature-user-mixed-queue">
             Mostrar "Cola mixta" (mezcla de catálogo + manual) en pantalla de usuario
@@ -468,6 +472,19 @@
               placeholder="Ej. 1, 2, 10, VIP 1"
             />
           </div>
+
+          <!-- NUEVO: límite por mesa (coincide con admin.js loadTablesAdmin/setupAddTableButton) -->
+          <div>
+            <label for="new-table-max-songs">Máx. canciones para esta mesa</label>
+            <input
+              id="new-table-max-songs"
+              type="number"
+              min="1"
+              value="1"
+              placeholder="Ej. 3"
+            />
+          </div>
+
           <button id="btn-add-table" class="btn-secondary">Agregar mesa</button>
         </div>
 
@@ -486,7 +503,9 @@
       <div class="card" id="card-cola">
         <div class="section-title-row">
           <h2>Cola de participantes</h2>
-          <button id="btn-clear-all" class="btn-danger">Limpiar toda la cola</button>
+          <button id="btn-clear-all" class="btn-danger">
+            Limpiar cola catálogo
+          </button>
         </div>
 
         <!-- Botón cola normal -->
@@ -506,7 +525,6 @@
           <button id="btn-toggle-manual-queue" class="btn-primary">
             Mostrar/Ocultar cola manual
           </button>
-          <!-- Botón para limpiar cola manual -->
           <button id="btn-clear-manual-queue" class="btn-danger">
             Limpiar cola manual
           </button>
@@ -518,11 +536,14 @@
         </p>
         <div id="manual-queue-admin"></div>
 
-        <!-- NUEVO: Cola mixta -->
+        <!-- Cola mixta -->
         <h3 style="margin-top: 16px;">Cola mixta (catálogo + manual)</h3>
         <div class="section-title-row" style="margin-top: 8px; margin-bottom: 8px;">
           <button id="btn-toggle-mixed-queue" class="btn-primary">
             Mostrar/Ocultar cola mixta
+          </button>
+          <button id="btn-clear-mixed-queue" class="btn-danger">
+            Limpiar cola mixta
           </button>
         </div>
         <p class="hint">
@@ -610,6 +631,62 @@
         "></div>
       </div>
 
+      <!-- Ajustes cola manual + pantalla pública (public-queue-mode + manual-max-songs) -->
+      <div class="card">
+        <h2>Configuración: cola manual y pantalla pública</h2>
+        <div class="form-group">
+          <div>
+            <label for="manual-max-songs">
+              Máx. canciones manuales por mesa (límite global)
+            </label>
+            <input
+              id="manual-max-songs"
+              type="number"
+              min="1"
+              value="1"
+              placeholder="Ej. 3"
+            />
+          </div>
+
+          <div>
+            <label for="public-queue-mode">
+              Modo de cola que usa la pantalla pública
+            </label>
+            <select id="public-queue-mode">
+              <option value="catalog">Cola de catálogo</option>
+              <option value="manual">Cola manual</option>
+            </select>
+          </div>
+
+          <button id="btn-save-manual-queue-settings" class="btn-secondary">
+            Guardar configuración de cola manual / pantalla pública
+          </button>
+        </div>
+        <p class="hint">
+          Estos ajustes definen cuántas canciones manuales puede registrar cada mesa
+          y si la pantalla pública se basa en la cola de catálogo o en la cola manual.
+        </p>
+      </div>
+
+      <!-- Control de qué cola se muestra en la pantalla pública (catalog/manual/mixed) -->
+      <div class="card">
+        <h2>Pantalla pública - Cola a mostrar</h2>
+        <div class="form-group">
+          <label for="public-queue-display">Selecciona qué cola mostrar:</label>
+          <select id="public-queue-display">
+            <option value="catalog">Cola de catálogo (búsqueda)</option>
+            <option value="manual">Cola manual (registro manual)</option>
+            <option value="mixed">Cola mixta (catálogo + manual)</option>
+          </select>
+          <button id="btn-save-public-queue-display" class="btn-secondary" style="margin-top: 8px;">
+            Guardar preferencia
+          </button>
+        </div>
+        <p class="hint">
+          Esta configuración determina cuál cola se muestra en la pantalla pública (el monitor grande del bar).
+        </p>
+      </div>
+
       <!-- Cargar canciones desde Excel -->
       <div class="card">
         <h2>Cargar canciones desde Excel</h2>
@@ -631,7 +708,7 @@
         </form>
       </div>
 
-      <!-- Actualizar QR de pantalla pública -->
+      <!-- Actualizar QR de pantalla pública (tu backend puede ignorar si no lo usas) -->
       <div class="card">
         <h2>Actualizar QR de pantalla pública</h2>
         <form id="form-upload-qr" class="form-group">

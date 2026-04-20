@@ -136,7 +136,8 @@ let adminConfig = {
     mixedQueue: false
   },
   manualMaxSongsPerTable: 1,
-  publicQueueMode: 'catalog'
+  publicQueueMode: 'catalog',
+  publicQueueDisplay: 'catalog'
 };
 
 try {
@@ -166,6 +167,10 @@ try {
 
   if (parsed.publicQueueMode === 'manual' || parsed.publicQueueMode === 'catalog') {
     adminConfig.publicQueueMode = parsed.publicQueueMode;
+  }
+
+  if (parsed.publicQueueDisplay === 'catalog' || parsed.publicQueueDisplay === 'manual' || parsed.publicQueueDisplay === 'mixed') {
+    adminConfig.publicQueueDisplay = parsed.publicQueueDisplay;
   }
 } catch (e) {
   // si no existe adminConfig.json, usamos los valores por defecto
@@ -199,7 +204,8 @@ app.get('/api/public-info', (req, res) => {
       typeof adminConfig.manualMaxSongsPerTable === 'number'
         ? adminConfig.manualMaxSongsPerTable
         : 1,
-    publicQueueMode: adminConfig.publicQueueMode || 'catalog'
+    publicQueueMode: adminConfig.publicQueueMode || 'catalog',
+    publicQueueDisplay: adminConfig.publicQueueDisplay || 'catalog'
   });
 });
 
@@ -586,7 +592,7 @@ app.post('/api/admin/apply-max-songs-all-tables', (req, res) => {
   return res.json({ ok: true, maxSongs: val });
 });
 
-// cambiar qué cola muestra la pantalla pública
+// cambiar qué cola muestra la pantalla pública (ANTIGUO - mantener por compatibilidad)
 app.post('/api/admin/change-public-queue-mode', (req, res) => {
   const { adminPassword, publicQueueMode } = req.body || {};
 
@@ -611,6 +617,42 @@ app.post('/api/admin/change-public-queue-mode', (req, res) => {
     return res
       .status(500)
       .json({ ok: false, message: 'No se pudo guardar el modo de cola pública' });
+  }
+});
+
+// ========== NUEVO: Controlar qué cola mostrar en pantalla pública ==========
+app.post('/api/admin/set-public-queue-display', (req, res) => {
+  const { adminPassword, publicQueueDisplay } = req.body || {};
+
+  if (!adminPassword || !publicQueueDisplay) {
+    return res.status(400).json({ ok: false, message: 'Faltan datos' });
+  }
+
+  if (adminPassword !== adminConfig.adminPassword) {
+    return res
+      .status(401)
+      .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
+  }
+
+  // Validar que sea una opción válida
+  if (!['catalog', 'manual', 'mixed'].includes(publicQueueDisplay)) {
+    return res.status(400).json({ ok: false, message: 'Opción de cola inválida' });
+  }
+
+  adminConfig.publicQueueDisplay = publicQueueDisplay;
+
+  try {
+    saveAdminConfig();
+    return res.json({
+      ok: true,
+      message: 'Preferencia de cola pública guardada',
+      publicQueueDisplay: publicQueueDisplay
+    });
+  } catch (e) {
+    console.error('Error guardando publicQueueDisplay', e);
+    return res
+      .status(500)
+      .json({ ok: false, message: 'No se pudo guardar la preferencia de cola pública' });
   }
 });
 
@@ -1009,6 +1051,32 @@ app.post('/api/queue', (req, res) => {
       restantes > 0
         ? `Registro exitoso. Tu mesa (${mesaStr}) puede registrar todavía ${restantes} participante(s) más (sumando selección + manual).`
         : `Registro exitoso. Tu mesa (${mesaStr}) ha alcanzado el máximo de ${maxSongs} participante(s) en la cola (sumando selección + manual).`
+  });
+});
+
+app.put('/api/queue/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const { songTitle } = req.body || {};
+
+  if (!songTitle) {
+    return res.status(400).json({ ok: false, message: 'Falta songTitle' });
+  }
+
+  const queue = readQueueFromDb();
+  const item = queue.find(q => q.id === id);
+
+  if (!item) {
+    return res.status(404).json({ ok: false, message: 'Canción no encontrada' });
+  }
+
+  updateQueueSong(id, songTitle.trim());
+
+  return res.json({
+    ok: true,
+    item: {
+      ...item,
+      songTitle: songTitle.trim()
+    }
   });
 });
 

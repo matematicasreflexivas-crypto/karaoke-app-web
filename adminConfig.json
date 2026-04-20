@@ -6,12 +6,13 @@
   "isQueueOpen": true,
   "userFeatures": {
     "search": true,
-    "queue": true,
+    "queue": false,
     "suggestion": false,
     "manualQueue": false,
-    "manualRegister": false,
-    "mixedQueue": false
+    "manualRegister": true,
+    "mixedQueue": true
   },
   "manualMaxSongsPerTable": 1000,
-  "publicQueueMode": "manual"
+  "publicQueueMode": "manual",
+  "publicQueueDisplay": "mixed"
 }
