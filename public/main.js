@@ -100,8 +100,10 @@ async function loadPublicInfo() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', function () {
   loadPublicInfo();
+  const btnLogout = document.getElementById('btn-logout');
+  if (btnLogout) btnLogout.onclick = logout;
 });
 
 // ================== LOGIN DE USUARIO ==================
@@ -261,11 +263,6 @@ function logout() {
 
   window.scrollTo(0, 0);
 }
-
-document.addEventListener('DOMContentLoaded', function () {
-  const btnLogout = document.getElementById('btn-logout');
-  if (btnLogout) btnLogout.onclick = logout;
-});
 
 // ================== TOGGLE DE FICHA DE REGISTRO ==================
 
