@@ -210,7 +210,79 @@ document.getElementById('btn-login').onclick = async () => {
   startAutoRefreshQueues(window.__lastUserFeatures || {});
 };
 
-// ================== TOGGLE DE FICHA DE REGISTRO ==================
+// ================== CERRAR SESIÓN ==================
+
+function logout() {
+  // Detener todos los timers de auto-refresco
+  if (queueInterval)       { clearInterval(queueInterval);       queueInterval       = null; }
+  if (manualQueueInterval) { clearInterval(manualQueueInterval); manualQueueInterval = null; }
+  if (mixedQueueInterval)  { clearInterval(mixedQueueInterval);  mixedQueueInterval  = null; }
+
+  // Limpiar estado de sesión
+  loggedUser                    = null;
+  window.currentUserName        = null;
+  window.currentUserTable       = null;
+  window.currentSingerName      = null;
+  window.__extraManualSingerName = null;
+  window.__lastUserFeatures     = null;
+  hasSuggestedWhileInQueue      = false;
+
+  // Limpiar almacenamiento de sesión de la aplicación
+  try { sessionStorage.removeItem('karaokeUser'); } catch (e) { /* ignorar */ }
+
+  // Ocultar contenido de usuario y mostrar login
+  const userContent   = document.getElementById('user-content');
+  const loginCard     = document.getElementById('login-card');
+  const toggleLoginBtn = document.getElementById('btn-toggle-login-card');
+
+  if (userContent)    userContent.style.display   = 'none';
+  if (loginCard)      loginCard.style.display      = 'block';
+  if (toggleLoginBtn) toggleLoginBtn.style.display = 'none';
+
+  // Limpiar campos del formulario de login
+  const nameInput  = document.getElementById('name');
+  const tableInput = document.getElementById('table');
+  const passInput  = document.getElementById('pass');
+  if (nameInput)  nameInput.value  = '';
+  if (tableInput) tableInput.value = '';
+  if (passInput)  passInput.value  = '';
+
+  // Limpiar contenido de las colas
+  const queueDiv       = document.getElementById('queue');
+  const manualQueueDiv = document.getElementById('manual-queue');
+  const mixedQueueDiv  = document.getElementById('mixed-queue-list');
+  const songsDiv       = document.getElementById('songs');
+  if (queueDiv)       queueDiv.innerHTML       = '';
+  if (manualQueueDiv) manualQueueDiv.innerHTML = '';
+  if (mixedQueueDiv)  mixedQueueDiv.innerHTML  = '';
+  if (songsDiv)       songsDiv.innerHTML       = '';
+
+  // Limpiar campos de búsqueda y registro manual
+  const titleInput  = document.getElementById('title');
+  const artistInput = document.getElementById('artist');
+  const manualTitleEl  = document.getElementById('manual-title');
+  const manualArtistEl = document.getElementById('manual-artist');
+  if (titleInput)      titleInput.value      = '';
+  if (artistInput)     artistInput.value     = '';
+  if (manualTitleEl)   manualTitleEl.value   = '';
+  if (manualArtistEl)  manualArtistEl.value  = '';
+
+  // Ocultar botones de toggle que solo son visibles al estar logueado
+  ['btn-toggle-search-card', 'btn-toggle-queue-card', 'btn-toggle-manual-queue-card',
+   'btn-toggle-mixed-queue-card', 'btn-toggle-suggest-card'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.style.display = 'none';
+  });
+}
+
+const btnLogout = document.getElementById('btn-logout');
+if (btnLogout) {
+  btnLogout.onclick = () => {
+    logout();
+  };
+}
+
+
 
 const toggleLoginBtn2 = document.getElementById('btn-toggle-login-card');
 if (toggleLoginBtn2) {
