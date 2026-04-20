@@ -352,6 +352,15 @@ if (btnToggleSearchCard2) {
   };
 }
 
+// ================== Helper para mostrar/ocultar tarjetas ==================
+
+function toggleCard(card, btn, textMostrar, textOcultar) {
+  if (!card) return;
+  const visible = card.style.display !== 'none';
+  card.style.display = visible ? 'none' : 'block';
+  btn.textContent = visible ? textMostrar : textOcultar;
+}
+
 // toggle cola catálogo
 const btnToggleQueueCard2 = document.getElementById('btn-toggle-queue-card');
 if (btnToggleQueueCard2) {
@@ -372,6 +381,34 @@ if (btnToggleQueueCard2) {
       btnToggleQueueCard2.textContent = 'Ocultar cola de participantes';
       queueDiv.style.maxHeight = '';
     }
+  };
+}
+
+// toggle cola manual
+const btnToggleManualQueueCard2 = document.getElementById('btn-toggle-manual-queue-card');
+if (btnToggleManualQueueCard2) {
+  btnToggleManualQueueCard2.onclick = () => {
+    if (btnToggleManualQueueCard2.dataset.disabled === 'true') return;
+    toggleCard(
+      document.getElementById('manual-queue-card'),
+      btnToggleManualQueueCard2,
+      'Mostrar cola de participantes (carga manual)',
+      'Ocultar cola de participantes (carga manual)'
+    );
+  };
+}
+
+// toggle cola mixta
+const btnToggleMixedQueueCard2 = document.getElementById('btn-toggle-mixed-queue-card');
+if (btnToggleMixedQueueCard2) {
+  btnToggleMixedQueueCard2.onclick = () => {
+    if (btnToggleMixedQueueCard2.dataset.disabled === 'true') return;
+    toggleCard(
+      document.getElementById('mixed-queue-card'),
+      btnToggleMixedQueueCard2,
+      'Mostrar cola mixta de participantes',
+      'Ocultar cola mixta de participantes'
+    );
   };
 }
 
@@ -566,6 +603,9 @@ async function loadQueue() {
   const div = document.getElementById('queue');
   if (!div) return;
 
+  const savedScrollTop = div.scrollTop;
+  const savedPageY = window.scrollY;
+
   div.innerHTML = '';
 
   if (!data.ok) {
@@ -635,6 +675,11 @@ async function loadQueue() {
   if (!isUserInQueue) {
     hasSuggestedWhileInQueue = false;
   }
+
+  div.scrollTop = savedScrollTop;
+  if (window.scrollY !== savedPageY) {
+    window.scrollTo(0, savedPageY);
+  }
 }
 
 // ================== COLA MANUAL ==================
@@ -663,6 +708,9 @@ async function loadManualQueue() {
 
   div.style.maxHeight = '60vh';
   div.style.overflowY = 'auto';
+
+  const savedScrollTop = div.scrollTop;
+  const savedPageY = window.scrollY;
 
   div.innerHTML = '';
 
@@ -738,6 +786,11 @@ async function loadManualQueue() {
 
     div.appendChild(p);
   });
+
+  div.scrollTop = savedScrollTop;
+  if (window.scrollY !== savedPageY) {
+    window.scrollTo(0, savedPageY);
+  }
 }
 
 // ================== COLA MIXTA ==================
@@ -755,6 +808,9 @@ async function loadMixedQueue() {
     if (card) card.style.display = 'none';
     return;
   }
+
+  const savedScrollTop = container.scrollTop;
+  const savedPageY = window.scrollY;
 
   container.textContent = 'Cargando cola mixta...';
 
@@ -855,8 +911,10 @@ async function loadMixedQueue() {
     container.appendChild(row);
   });
 
-  const card = document.getElementById('mixed-queue-card');
-  if (card) card.style.display = 'block';
+  container.scrollTop = savedScrollTop;
+  if (window.scrollY !== savedPageY) {
+    window.scrollTo(0, savedPageY);
+  }
 }
 
 // ================== SUGERENCIAS ==================
@@ -1318,13 +1376,15 @@ function applyUserFeatures(features) {
       btnToggleManualQueueCard.dataset.disabled = 'true';
     }
   } else {
+    if (manualQueueCard) {
+      manualQueueCard.style.display = loggedUser ? 'block' : 'none';
+    }
     if (btnToggleManualQueueCard) {
       btnToggleManualQueueCard.dataset.disabled = 'false';
       btnToggleManualQueueCard.style.display = loggedUser ? 'block' : 'none';
-      btnToggleManualQueueCard.textContent = 'Mostrar cola de participantes (carga manual)';
-    }
-    if (manualQueueCard) {
-      manualQueueCard.style.display = 'none';
+      btnToggleManualQueueCard.textContent = loggedUser
+        ? 'Ocultar cola de participantes (carga manual)'
+        : 'Mostrar cola de participantes (carga manual)';
     }
   }
 
@@ -1337,12 +1397,16 @@ function applyUserFeatures(features) {
       btnToggleMixedQueueCard.dataset.disabled = 'true';
     }
   } else {
+    if (mixedCard) {
+      mixedCard.style.display = loggedUser ? 'block' : 'none';
+    }
     if (btnToggleMixedQueueCard) {
       btnToggleMixedQueueCard.dataset.disabled = 'false';
       btnToggleMixedQueueCard.style.display = loggedUser ? 'block' : 'none';
-      btnToggleMixedQueueCard.textContent = 'Mostrar cola mixta de participantes';
+      btnToggleMixedQueueCard.textContent = loggedUser
+        ? 'Ocultar cola mixta de participantes'
+        : 'Mostrar cola mixta de participantes';
     }
-    if (mixedCard) mixedCard.style.display = 'none';
     if (loggedUser) loadMixedQueue();
   }
 
