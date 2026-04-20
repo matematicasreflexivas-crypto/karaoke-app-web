@@ -290,12 +290,6 @@ async function performSearch() {
     return;
   }
 
-  if (!hayTextoBusqueda) {
-    div.innerHTML = '';
-    if (resultsCard) resultsCard.style.display = 'none';
-    return;
-  }
-
   const params = new URLSearchParams();
   if (artist) params.append('artist', artist);
   if (title)  params.append('title', title);
@@ -387,6 +381,9 @@ if (btnToggleSearchCard2) {
       searchCard.style.display = 'block';
       searchCardHidden = false;
       btnToggleSearchCard2.textContent = 'Ocultar "Buscar canción"';
+      if (topButtonsContainer) {
+        topButtonsContainer.classList.remove('expanded');
+      }
     }
   };
 }
@@ -861,6 +858,11 @@ async function loadMixedQueue() {
   }
 
   const savedScroll = container.scrollTop;
+
+  // Solo mostrar "Cargando..." en la primera carga (cuando está vacío)
+  if (!container.hasChildNodes()) {
+    container.textContent = 'Cargando cola mixta...';
+  }
 
   let res, data;
   try {
