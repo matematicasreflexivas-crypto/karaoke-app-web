@@ -199,6 +199,9 @@ document.getElementById('btn-login').onclick = async () => {
     suggestCard.style.display = 'none';
   }
 
+  const btnLogout = document.getElementById('btn-logout');
+  if (btnLogout) btnLogout.style.display = 'block';
+
   if (window.__lastUserFeatures) {
     applyUserFeatures(window.__lastUserFeatures);
   }
@@ -209,6 +212,51 @@ document.getElementById('btn-login').onclick = async () => {
 
   startAutoRefreshQueues(window.__lastUserFeatures || {});
 };
+
+// ================== LOGOUT ==================
+
+const btnLogoutEl = document.getElementById('btn-logout');
+if (btnLogoutEl) {
+  btnLogoutEl.onclick = () => {
+    loggedUser = null;
+    window.currentUserName  = null;
+    window.currentUserTable = null;
+    window.currentSingerName = null;
+    hasSuggestedWhileInQueue = false;
+
+    if (queueInterval) { clearInterval(queueInterval); queueInterval = null; }
+    if (manualQueueInterval) { clearInterval(manualQueueInterval); manualQueueInterval = null; }
+    if (mixedQueueInterval) { clearInterval(mixedQueueInterval); mixedQueueInterval = null; }
+
+    ['name', 'table', 'pass'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+
+    const userContent = document.getElementById('user-content');
+    if (userContent) userContent.style.display = 'none';
+
+    const loginCard = document.getElementById('login-card');
+    if (loginCard) loginCard.style.display = 'block';
+
+    const toggleLoginBtn = document.getElementById('btn-toggle-login-card');
+    if (toggleLoginBtn) toggleLoginBtn.style.display = 'none';
+
+    [
+      'btn-logout',
+      'btn-toggle-search-card',
+      'btn-toggle-queue-card',
+      'btn-toggle-manual-queue-card',
+      'btn-toggle-mixed-queue-card',
+      'btn-toggle-suggest-card'
+    ].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) btn.style.display = 'none';
+    });
+
+    window.scrollTo(0, 0);
+  };
+}
 
 // ================== TOGGLE DE FICHA DE REGISTRO ==================
 
