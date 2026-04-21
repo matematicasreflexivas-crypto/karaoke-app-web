@@ -746,6 +746,30 @@
         </div>
       </div>
 
+      <!-- Tiempo estimado por turno -->
+      <div class="card">
+        <h2>Tiempo estimado por turno</h2>
+        <div class="form-group">
+          <div>
+            <label for="minutes-per-turn">Minutos por turno (promedio)</label>
+            <input
+              id="minutes-per-turn"
+              type="number"
+              min="1"
+              value="5"
+              placeholder="Ej. 5"
+            />
+          </div>
+          <button id="btn-save-minutes-per-turn" class="btn-secondary">
+            Guardar
+          </button>
+        </div>
+        <p class="hint">
+          Define cuántos minutos tarda en promedio cada participante en cantar.
+          Se usa para calcular el tiempo estimado de espera en las colas del panel de administrador.
+        </p>
+      </div>
+
       <!-- Botón Cerrar sesión -->
       <button id="btn-admin-logout" class="btn-danger" style="width:100%; margin-top:16px; font-size:1rem;">
         Cerrar sesión

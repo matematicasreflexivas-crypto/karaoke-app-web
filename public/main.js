@@ -49,6 +49,23 @@ function debounce(fn, delay = 400) {
   };
 }
 
+// Crea un recuadro de color visual para items de cola
+function createColorDot(color) {
+  const dot = document.createElement('span');
+  dot.style.cssText =
+    'display:inline-block;width:12px;height:12px;border-radius:3px;flex-shrink:0;' +
+    'background:' + (color === 'orange' ? '#f97316' : '#22c55e') + ';' +
+    'margin-right:5px;vertical-align:middle;';
+  return dot;
+}
+
+// Retorna el color efectivo de un item de cola
+function getItemColor(item, defaultSource) {
+  if (item.highlightColor) return item.highlightColor;
+  const src = item.source || defaultSource;
+  return src === 'manual' ? 'orange' : 'green';
+}
+
 function ensureResultsVisible() {
   const resultsCard = document.getElementById('search-results-card');
   const searchCard = document.getElementById('search-card');
@@ -535,6 +552,9 @@ if (btnToggleSuggestCard2) {
 const btnLogout = document.getElementById('btn-logout');
 if (btnLogout) {
   btnLogout.onclick = () => {
+    const confirmLogout = confirm('¿Seguro que quieres cerrar sesión?');
+    if (!confirmLogout) return;
+
     // Detener intervalos de refresco
     if (queueInterval) { clearInterval(queueInterval); queueInterval = null; }
     if (manualQueueInterval) { clearInterval(manualQueueInterval); manualQueueInterval = null; }
@@ -805,6 +825,9 @@ async function loadQueue() {
       isUserInQueue = true;
     }
 
+    // Recuadro de color (catálogo = verde)
+    p.appendChild(createColorDot(getItemColor(item, 'catalog')));
+
     const spanIndex = document.createElement('span');
     spanIndex.textContent = `${idx + 1}. `;
     p.appendChild(spanIndex);
@@ -893,6 +916,9 @@ async function loadManualQueue() {
       currentTable &&
       currentName === itemNameLower &&
       currentTable === itemTable;
+
+    // Recuadro de color (manual = naranja)
+    p.appendChild(createColorDot(getItemColor(item, 'manual')));
 
     const spanIndex = document.createElement('span');
     spanIndex.textContent = `${idx + 1}. `;
@@ -1009,6 +1035,9 @@ async function loadMixedQueue() {
     } else if (item.source === 'manual') {
       row.classList.add('mixed-from-manual');
     }
+
+    // Recuadro de color (respeta highlightColor o usa fuente como default)
+    row.appendChild(createColorDot(getItemColor(item, item.source || 'catalog')));
 
     const spanIndex = document.createElement('span');
     spanIndex.textContent = `${idx + 1}. `;

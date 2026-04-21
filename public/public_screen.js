@@ -53,7 +53,7 @@ async function fetchPublicInfo() {
 
 // ---------------------- RENDER COLA ----------------------
 
-function renderQueue(queue) {
+function renderQueue(queue, queueType) {
   const list = document.getElementById('queue-list');
   const label = document.getElementById('queue-count-label');
   if (!list || !label) return;
@@ -104,6 +104,26 @@ function renderQueue(queue) {
       artist = item.artist || '';
     }
 
+    // Determinar color del recuadro
+    let itemColor = item.highlightColor;
+    if (!itemColor) {
+      if (item.source === 'manual') {
+        itemColor = 'orange';
+      } else if (item.source === 'catalog') {
+        itemColor = 'green';
+      } else if (queueType === 'manual') {
+        itemColor = 'orange';
+      } else {
+        itemColor = 'green';
+      }
+    }
+
+    const colorDot = document.createElement('span');
+    colorDot.style.cssText =
+      'display:inline-block;width:13px;height:13px;border-radius:3px;flex-shrink:0;' +
+      'background:' + (itemColor === 'orange' ? '#f97316' : '#22c55e') + ';' +
+      'margin-right:6px;vertical-align:middle;';
+
     const line = document.createElement('div');
     line.className = 'queue-item-line';
 
@@ -118,6 +138,7 @@ function renderQueue(queue) {
     rightSpan.className = 'queue-item-right';
     rightSpan.textContent = artist ? `${song} - ${artist}` : song;
 
+    line.appendChild(colorDot);
     line.appendChild(leftSpan);
     line.appendChild(middleDot);
     line.appendChild(rightSpan);
@@ -190,7 +211,7 @@ async function refreshPublicScreen() {
   
   const queue = await fetchQueue(queueType);
 
-  if (queue !== null) renderQueue(queue);
+  if (queue !== null) renderQueue(queue, queueType);
   renderPublicInfo(info);
 }
 

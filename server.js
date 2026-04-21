@@ -76,6 +76,10 @@ db.exec(`
   );
 `);
 
+// Migraciones: agregar columna highlightColor si no existe
+try { db.exec(`ALTER TABLE queue ADD COLUMN highlightColor TEXT`); } catch (e) { /* ya existe */ }
+try { db.exec(`ALTER TABLE manual_queue ADD COLUMN highlightColor TEXT`); } catch (e) { /* ya existe */ }
+
 // ===== FIN SQLITE =====
 
 const app = express();
@@ -137,7 +141,8 @@ let adminConfig = {
   },
   manualMaxSongsPerTable: 1,
   publicQueueMode: 'catalog',
-  publicQueueDisplay: 'catalog'
+  publicQueueDisplay: 'catalog',
+  minutesPerTurn: 5
 };
 
 try {
@@ -172,6 +177,10 @@ try {
   if (parsed.publicQueueDisplay === 'catalog' || parsed.publicQueueDisplay === 'manual' || parsed.publicQueueDisplay === 'mixed') {
     adminConfig.publicQueueDisplay = parsed.publicQueueDisplay;
   }
+
+  if (typeof parsed.minutesPerTurn === 'number' && parsed.minutesPerTurn > 0) {
+    adminConfig.minutesPerTurn = parsed.minutesPerTurn;
+  }
 } catch (e) {
   // si no existe adminConfig.json, usamos los valores por defecto
 }
@@ -205,7 +214,8 @@ app.get('/api/public-info', (req, res) => {
         ? adminConfig.manualMaxSongsPerTable
         : 1,
     publicQueueMode: adminConfig.publicQueueMode || 'catalog',
-    publicQueueDisplay: adminConfig.publicQueueDisplay || 'catalog'
+    publicQueueDisplay: adminConfig.publicQueueDisplay || 'catalog',
+    minutesPerTurn: typeof adminConfig.minutesPerTurn === 'number' ? adminConfig.minutesPerTurn : 5
   });
 });
 
@@ -656,6 +666,21 @@ app.post('/api/admin/set-public-queue-display', (req, res) => {
   }
 });
 
+// ========== MINUTOS POR TURNO ==========
+app.post('/api/admin/set-minutes-per-turn', (req, res) => {
+  const { minutesPerTurn } = req.body || {};
+  let val = parseInt(minutesPerTurn, 10);
+  if (Number.isNaN(val) || val < 1) val = 5;
+  adminConfig.minutesPerTurn = val;
+  try {
+    saveAdminConfig();
+    return res.json({ ok: true, minutesPerTurn: val });
+  } catch (e) {
+    console.error('Error guardando minutesPerTurn', e);
+    return res.status(500).json({ ok: false, message: 'No se pudo guardar' });
+  }
+});
+
 // ========== LOGIN USUARIO ==========
 app.post('/api/user/login', (req, res) => {
   const { name, table, password } = req.body;
@@ -777,7 +802,7 @@ app.post('/api/songs/upload', upload.single('excel'), (req, res) => {
 // ========== COLA / HISTORIAL (SQLite) ==========
 function readQueueFromDb() {
   const stmt = db.prepare(`
-    SELECT id, userName, tableNumber, songTitle, createdAt
+    SELECT id, userName, tableNumber, songTitle, createdAt, highlightColor
     FROM queue
     ORDER BY id ASC
   `);
@@ -857,7 +882,8 @@ function readManualQueueFromDb() {
       songTitle,
       manualSongTitle,
       manualSongArtist,
-      createdAt
+      createdAt,
+      highlightColor
     FROM manual_queue
     ORDER BY id ASC
   `);
@@ -919,6 +945,16 @@ function clearManualQueue() {
   return stmt.run();
 }
 
+function updateQueueHighlightColor(id, color) {
+  const stmt = db.prepare(`UPDATE queue SET highlightColor = ? WHERE id = ?`);
+  return stmt.run(color || null, id);
+}
+
+function updateManualQueueHighlightColor(id, color) {
+  const stmt = db.prepare(`UPDATE manual_queue SET highlightColor = ? WHERE id = ?`);
+  return stmt.run(color || null, id);
+}
+
 // ======= NUEVOS HELPERS: total combinado y unicidad de persona =======
 
 // total combinado por mesa (queue + manual_queue)
@@ -978,6 +1014,28 @@ app.delete('/api/manual-queue/:id', (req, res) => {
 
 app.delete('/api/manual-queue', (req, res) => {
   clearManualQueue();
+  return res.json({ ok: true });
+});
+
+// ====== ENDPOINT HIGHLIGHT COLOR (COLA CATÁLOGO) ======
+app.put('/api/queue/:id/highlight-color', (req, res) => {
+  const id = Number(req.params.id);
+  const { color } = req.body || {};
+  if (color !== null && color !== 'green' && color !== 'orange') {
+    return res.status(400).json({ ok: false, message: 'Color inválido' });
+  }
+  updateQueueHighlightColor(id, color);
+  return res.json({ ok: true });
+});
+
+// ====== ENDPOINT HIGHLIGHT COLOR (COLA MANUAL) ======
+app.put('/api/manual-queue/:id/highlight-color', (req, res) => {
+  const id = Number(req.params.id);
+  const { color } = req.body || {};
+  if (color !== null && color !== 'green' && color !== 'orange') {
+    return res.status(400).json({ ok: false, message: 'Color inválido' });
+  }
+  updateManualQueueHighlightColor(id, color);
   return res.json({ ok: true });
 });
 
@@ -1228,6 +1286,7 @@ app.get('/api/mixed-queue', (req, res) => {
       displaySongTitle:  item.songTitle,
       displaySongArtist: '',
       source: 'catalog',
+      highlightColor: item.highlightColor || null,
       createdAt: item.createdAt || new Date().toISOString()
     }));
 
@@ -1238,6 +1297,7 @@ app.get('/api/mixed-queue', (req, res) => {
       displaySongTitle:  item.manualSongTitle  || item.songTitle || '',
       displaySongArtist: item.manualSongArtist || '',
       source: 'manual',
+      highlightColor: item.highlightColor || null,
       createdAt: item.createdAt || new Date().toISOString()
     }));
 

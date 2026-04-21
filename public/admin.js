@@ -2,6 +2,7 @@
 const API_BASE = '';
 
 let adminLogged = false;
+let minutesPerTurn = 5;
 
 // Flags de visibilidad de secciones
 let queueAdminHidden       = false;
@@ -56,6 +57,31 @@ function smoothRefreshContainer(div, renderFn) {
   renderFn();
   div.scrollTop        = prevScrollTop;
   div.style.overflowY  = prevOverflowY || 'auto';
+}
+
+// Retorna el color efectivo de un item de cola
+function getItemColor(item, defaultSource) {
+  if (item.highlightColor) return item.highlightColor;
+  const src = item.source || defaultSource;
+  return src === 'manual' ? 'orange' : 'green';
+}
+
+// Crea un recuadro de color visual para el item
+function createColorDot(color) {
+  const dot = document.createElement('span');
+  dot.title = color === 'orange' ? 'Manual' : 'Catálogo';
+  dot.style.cssText =
+    'display:inline-block;width:13px;height:13px;border-radius:3px;flex-shrink:0;' +
+    'background:' + (color === 'orange' ? '#f97316' : '#22c55e') + ';' +
+    'margin-right:6px;vertical-align:middle;';
+  return dot;
+}
+
+// Formatea el tiempo estimado de espera en la cola (solo admin)
+function formatWaitTime(idx) {
+  if (idx === 0) return '✓ En turno';
+  const mins = idx * minutesPerTurn;
+  return `~${mins} min`;
 }
 
 // ================== LOGIN ADMIN ==================
@@ -116,6 +142,10 @@ document.getElementById('btn-admin-login').onclick = async () => {
   // Botones limpiar colas
   setupClearMixedQueueButton();
   setupClearManualQueueButton();
+
+  // Minutos por turno
+  await loadMinutesPerTurn();
+  setupMinutesPerTurnControl();
 
   startAutoRefreshAdmin();
 
@@ -265,6 +295,10 @@ async function loadQueueAdmin() {
       const content = document.createElement('div');
       content.className = 'queue-admin-item-content';
 
+      // Recuadro de color
+      const colorDot = createColorDot(getItemColor(item, 'catalog'));
+      content.appendChild(colorDot);
+
       const textSpan = document.createElement('span');
       textSpan.className = 'queue-admin-item-text';
 
@@ -272,6 +306,7 @@ async function loadQueueAdmin() {
       const songTitleUpper = toUpperNoAccents(item.songTitle || '');
       const artistUpper    = toUpperNoAccents(item.artist || '');
       const tiempoEnCola   = formatTiempoEnCola(item.createdAt);
+      const waitTime       = formatWaitTime(idx);
 
       let linea = `${idx + 1}. Mesa ${item.tableNumber} - ${userNameUpper} - ${songTitleUpper}`;
       if (artistUpper) {
@@ -280,6 +315,7 @@ async function loadQueueAdmin() {
       if (tiempoEnCola) {
         linea += ` | ${tiempoEnCola}`;
       }
+      linea += ` | ⏱ ${waitTime}`;
 
       textSpan.textContent = linea;
       content.appendChild(textSpan);
@@ -407,6 +443,10 @@ async function loadManualQueueAdmin() {
       const content = document.createElement('div');
       content.className = 'queue-admin-item-content';
 
+      // Recuadro de color (manual = naranja por defecto)
+      const colorDot = createColorDot(getItemColor(item, 'manual'));
+      content.appendChild(colorDot);
+
       const textSpan = document.createElement('span');
       textSpan.className = 'queue-admin-item-text';
 
@@ -414,6 +454,7 @@ async function loadManualQueueAdmin() {
       const songTitleUpper = toUpperNoAccents(item.manualSongTitle || item.songTitle || '');
       const artistUpper    = toUpperNoAccents(item.manualSongArtist || item.artist || '');
       const tiempoEnCola   = formatTiempoEnCola(item.createdAt);
+      const waitTime       = formatWaitTime(idx);
 
       let linea = `${idx + 1}. Mesa ${item.tableNumber} - ${userNameUpper} - ${songTitleUpper}`;
       if (artistUpper) {
@@ -422,6 +463,7 @@ async function loadManualQueueAdmin() {
       if (tiempoEnCola) {
         linea += ` | ${tiempoEnCola}`;
       }
+      linea += ` | ⏱ ${waitTime}`;
 
       textSpan.textContent = linea;
       content.appendChild(textSpan);
@@ -555,7 +597,7 @@ async function loadMixedQueueAdmin() {
         row.style.color = '#111827';
       }
 
-      // Clases de color para el borde
+      // Borde de color según fuente
       if (item.source === 'catalog') {
         row.classList.add('mixed-from-catalog');
       } else if (item.source === 'manual') {
@@ -565,6 +607,11 @@ async function loadMixedQueueAdmin() {
       const content = document.createElement('div');
       content.className = 'queue-admin-item-content';
 
+      // Recuadro de color (puede estar sobreescrito con highlightColor)
+      const effectiveColor = getItemColor(item, item.source || 'catalog');
+      const colorDot = createColorDot(effectiveColor);
+      content.appendChild(colorDot);
+
       const textSpan = document.createElement('span');
       textSpan.className = 'queue-admin-item-text';
 
@@ -572,8 +619,9 @@ async function loadMixedQueueAdmin() {
       const songTitleUpper = toUpperNoAccents(item.displaySongTitle || item.songTitle || '');
       const artistUpper    = toUpperNoAccents(item.displaySongArtist || item.artist || '');
       const tiempoEnCola   = formatTiempoEnCola(item.createdAt);
+      const waitTime       = formatWaitTime(idx);
 
-      // Etiqueta visible de origen con color
+      // Etiqueta visible de origen
       const sourceLabelSpan = document.createElement('span');
       if (item.source === 'manual') {
         sourceLabelSpan.textContent = '[MANUAL]';
@@ -592,6 +640,7 @@ async function loadMixedQueueAdmin() {
       if (tiempoEnCola) {
         lineaResto += ` | ${tiempoEnCola}`;
       }
+      lineaResto += ` | ⏱ ${waitTime}`;
 
       const indexSpan = document.createElement('span');
       indexSpan.textContent = `${idx + 1}. `;
@@ -604,6 +653,40 @@ async function loadMixedQueueAdmin() {
 
       const actions = document.createElement('div');
       actions.className = 'queue-admin-item-actions';
+
+      // Botón para cambiar color (verde ↔ naranja)
+      const btnToggleColor = document.createElement('button');
+      const newColor = effectiveColor === 'orange' ? 'green' : 'orange';
+      btnToggleColor.textContent = effectiveColor === 'orange' ? '🟢' : '🟠';
+      btnToggleColor.title = effectiveColor === 'orange' ? 'Cambiar a verde' : 'Cambiar a naranja';
+      btnToggleColor.className = 'btn-queue-admin';
+      btnToggleColor.style.background = effectiveColor === 'orange' ? '#22c55e' : '#f97316';
+      btnToggleColor.style.color = '#fff';
+      btnToggleColor.style.minWidth = '36px';
+      btnToggleColor.onclick = async () => {
+        const endpoint = item.source === 'manual'
+          ? `${API_BASE}/api/manual-queue/${item.id}/highlight-color`
+          : `${API_BASE}/api/queue/${item.id}/highlight-color`;
+        try {
+          const resColor = await fetch(endpoint, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ color: newColor })
+          });
+          const dataColor = await resColor.json();
+          if (!resColor.ok || !dataColor.ok) {
+            alert(dataColor.message || 'No se pudo cambiar el color');
+            return;
+          }
+          await loadMixedQueueAdmin();
+          loadQueueAdmin();
+          loadManualQueueAdmin();
+        } catch (e) {
+          console.error(e);
+          alert('Error al cambiar el color');
+        }
+      };
+      actions.appendChild(btnToggleColor);
 
       const btnDel = document.createElement('button');
       btnDel.textContent = 'Eliminar';
@@ -2083,6 +2166,58 @@ document.getElementById('btn-change-app-title').onclick = async () => {
 
   document.getElementById('admin-pass-app-title').value = '';
 };
+
+// ========= MINUTOS POR TURNO =========
+
+async function loadMinutesPerTurn() {
+  try {
+    const res  = await fetch(`${API_BASE}/api/public-info`);
+    const data = await res.json();
+    if (!res.ok || !data.ok) return;
+    if (typeof data.minutesPerTurn === 'number' && data.minutesPerTurn > 0) {
+      minutesPerTurn = data.minutesPerTurn;
+    }
+    const input = document.getElementById('minutes-per-turn');
+    if (input) input.value = minutesPerTurn;
+  } catch (e) {
+    console.error('Error leyendo minutesPerTurn', e);
+  }
+}
+
+function setupMinutesPerTurnControl() {
+  const btnSave = document.getElementById('btn-save-minutes-per-turn');
+  const input   = document.getElementById('minutes-per-turn');
+  if (!btnSave || !input) return;
+
+  btnSave.onclick = async () => {
+    if (!adminLogged) {
+      alert('Primero inicia sesión como admin');
+      return;
+    }
+    const val = parseInt(input.value, 10);
+    if (Number.isNaN(val) || val < 1) {
+      alert('El número mínimo de minutos por turno es 1');
+      return;
+    }
+    try {
+      const res  = await fetch(`${API_BASE}/api/admin/set-minutes-per-turn`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ minutesPerTurn: val })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        alert(data.message || 'No se pudo guardar');
+        return;
+      }
+      minutesPerTurn = val;
+      alert('Minutos por turno guardados correctamente.');
+    } catch (e) {
+      console.error(e);
+      alert('No se pudo conectar para guardar los minutos por turno');
+    }
+  };
+}
 
 // ========= INICIALIZACIÓN =========
 document.addEventListener('DOMContentLoaded', () => {
