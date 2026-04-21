@@ -1727,8 +1727,9 @@ async function loadUserFeaturesAdmin() {
   const cbManualQueue    = document.getElementById('feature-user-manual-queue');
   const cbManualRegister = document.getElementById('feature-user-manual-register');
   const cbMixedQueue     = document.getElementById('feature-user-mixed-queue');
+  const cbHistory        = document.getElementById('feature-user-history');
 
-  if (!cbSearch || !cbQueue || !cbSuggestion || !cbManualQueue || !cbManualRegister || !cbMixedQueue) {
+  if (!cbSearch || !cbQueue || !cbSuggestion || !cbManualQueue || !cbManualRegister || !cbMixedQueue || !cbHistory) {
     return;
   }
 
@@ -1745,6 +1746,7 @@ async function loadUserFeaturesAdmin() {
     const manualQueueEnabled    = features.manualQueue    === true;
     const manualRegisterEnabled = features.manualRegister === true;
     const mixedQueueEnabled     = features.mixedQueue     === true;
+    const historyEnabled        = features.history        === true;
 
     cbSearch.checked         = searchEnabled;
     cbQueue.checked          = queueEnabled;
@@ -1752,6 +1754,7 @@ async function loadUserFeaturesAdmin() {
     cbManualQueue.checked    = manualQueueEnabled;
     cbManualRegister.checked = manualRegisterEnabled;
     cbMixedQueue.checked     = mixedQueueEnabled;
+    cbHistory.checked        = historyEnabled;
   } catch (e) {
     console.error('Error leyendo userFeatures en admin', e);
   }
@@ -1765,8 +1768,9 @@ function setupUserFeaturesControls() {
   const cbManualQueue    = document.getElementById('feature-user-manual-queue');
   const cbManualRegister = document.getElementById('feature-user-manual-register');
   const cbMixedQueue     = document.getElementById('feature-user-mixed-queue');
+  const cbHistory        = document.getElementById('feature-user-history');
 
-  if (!btnSave || !cbSearch || !cbQueue || !cbSuggestion || !cbManualQueue || !cbManualRegister || !cbMixedQueue) {
+  if (!btnSave || !cbSearch || !cbQueue || !cbSuggestion || !cbManualQueue || !cbManualRegister || !cbMixedQueue || !cbHistory) {
     return;
   }
 
@@ -1783,7 +1787,8 @@ function setupUserFeaturesControls() {
         suggestion:     cbSuggestion.checked,
         manualQueue:    cbManualQueue.checked,
         manualRegister: cbManualRegister.checked,
-        mixedQueue:     cbMixedQueue.checked
+        mixedQueue:     cbMixedQueue.checked,
+        history:        cbHistory.checked
       }
     };
 

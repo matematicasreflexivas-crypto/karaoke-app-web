@@ -15,6 +15,7 @@ let manualCardHidden = false;
 let manualQueueCardHidden = false;
 let mixedQueueCardHidden = false;
 let suggestCardHidden = false;
+let historyCardHidden = false;
 
 // Banderas para rastrear estado inicial
 let initialFeaturesApplied = false;
@@ -24,6 +25,7 @@ let lastScrollPosition = 0;
 let queueInterval       = null;
 let manualQueueInterval = null;
 let mixedQueueInterval  = null;
+let historyInterval     = null;
 
 // ================== Helpers generales ==================
 
@@ -234,6 +236,7 @@ document.getElementById('btn-login').onclick = async () => {
   manualQueueCardHidden = false;
   mixedQueueCardHidden = false;
   suggestCardHidden = false;
+  historyCardHidden = false;
 
   if (window.__lastUserFeatures) {
     applyUserFeatures(window.__lastUserFeatures);
@@ -242,6 +245,7 @@ document.getElementById('btn-login').onclick = async () => {
   await loadQueue();
   await loadManualQueue();
   await loadMixedQueue();
+  await loadHistory();
 
   startAutoRefreshQueues(window.__lastUserFeatures || {});
 };
@@ -507,6 +511,24 @@ if (btnToggleSuggestCard2) {
     btnToggleSuggestCard2.textContent = visible
       ? 'Mostrar sugerencia de canción'
       : 'Ocultar sugerencia de canción';
+  };
+}
+
+// toggle historial
+const btnToggleHistoryCard = document.getElementById('btn-toggle-history-card');
+if (btnToggleHistoryCard) {
+  btnToggleHistoryCard.onclick = () => {
+    if (btnToggleHistoryCard.dataset.disabled === 'true') return;
+
+    const historyCard = document.getElementById('history-card');
+    if (!historyCard) return;
+
+    const visible = historyCard.style.display !== 'none';
+    historyCard.style.display = visible ? 'none' : 'block';
+    historyCardHidden = visible;
+    btnToggleHistoryCard.textContent = visible
+      ? 'Mostrar historial'
+      : 'Ocultar historial';
   };
 }
 
@@ -968,8 +990,100 @@ async function loadMixedQueue() {
   }
 }
 
-// ================== SUGERENCIAS ==================
+// ================== HISTORIAL ==================
 
+async function loadHistory() {
+  if (!loggedUser) return;
+
+  const features = window.__lastUserFeatures || {};
+  if (!features.history) {
+    const card = document.getElementById('history-card');
+    if (card) card.style.display = 'none';
+    return;
+  }
+
+  const container = document.getElementById('history-user');
+  if (!container) return;
+
+  let res, data;
+  try {
+    res  = await fetch(`${API_BASE}/api/history`, { cache: 'no-store' });
+    data = await res.json();
+  } catch (e) {
+    console.error('Error leyendo /api/history', e);
+    container.textContent = 'No se pudo cargar el historial.';
+    return;
+  }
+
+  if (!res.ok || !data.ok) {
+    container.textContent = data.message || 'Error al cargar el historial.';
+    return;
+  }
+
+  const items = data.history || [];
+
+  if (!items.length) {
+    container.textContent = 'Aún no hay historial.';
+    const card = document.getElementById('history-card');
+    if (card && !historyCardHidden) card.style.display = 'block';
+    return;
+  }
+
+  const prevScrollTop = container.scrollTop;
+  container.innerHTML = '';
+
+  items.forEach((h, idx) => {
+    const p = document.createElement('p');
+    p.className = 'queue-item-line';
+
+    const fechaAtendida  = h.playedAt ? new Date(h.playedAt).toLocaleString('es-MX') : '';
+    const userNameUpper  = toUpperNoAccents(h.userName  || '');
+    const songTitleUpper = toUpperNoAccents(h.songTitle || '');
+
+    const spanIndex = document.createElement('span');
+    spanIndex.textContent = `${idx + 1}. `;
+    p.appendChild(spanIndex);
+
+    const mesaLabelSpan = document.createElement('span');
+    mesaLabelSpan.textContent = 'Mesa ';
+    p.appendChild(mesaLabelSpan);
+
+    const tableSpan = document.createElement('span');
+    tableSpan.textContent = h.tableNumber;
+    p.appendChild(tableSpan);
+
+    const sep1 = document.createElement('span');
+    sep1.textContent = ' - ';
+    p.appendChild(sep1);
+
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = userNameUpper;
+    p.appendChild(nameSpan);
+
+    const sep2 = document.createElement('span');
+    sep2.textContent = ` - ${songTitleUpper}`;
+    p.appendChild(sep2);
+
+    if (fechaAtendida) {
+      const dateSpan = document.createElement('span');
+      dateSpan.style.color = '#9ca3af';
+      dateSpan.style.fontSize = '0.8rem';
+      dateSpan.textContent = ` (${fechaAtendida})`;
+      p.appendChild(dateSpan);
+    }
+
+    container.appendChild(p);
+  });
+
+  container.scrollTop = prevScrollTop;
+
+  const card = document.getElementById('history-card');
+  if (card && !historyCardHidden) {
+    card.style.display = 'block';
+  }
+}
+
+// ================== SUGERENCIAS ==================
 const btnSendSuggestion = document.getElementById('btn-send-suggestion');
 if (btnSendSuggestion) {
   btnSendSuggestion.onclick = async () => {
@@ -1349,6 +1463,10 @@ function startAutoRefreshQueues(features) {
     clearInterval(mixedQueueInterval);
     mixedQueueInterval = null;
   }
+  if (historyInterval) {
+    clearInterval(historyInterval);
+    historyInterval = null;
+  }
 
   if (!loggedUser) return;
 
@@ -1372,6 +1490,13 @@ function startAutoRefreshQueues(features) {
       loadMixedQueue().catch(err => console.error('Error auto loadMixedQueue', err));
     }, 10000);
   }
+
+  // Historial
+  if (features.history) {
+    historyInterval = setInterval(() => {
+      loadHistory().catch(err => console.error('Error auto loadHistory', err));
+    }, 15000);
+  }
 }
 
 // ================== APLICAR FEATURES ==================
@@ -1383,6 +1508,7 @@ function applyUserFeatures(features) {
   const manualQueueEnabled    = !!features.manualQueue;
   const mixedQueueEnabled     = !!features.mixedQueue;
   const suggestionEnabled     = !!features.suggestion;
+  const historyEnabled        = !!features.history;
 
   const searchCard          = document.getElementById('search-card');
   const btnToggleSearchCard = document.getElementById('btn-toggle-search-card');
@@ -1401,6 +1527,9 @@ function applyUserFeatures(features) {
 
   const suggestCard          = document.getElementById('suggest-card');
   const btnToggleSuggestCard = document.getElementById('btn-toggle-suggest-card');
+
+  const historyCard          = document.getElementById('history-card');
+  const btnToggleHistoryCard2 = document.getElementById('btn-toggle-history-card');
 
   // Buscar
   if (!searchEnabled) {
@@ -1525,6 +1654,27 @@ function applyUserFeatures(features) {
       btnToggleSuggestCard.textContent = suggestCardHidden
         ? 'Mostrar sugerencia de canción'
         : 'Ocultar sugerencia de canción';
+    }
+  }
+
+  // Historial
+  if (!historyEnabled) {
+    if (historyCard) historyCard.style.display = 'none';
+    if (btnToggleHistoryCard2) {
+      btnToggleHistoryCard2.style.display = 'none';
+      btnToggleHistoryCard2.dataset.disabled = 'true';
+    }
+    historyCardHidden = true;
+  } else {
+    if (historyCard && !historyCardHidden && loggedUser) {
+      historyCard.style.display = 'block';
+    }
+    if (btnToggleHistoryCard2) {
+      btnToggleHistoryCard2.dataset.disabled = 'false';
+      btnToggleHistoryCard2.style.display = loggedUser ? 'block' : 'none';
+      btnToggleHistoryCard2.textContent = historyCardHidden
+        ? 'Mostrar historial'
+        : 'Ocultar historial';
     }
   }
 
