@@ -1020,10 +1020,8 @@ app.delete('/api/manual-queue', (req, res) => {
 // ====== ENDPOINT HIGHLIGHT COLOR (COLA CATÁLOGO) ======
 app.put('/api/queue/:id/highlight-color', (req, res) => {
   const id = Number(req.params.id);
-  const { color } = req.body || {};
-  if (color !== null && color !== 'green' && color !== 'orange') {
-    return res.status(400).json({ ok: false, message: 'Color inválido' });
-  }
+  const rawColor = (req.body || {}).color;
+  const color = rawColor === 'green' || rawColor === 'orange' ? rawColor : null;
   updateQueueHighlightColor(id, color);
   return res.json({ ok: true });
 });
@@ -1031,10 +1029,8 @@ app.put('/api/queue/:id/highlight-color', (req, res) => {
 // ====== ENDPOINT HIGHLIGHT COLOR (COLA MANUAL) ======
 app.put('/api/manual-queue/:id/highlight-color', (req, res) => {
   const id = Number(req.params.id);
-  const { color } = req.body || {};
-  if (color !== null && color !== 'green' && color !== 'orange') {
-    return res.status(400).json({ ok: false, message: 'Color inválido' });
-  }
+  const rawColor = (req.body || {}).color;
+  const color = rawColor === 'green' || rawColor === 'orange' ? rawColor : null;
   updateManualQueueHighlightColor(id, color);
   return res.json({ ok: true });
 });

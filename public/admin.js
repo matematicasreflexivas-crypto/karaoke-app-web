@@ -678,7 +678,7 @@ async function loadMixedQueueAdmin() {
             alert(dataColor.message || 'No se pudo cambiar el color');
             return;
           }
-          await loadMixedQueueAdmin();
+          loadMixedQueueAdmin();
           loadQueueAdmin();
           loadManualQueueAdmin();
         } catch (e) {
