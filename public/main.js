@@ -531,11 +531,20 @@ if (btnToggleHistoryCard) {
       historyCard.style.display = 'none';
       historyCardHidden = true;
       btnToggleHistoryCard.textContent = 'Mostrar historial de mi mesa';
+      if (historyInterval) {
+        clearInterval(historyInterval);
+        historyInterval = null;
+      }
     } else {
       historyCard.style.display = 'block';
       historyCardHidden = false;
       btnToggleHistoryCard.textContent = 'Ocultar historial de mi mesa';
       await loadHistory();
+      if (!historyInterval) {
+        historyInterval = setInterval(() => {
+          loadHistory().catch(err => console.error('Error auto loadHistory', err));
+        }, 15000);
+      }
     }
   };
 }
@@ -1479,16 +1488,7 @@ function startAutoRefreshQueues(features) {
       loadMixedQueue().catch(err => console.error('Error auto loadMixedQueue', err));
     }, 10000);
   }
-
-  // Historial (solo si está visible)
-  historyInterval = setInterval(() => {
-    if (!historyCardHidden) {
-      loadHistory().catch(err => console.error('Error auto loadHistory', err));
-    }
-  }, 15000);
 }
-
-// ================== APLICAR FEATURES ==================
 
 function applyUserFeatures(features) {
   const searchEnabled         = !!features.search;
