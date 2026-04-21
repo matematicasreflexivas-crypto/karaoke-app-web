@@ -514,6 +514,25 @@
         </p>
       </div>
 
+      <!-- Control de qué cola se muestra en la pantalla pública (catalog/manual/mixed) -->
+      <div class="card">
+        <h2>Pantalla pública - Cola a mostrar</h2>
+        <div class="form-group">
+          <label for="public-queue-display">Selecciona qué cola mostrar:</label>
+          <select id="public-queue-display">
+            <option value="catalog">Cola de catálogo (búsqueda)</option>
+            <option value="manual">Cola manual (registro manual)</option>
+            <option value="mixed">Cola mixta (catálogo + manual)</option>
+          </select>
+          <button id="btn-save-public-queue-display" class="btn-secondary" style="margin-top: 8px;">
+            Guardar preferencia
+          </button>
+        </div>
+        <p class="hint">
+          Esta configuración determina cuál cola se muestra en la pantalla pública (el monitor grande del bar).
+        </p>
+      </div>
+
       <!-- Gestión de mesas permitidas -->
       <div class="card" id="card-mesas">
         <div class="section-title-row">
@@ -689,25 +708,6 @@
         "></div>
       </div>
 
-
-      <!-- Control de qué cola se muestra en la pantalla pública (catalog/manual/mixed) -->
-      <div class="card">
-        <h2>Pantalla pública - Cola a mostrar</h2>
-        <div class="form-group">
-          <label for="public-queue-display">Selecciona qué cola mostrar:</label>
-          <select id="public-queue-display">
-            <option value="catalog">Cola de catálogo (búsqueda)</option>
-            <option value="manual">Cola manual (registro manual)</option>
-            <option value="mixed">Cola mixta (catálogo + manual)</option>
-          </select>
-          <button id="btn-save-public-queue-display" class="btn-secondary" style="margin-top: 8px;">
-            Guardar preferencia
-          </button>
-        </div>
-        <p class="hint">
-          Esta configuración determina cuál cola se muestra en la pantalla pública (el monitor grande del bar).
-        </p>
-      </div>
 
       <!-- Cargar canciones desde Excel -->
       <div class="card">
