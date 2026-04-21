@@ -743,15 +743,6 @@ async function chooseSong(songLabel) {
   const resultsCard = getResultsCard();
   if (resultsCard) resultsCard.style.display = 'none';
 
-  const searchCard = document.getElementById('search-card');
-  if (searchCard) searchCard.style.display = 'none';
-
-  const btnToggle = document.getElementById('btn-toggle-search-card');
-  if (btnToggle) {
-    btnToggle.textContent = 'Mostrar catálogo de canciones';
-    btnToggle.style.display = 'block';
-  }
-
   if (songsDiv) songsDiv.style.maxHeight = '22vh';
 
   await loadQueue();
