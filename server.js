@@ -996,7 +996,11 @@ function userExistsInAnyQueue(tableNumber, userName) {
 // ====== ENDPOINTS DELETE PARA COLA CATÁLOGO ======
 app.delete('/api/queue/:id', (req, res) => {
   const id = Number(req.params.id);
-  deleteQueueItem(id);
+  const result = moveQueueItemToHistory(id);
+  if (!result) {
+    // Item no encontrado, intentar borrar directamente por si acaso
+    deleteQueueItem(id);
+  }
   return res.json({ ok: true });
 });
 
@@ -1005,10 +1009,49 @@ app.delete('/api/queue', (req, res) => {
   return res.json({ ok: true });
 });
 
+function moveManualQueueItemToHistory(id) {
+  const queue = readManualQueueFromDb();
+  const index = queue.findIndex(q => q.id === id);
+  if (index === -1) {
+    return null;
+  }
+  const item = queue[index];
+
+  const queuePosition = index + 1;
+  const queueTotal    = queue.length;
+
+  const playedAt = new Date().toISOString();
+
+  // Usar manualSongTitle como título en historial cuando esté disponible
+  const songTitleForHistory = item.manualSongTitle || item.songTitle || '';
+
+  const insertHistory = db.prepare(`
+    INSERT INTO history (userName, tableNumber, songTitle, createdAt, playedAt, queuePosition, queueTotal)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  insertHistory.run(
+    item.userName,
+    item.tableNumber,
+    songTitleForHistory,
+    item.createdAt || new Date().toISOString(),
+    playedAt,
+    queuePosition,
+    queueTotal
+  );
+
+  deleteManualQueueItem(id);
+
+  return { ...item, playedAt, queuePosition, queueTotal };
+}
+
 // ====== ENDPOINTS DELETE PARA COLA MANUAL ======
 app.delete('/api/manual-queue/:id', (req, res) => {
   const id = Number(req.params.id);
-  deleteManualQueueItem(id);
+  const result = moveManualQueueItemToHistory(id);
+  if (!result) {
+    // Item no encontrado, intentar borrar directamente por si acaso
+    deleteManualQueueItem(id);
+  }
   return res.json({ ok: true });
 });
 

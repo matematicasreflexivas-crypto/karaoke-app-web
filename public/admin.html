@@ -243,7 +243,7 @@
     /* Cola manual admin */
     #manual-queue-admin {
       margin-top: 8px;
-      max-height: 30vh;
+      max-height: 45vh;
       padding-right: 4px;
       overflow-y: auto;
       overflow-x: auto;
@@ -253,7 +253,7 @@
     /* Cola mixta admin */
     #mixed-queue-admin {
       margin-top: 8px;
-      max-height: 30vh;
+      max-height: 45vh;
       padding-right: 4px;
       overflow-y: auto;
       overflow-x: auto;
@@ -417,36 +417,36 @@
       <div class="card" id="user-features-card">
         <h2>Secciones visibles al usuario</h2>
         <div class="form-group">
-          <label>
+          <label style="display:flex; align-items:center; gap:8px;">
             <input type="checkbox" id="feature-user-search" checked>
-            Permitir sección "Buscar canción" en pantalla de usuario
+            Permitir selección por catálogo
           </label>
 
-          <label>
+          <label style="display:flex; align-items:center; gap:8px;">
             <input type="checkbox" id="feature-user-queue" checked>
-            Permitir "Cola de participantes" en pantalla de usuario
+            Permitir cola de selección por catálogo
           </label>
 
-          <label>
+          <label style="display:flex; align-items:center; gap:8px;">
             <input type="checkbox" id="feature-user-suggestion" checked>
-            Permitir "Sugerir canción" en pantalla de usuario
+            Permitir sugerir canción
           </label>
 
-          <label>
+          <label style="display:flex; align-items:center; gap:8px;">
             <input type="checkbox" id="feature-user-manual-queue">
-            Permitir "Cola manual" (usuario escribe canción e intérprete)
+            Permitir cola de registro manual
           </label>
 
           <!-- Registro manual separado -->
-          <label>
+          <label style="display:flex; align-items:center; gap:8px;">
             <input type="checkbox" id="feature-user-manual-register">
-            Permitir "Registro manual" (formulario para escribir canción e intérprete)
+            Permitir registro manual
           </label>
 
           <!-- Cola mixta -->
-          <label>
+          <label style="display:flex; align-items:center; gap:8px;">
             <input type="checkbox" id="feature-user-mixed-queue">
-            Mostrar "Cola mixta" (mezcla de catálogo + manual) en pantalla de usuario
+            Permitir cola mixta (Catálogo + manual)
           </label>
 
           <button id="btn-save-user-features" class="btn-secondary">
@@ -505,7 +505,7 @@
       <!-- Cola de participantes + historial + colas manual/mixta -->
       <div class="card" id="card-cola">
         <div class="section-title-row">
-          <h2>Cola de participantes</h2>
+          <h2>Cola por catálogo</h2>
           <button id="btn-clear-all" class="btn-danger">
             Limpiar cola catálogo
           </button>
@@ -514,7 +514,7 @@
         <!-- Botón cola normal -->
         <div class="section-title-row" style="margin-top: 8px; margin-bottom: 8px;">
           <button id="btn-toggle-queue" class="btn-primary">
-            Mostrar/Ocultar cola de participantes
+            Ocultar cola por catálogo
           </button>
         </div>
 
@@ -634,42 +634,6 @@
         "></div>
       </div>
 
-      <!-- Ajustes cola manual + pantalla pública (public-queue-mode + manual-max-songs) -->
-      <div class="card">
-        <h2>Configuración: cola manual y pantalla pública</h2>
-        <div class="form-group">
-          <div>
-            <label for="manual-max-songs">
-              Máx. canciones manuales por mesa (límite global)
-            </label>
-            <input
-              id="manual-max-songs"
-              type="number"
-              min="1"
-              value="1"
-              placeholder="Ej. 3"
-            />
-          </div>
-
-          <div>
-            <label for="public-queue-mode">
-              Modo de cola que usa la pantalla pública
-            </label>
-            <select id="public-queue-mode">
-              <option value="catalog">Cola de catálogo</option>
-              <option value="manual">Cola manual</option>
-            </select>
-          </div>
-
-          <button id="btn-save-manual-queue-settings" class="btn-secondary">
-            Guardar configuración de cola manual / pantalla pública
-          </button>
-        </div>
-        <p class="hint">
-          Estos ajustes definen cuántas canciones manuales puede registrar cada mesa
-          y si la pantalla pública se basa en la cola de catálogo o en la cola manual.
-        </p>
-      </div>
 
       <!-- Control de qué cola se muestra en la pantalla pública (catalog/manual/mixed) -->
       <div class="card">

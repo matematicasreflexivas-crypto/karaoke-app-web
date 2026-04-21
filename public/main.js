@@ -93,6 +93,17 @@ async function preserveScrollAndReload(loadFn) {
   });
 }
 
+// Refresco suave de un contenedor de cola (evita el latigazo visual)
+function smoothRefreshContainer(div, renderFn) {
+  if (!div) return;
+  const prevScrollTop = div.scrollTop;
+  const prevOverflowY = div.style.overflowY;
+  div.style.overflowY = 'hidden';
+  renderFn();
+  div.scrollTop = prevScrollTop;
+  div.style.overflowY = prevOverflowY || 'auto';
+}
+
 function getResultsCard() {
   return (
     Array.from(document.querySelectorAll('.card')).find(card => {
@@ -228,7 +239,7 @@ document.getElementById('btn-login').onclick = async () => {
   if (searchCard) searchCard.style.display = 'block';
   if (btnToggleSearchCard) {
     btnToggleSearchCard.style.display = 'block';
-    btnToggleSearchCard.textContent = 'Ocultar "Buscar canción"';
+    btnToggleSearchCard.textContent = 'Ocultar catálogo de canciones';
   }
   if (btnSearch) btnSearch.style.display = 'none';
 
@@ -242,7 +253,7 @@ document.getElementById('btn-login').onclick = async () => {
 
   if (btnToggleQueueCard) {
     btnToggleQueueCard.style.display = 'block';
-    btnToggleQueueCard.textContent = 'Mostrar cola de participantes';
+    btnToggleQueueCard.textContent = 'Mostrar cola de participantes (catálogo)';
   }
 
   if (btnToggleSuggestCard) {
@@ -424,7 +435,7 @@ if (btnToggleSearchCard2) {
     if (visible) {
       searchCard.style.display = 'none';
       searchCardHidden = true;
-      btnToggleSearchCard2.textContent = 'Mostrar "Buscar canción"';
+      btnToggleSearchCard2.textContent = 'Mostrar catálogo de canciones';
       setTimeout(() => {
         if (topButtonsContainer) {
           topButtonsContainer.classList.add('expanded');
@@ -433,7 +444,7 @@ if (btnToggleSearchCard2) {
     } else {
       searchCard.style.display = 'block';
       searchCardHidden = false;
-      btnToggleSearchCard2.textContent = 'Ocultar "Buscar canción"';
+      btnToggleSearchCard2.textContent = 'Ocultar catálogo de canciones';
     }
   };
 }
@@ -452,11 +463,11 @@ if (btnToggleQueueCard2) {
     if (visible) {
       queueCard.style.display = 'none';
       queueCardHidden = true;
-      btnToggleQueueCard2.textContent = 'Mostrar cola de participantes';
+      btnToggleQueueCard2.textContent = 'Mostrar cola de participantes (catálogo)';
     } else {
       queueCard.style.display = 'block';
       queueCardHidden = false;
-      btnToggleQueueCard2.textContent = 'Ocultar cola de participantes';
+      btnToggleQueueCard2.textContent = 'Ocultar cola de participantes (catálogo)';
     }
   };
 }
@@ -474,11 +485,11 @@ if (btnToggleManualCard2) {
     if (visible) {
       manualCard.style.display = 'none';
       manualCardHidden = true;
-      btnToggleManualCard2.textContent = 'Mostrar "Registro manual"';
+      btnToggleManualCard2.textContent = 'Mostrar registro manual de canciones';
     } else {
       manualCard.style.display = 'block';
       manualCardHidden = false;
-      btnToggleManualCard2.textContent = 'Ocultar "Registro manual"';
+      btnToggleManualCard2.textContent = 'Ocultar registro manual de canciones';
     }
   };
 }
@@ -497,11 +508,11 @@ if (btnToggleManualQueueCard2) {
     if (visible) {
       manualQueueCard.style.display = 'none';
       manualQueueCardHidden = true;
-      btnToggleManualQueueCard2.textContent = 'Mostrar cola de participantes (carga manual)';
+      btnToggleManualQueueCard2.textContent = 'Mostrar cola de participantes (registro manual)';
     } else {
       manualQueueCard.style.display = 'block';
       manualQueueCardHidden = false;
-      btnToggleManualQueueCard2.textContent = 'Ocultar cola de participantes (carga manual)';
+      btnToggleManualQueueCard2.textContent = 'Ocultar cola de participantes (registro manual)';
     }
   };
 }
@@ -520,11 +531,11 @@ if (btnToggleMixedQueueCard2) {
     if (visible) {
       mixedQueueCard.style.display = 'none';
       mixedQueueCardHidden = true;
-      btnToggleMixedQueueCard2.textContent = 'Mostrar cola mixta de participantes';
+      btnToggleMixedQueueCard2.textContent = 'Mostrar cola de participantes (catálogo + manual)';
     } else {
       mixedQueueCard.style.display = 'block';
       mixedQueueCardHidden = false;
-      btnToggleMixedQueueCard2.textContent = 'Ocultar cola mixta de participantes';
+      btnToggleMixedQueueCard2.textContent = 'Ocultar cola de participantes (catálogo + manual)';
     }
   };
 }
@@ -721,12 +732,15 @@ async function chooseSong(songLabel) {
 
     const btnToggle = document.getElementById('btn-toggle-search-card');
     if (btnToggle) {
-      btnToggle.textContent = 'Ocultar "Buscar canción"';
+      btnToggle.textContent = 'Ocultar catálogo de canciones';
       btnToggle.style.display = 'block';
     }
 
     return;
   }
+
+  // Limpiar el nombre extra manual para evitar conflicto en siguientes registros manuales
+  window.__extraManualSingerName = null;
 
   const resultsCard = getResultsCard();
   if (resultsCard) resultsCard.style.display = 'none';
@@ -736,7 +750,7 @@ async function chooseSong(songLabel) {
 
   const btnToggle = document.getElementById('btn-toggle-search-card');
   if (btnToggle) {
-    btnToggle.textContent = 'Mostrar "Buscar canción"';
+    btnToggle.textContent = 'Mostrar catálogo de canciones';
     btnToggle.style.display = 'block';
   }
 
@@ -789,8 +803,6 @@ async function loadQueue() {
   const div = document.getElementById('queue');
   if (!div) return;
 
-  div.innerHTML = '';
-
   if (!data.ok) {
     div.textContent = 'Error cargando cola';
     return;
@@ -802,6 +814,9 @@ async function loadQueue() {
   const currentTable = (window.currentUserTable || '').trim().toLowerCase();
 
   let isUserInQueue = false;
+
+  smoothRefreshContainer(div, () => {
+    div.innerHTML = '';
 
   data.queue.forEach((item, idx) => {
     const p = document.createElement('p');
@@ -857,6 +872,7 @@ async function loadQueue() {
 
     div.appendChild(p);
   });
+  }); // end smoothRefreshContainer
 
   if (!isUserInQueue) {
     hasSuggestedWhileInQueue = false;
@@ -887,8 +903,6 @@ async function loadManualQueue() {
   const div = document.getElementById('manual-queue');
   if (!div) return;
 
-  div.innerHTML = '';
-
   if (!data.ok) {
     div.textContent = 'Error cargando cola manual';
     return;
@@ -898,6 +912,9 @@ async function loadManualQueue() {
     (window.currentUserName || '').trim()
   ).toLowerCase();
   const currentTable = (window.currentUserTable || '').trim().toLowerCase();
+
+  smoothRefreshContainer(div, () => {
+    div.innerHTML = '';
 
   data.queue.forEach((item, idx) => {
     const p = document.createElement('p');
@@ -964,6 +981,7 @@ async function loadManualQueue() {
 
     div.appendChild(p);
   });
+  }); // end smoothRefreshContainer
 }
 
 // ================== COLA MIXTA ==================
@@ -982,8 +1000,6 @@ async function loadMixedQueue() {
     return;
   }
 
-  container.textContent = 'Cargando cola mixta...';
-
   let res, data;
   try {
     res  = await fetch(`${API_BASE}/api/mixed-queue`, { cache: 'no-store' });
@@ -1000,17 +1016,19 @@ async function loadMixedQueue() {
   }
 
   const mixed = data.queue || data.mixedQueue || [];
-  if (!mixed.length) {
-    container.textContent = 'No hay canciones en la cola mixta.';
-    return;
-  }
-
-  container.innerHTML = '';
 
   const currentName  = removeAccents(
     (window.currentUserName || '').trim()
   ).toLowerCase();
   const currentTable = (window.currentUserTable || '').trim().toLowerCase();
+
+  smoothRefreshContainer(container, () => {
+    if (!mixed.length) {
+      container.textContent = 'No hay canciones en la cola mixta.';
+      return;
+    }
+
+    container.innerHTML = '';
 
   mixed.forEach((item, idx) => {
     const row = document.createElement('p');
@@ -1080,6 +1098,7 @@ async function loadMixedQueue() {
 
     container.appendChild(row);
   });
+  }); // end smoothRefreshContainer
 
   const card = document.getElementById('mixed-queue-card');
   if (card && !mixedQueueCardHidden) {
@@ -1366,7 +1385,7 @@ async function preguntarOtraPersonaParaMesa(maxSongs) {
 
     if (searchCard) searchCard.style.display = 'block';
     if (btnToggle) {
-      btnToggle.textContent = 'Ocultar "Buscar canción"';
+      btnToggle.textContent = 'Ocultar catálogo de canciones';
       btnToggle.style.display = 'block';
     }
 
@@ -1537,8 +1556,8 @@ function applyUserFeatures(features) {
       btnToggleSearchCard.dataset.disabled = 'false';
       btnToggleSearchCard.style.display = loggedUser ? 'block' : 'none';
       btnToggleSearchCard.textContent = searchCardHidden
-        ? 'Mostrar "Buscar canción"'
-        : 'Ocultar "Buscar canción"';
+        ? 'Mostrar catálogo de canciones'
+        : 'Ocultar catálogo de canciones';
     }
   }
 
@@ -1558,8 +1577,8 @@ function applyUserFeatures(features) {
       btnToggleQueueCard.dataset.disabled = 'false';
       btnToggleQueueCard.style.display = loggedUser ? 'block' : 'none';
       btnToggleQueueCard.textContent = queueCardHidden
-        ? 'Mostrar cola de participantes'
-        : 'Ocultar cola de participantes';
+        ? 'Mostrar cola de participantes (catálogo)'
+        : 'Ocultar cola de participantes (catálogo)';
     }
   }
 
@@ -1579,7 +1598,7 @@ function applyUserFeatures(features) {
     if (btnToggleManualCard) {
       btnToggleManualCard.dataset.disabled = 'false';
       btnToggleManualCard.style.display = loggedUser ? 'block' : 'none';
-      btnToggleManualCard.textContent = 'Ocultar "Registro manual"';
+      btnToggleManualCard.textContent = 'Ocultar registro manual de canciones';
     }
     manualCardHidden = false;
   }
@@ -1600,8 +1619,8 @@ function applyUserFeatures(features) {
       btnToggleManualQueueCard.dataset.disabled = 'false';
       btnToggleManualQueueCard.style.display = loggedUser ? 'block' : 'none';
       btnToggleManualQueueCard.textContent = manualQueueCardHidden
-        ? 'Mostrar cola de participantes (carga manual)'
-        : 'Ocultar cola de participantes (carga manual)';
+        ? 'Mostrar cola de participantes (registro manual)'
+        : 'Ocultar cola de participantes (registro manual)';
     }
   }
 
@@ -1621,8 +1640,8 @@ function applyUserFeatures(features) {
       btnToggleMixedQueueCard.dataset.disabled = 'false';
       btnToggleMixedQueueCard.style.display = loggedUser ? 'block' : 'none';
       btnToggleMixedQueueCard.textContent = mixedQueueCardHidden
-        ? 'Mostrar cola mixta de participantes'
-        : 'Ocultar cola mixta de participantes';
+        ? 'Mostrar cola de participantes (catálogo + manual)'
+        : 'Ocultar cola de participantes (catálogo + manual)';
     }
   }
 

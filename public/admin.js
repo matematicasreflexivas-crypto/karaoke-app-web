@@ -492,7 +492,13 @@ async function loadManualQueueAdmin() {
           return;
         }
 
+        const fromInput   = document.getElementById('history-from');
+        const toInput     = document.getElementById('history-to');
+        const fromDateStr = fromInput ? fromInput.value : '';
+        const toDateStr   = toInput   ? toInput.value   : '';
+
         await loadManualQueueAdmin();
+        loadHistoryAdmin(fromDateStr, toDateStr);
         loadMixedQueueAdmin();
       };
       actions.appendChild(btnDel);
@@ -1670,16 +1676,16 @@ function setupToggleButtons() {
       if (visible) {
         queueDiv.style.display = 'none';
         queueAdminHidden = true;
-        btnToggleQueue.textContent = 'Mostrar cola de participantes';
+        btnToggleQueue.textContent = 'Mostrar cola por catálogo';
       } else {
         queueDiv.style.display = 'block';
         queueAdminHidden = false;
-        btnToggleQueue.textContent = 'Ocultar cola de participantes';
+        btnToggleQueue.textContent = 'Ocultar cola por catálogo';
         loadQueueAdmin();
       }
       startAutoRefreshAdmin();
     };
-    btnToggleQueue.textContent = 'Ocultar cola de participantes';
+    btnToggleQueue.textContent = 'Ocultar cola por catálogo';
   }
 
   // Cola manual
