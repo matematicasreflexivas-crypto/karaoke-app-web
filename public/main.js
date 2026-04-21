@@ -15,6 +15,7 @@ let manualCardHidden = false;
 let manualQueueCardHidden = false;
 let mixedQueueCardHidden = false;
 let suggestCardHidden = false;
+let historyCardHidden = false;
 
 // Banderas para rastrear estado inicial
 let initialFeaturesApplied = false;
@@ -24,6 +25,7 @@ let lastScrollPosition = 0;
 let queueInterval       = null;
 let manualQueueInterval = null;
 let mixedQueueInterval  = null;
+let historyInterval     = null;
 
 // ================== Helpers generales ==================
 
@@ -234,6 +236,7 @@ document.getElementById('btn-login').onclick = async () => {
   manualQueueCardHidden = false;
   mixedQueueCardHidden = false;
   suggestCardHidden = false;
+  historyCardHidden = false;
 
   if (window.__lastUserFeatures) {
     applyUserFeatures(window.__lastUserFeatures);
@@ -242,6 +245,7 @@ document.getElementById('btn-login').onclick = async () => {
   await loadQueue();
   await loadManualQueue();
   await loadMixedQueue();
+  await loadHistory();
 
   startAutoRefreshQueues(window.__lastUserFeatures || {});
 };
@@ -507,6 +511,22 @@ if (btnToggleSuggestCard2) {
     btnToggleSuggestCard2.textContent = visible
       ? 'Mostrar sugerencia de canción'
       : 'Ocultar sugerencia de canción';
+  };
+}
+
+// toggle historial
+const btnToggleHistoryCard = document.getElementById('btn-toggle-history-card');
+if (btnToggleHistoryCard) {
+  btnToggleHistoryCard.onclick = () => {
+    const historyCard = document.getElementById('history-card');
+    if (!historyCard) return;
+
+    const visible = historyCard.style.display !== 'none';
+    historyCard.style.display = visible ? 'none' : 'block';
+    historyCardHidden = visible;
+    btnToggleHistoryCard.textContent = visible
+      ? 'Mostrar mi historial'
+      : 'Ocultar mi historial';
   };
 }
 
@@ -968,6 +988,65 @@ async function loadMixedQueue() {
   }
 }
 
+// ================== HISTORIAL DEL USUARIO ==================
+
+async function loadHistory() {
+  if (!loggedUser) return;
+
+  const card = document.getElementById('history-card');
+  const list = document.getElementById('history-list');
+  if (!list) return;
+
+  const params = new URLSearchParams({
+    table: loggedUser.table,
+    user:  loggedUser.name
+  });
+
+  let res, data;
+  try {
+    res  = await fetch(`${API_BASE}/api/history?${params}`, { cache: 'no-store' });
+    data = await res.json();
+  } catch (e) {
+    console.error('Error cargando historial de usuario', e);
+    return;
+  }
+
+  if (!res.ok || !data.ok) return;
+
+  const items = data.history || [];
+
+  const btnToggle = document.getElementById('btn-toggle-history-card');
+
+  if (!items.length) {
+    // No history yet – keep card hidden
+    if (card) card.style.display = 'none';
+    if (btnToggle) btnToggle.style.display = 'none';
+    return;
+  }
+
+  // Show toggle button and card (unless user manually hid it)
+  if (btnToggle) {
+    btnToggle.style.display = 'block';
+    btnToggle.textContent = historyCardHidden ? 'Mostrar mi historial' : 'Ocultar mi historial';
+  }
+  if (card && !historyCardHidden) {
+    card.style.display = 'block';
+  }
+
+  list.innerHTML = '';
+
+  items.forEach((h, idx) => {
+    const p = document.createElement('p');
+    p.className = 'queue-item-line';
+
+    const playedDate = h.playedAt ? new Date(h.playedAt).toLocaleString('es-MX', { hour12: false }) : '';
+    const songText   = toUpperNoAccents((h.songTitle || '').toString());
+
+    p.textContent = `${idx + 1}. ${songText}${playedDate ? '  —  ' + playedDate : ''}`;
+    list.appendChild(p);
+  });
+}
+
 // ================== SUGERENCIAS ==================
 
 const btnSendSuggestion = document.getElementById('btn-send-suggestion');
@@ -1349,6 +1428,10 @@ function startAutoRefreshQueues(features) {
     clearInterval(mixedQueueInterval);
     mixedQueueInterval = null;
   }
+  if (historyInterval) {
+    clearInterval(historyInterval);
+    historyInterval = null;
+  }
 
   if (!loggedUser) return;
 
@@ -1372,6 +1455,11 @@ function startAutoRefreshQueues(features) {
       loadMixedQueue().catch(err => console.error('Error auto loadMixedQueue', err));
     }, 10000);
   }
+
+  // Historial del usuario
+  historyInterval = setInterval(() => {
+    loadHistory().catch(err => console.error('Error auto loadHistory', err));
+  }, 15000);
 }
 
 // ================== APLICAR FEATURES ==================

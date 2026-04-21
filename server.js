@@ -1273,27 +1273,24 @@ app.delete('/api/mixed-queue', (req, res) => {
 
 // ========== HISTORIAL ==========
 app.get('/api/history', (req, res) => {
-  const { table } = req.query;
+  const { table, user } = req.query;
 
-  let stmt;
-  let rows;
+  const all = db.prepare(`
+    SELECT id, userName, tableNumber, songTitle, createdAt, playedAt, queuePosition, queueTotal
+    FROM history
+    ORDER BY datetime(playedAt) DESC
+  `).all();
 
-  if (table) {
-    const mesaNorm = normalizeText(String(table).trim());
-    stmt = db.prepare(`
-      SELECT id, userName, tableNumber, songTitle, createdAt, playedAt, queuePosition, queueTotal
-      FROM history
-    `);
-    const all = stmt.all();
-    rows = all.filter(h => normalizeText(h.tableNumber) === mesaNorm);
-  } else {
-    stmt = db.prepare(`
-      SELECT id, userName, tableNumber, songTitle, createdAt, playedAt, queuePosition, queueTotal
-      FROM history
-      ORDER BY datetime(playedAt) DESC
-    `);
-    rows = stmt.all();
-  }
+  const mesaNorm = table ? normalizeText(String(table).trim()) : null;
+  const userNorm = user  ? normalizeText(String(user).trim())  : null;
+
+  const rows = (mesaNorm || userNorm)
+    ? all.filter(h => {
+        if (mesaNorm && normalizeText(h.tableNumber) !== mesaNorm) return false;
+        if (userNorm  && normalizeText(h.userName)   !== userNorm)  return false;
+        return true;
+      })
+    : all;
 
   res.json({ ok: true, history: rows });
 });
