@@ -254,9 +254,7 @@ window.addEventListener('popstate', () => {
   _adminBackPressTimer = setTimeout(() => { _adminBackPressCount = 0; }, 4000);
 
   const remaining = 6 - _adminBackPressCount;
-  if (remaining > 0) {
-    _showAdminBackToast(`Pulsa atrás ${remaining} vez${remaining !== 1 ? 'es' : ''} más para salir`);
-  } else {
+  if (remaining <= 0) {
     // 6ª pulsación: cerrar sesión directamente (sin confirm para no bloquear
     // el evento de navegación en Android).
     _adminBackPressCount = 0;
