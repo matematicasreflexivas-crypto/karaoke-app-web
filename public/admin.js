@@ -1658,8 +1658,8 @@ function setupToggleButtons() {
   const btnToggleInicio = document.getElementById('btn-toggle-inicio');
   const inicioSection   = document.getElementById('inicio-admin-section');
   if (btnToggleInicio && inicioSection) {
-    inicioHidden = false;
-    inicioSection.style.display = 'block';
+    inicioHidden = true;
+    inicioSection.style.display = 'none';
     btnToggleInicio.onclick = () => {
       if (!adminLogged) {
         alert('Primero inicia sesión como admin');
