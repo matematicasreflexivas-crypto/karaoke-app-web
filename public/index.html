@@ -276,20 +276,6 @@
     .mixed-from-catalog { border-left: 3px solid #22c55e; }
     .mixed-from-manual { border-left: 3px solid #f97316; }
 
-    .queue-info-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.78rem;
-      color: #9ca3af;
-      margin: 2px 0 6px;
-      padding: 3px 8px;
-      background: #1f2937;
-      border-radius: 6px;
-    }
-    .queue-info-row .info-count { font-weight: 600; }
-    .queue-info-row .info-wait  { font-weight: 600; color: #fbbf24; }
-
     @media (min-width: 768px) {
       .container { width: 480px; }
     }
@@ -445,19 +431,16 @@
         <div class="queues-row-wrapper">
           <div class="card queue-card" id="queue-card" style="display:none;">
             <h3>Cola de participantes (selección por catálogo)</h3>
-            <div id="queue-info-row" class="queue-info-row" style="display:none;"></div>
             <div id="queue" class="queue-scroll"></div>
           </div>
 
           <div class="card queue-card" id="manual-queue-card" style="display:none;">
             <h3>Cola de participantes (registro manual)</h3>
-            <div id="manual-queue-info-row" class="queue-info-row" style="display:none;"></div>
             <div id="manual-queue" class="queue-scroll"></div>
           </div>
 
           <div class="card queue-card" id="mixed-queue-card" style="display:none;">
             <h3>Cola de participantes (catálogo + manual)</h3>
-            <div id="mixed-queue-info-row" class="queue-info-row" style="display:none;"></div>
             <div id="mixed-queue-list" class="queue-scroll"></div>
           </div>
         </div>
