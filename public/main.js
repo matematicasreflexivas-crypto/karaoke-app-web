@@ -400,14 +400,21 @@ async function performSearch() {
     btn.className = 'song-result';
     btn.textContent = label;
 
-    let touchFired = false;
+    let touchStartY = 0;
+    let touchStartX = 0;
+    btn.addEventListener('touchstart', (e) => {
+      touchStartY = e.touches[0].clientY;
+      touchStartX = e.touches[0].clientX;
+    }, { passive: true });
     btn.addEventListener('touchend', (e) => {
+      const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
+      const dx = Math.abs(e.changedTouches[0].clientX - touchStartX);
+      if (dy > 10 || dx > 10) return; // scroll, not a tap
       e.preventDefault();
-      touchFired = true;
       chooseSong(label);
     });
-    btn.addEventListener('click', () => {
-      if (touchFired) { touchFired = false; return; }
+    btn.addEventListener('click', (e) => {
+      if (e.detail === 0) return; // synthetic click from touch already handled
       chooseSong(label);
     });
 
