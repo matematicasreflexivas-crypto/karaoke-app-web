@@ -119,9 +119,7 @@ function getQueueCard() {
       const h3 = card.querySelector('h3');
       return (
         h3 &&
-        h3.textContent.includes('Cola de participantes') &&
-        !h3.textContent.includes('carga manual') &&
-        !h3.textContent.includes('mixta')
+        h3.textContent.includes('selección por catálogo')
       );
     }) || null
   );

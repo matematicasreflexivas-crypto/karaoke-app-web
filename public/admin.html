@@ -135,7 +135,7 @@
     /* Cola admin normal */
     #queue-admin {
       margin-top: 8px;
-      max-height: 45vh;
+      max-height: 90vh;
       padding-right: 4px;
       overflow-y: auto;
       overflow-x: auto;
@@ -243,7 +243,7 @@
     /* Cola manual admin */
     #manual-queue-admin {
       margin-top: 8px;
-      max-height: 45vh;
+      max-height: 90vh;
       padding-right: 4px;
       overflow-y: auto;
       overflow-x: auto;
@@ -253,7 +253,7 @@
     /* Cola mixta admin */
     #mixed-queue-admin {
       margin-top: 8px;
-      max-height: 45vh;
+      max-height: 90vh;
       padding-right: 4px;
       overflow-y: auto;
       overflow-x: auto;
@@ -417,36 +417,36 @@
       <div class="card" id="user-features-card">
         <h2>Secciones visibles al usuario</h2>
         <div class="form-group">
-          <label style="display:flex; align-items:center; gap:8px;">
-            <input type="checkbox" id="feature-user-search" checked>
+          <label style="display:flex; justify-content:space-between; align-items:center; padding:4px 0;">
             Permitir selección por catálogo
+            <input type="checkbox" id="feature-user-search" checked>
           </label>
 
-          <label style="display:flex; align-items:center; gap:8px;">
-            <input type="checkbox" id="feature-user-queue" checked>
+          <label style="display:flex; justify-content:space-between; align-items:center; padding:4px 0;">
             Permitir cola de selección por catálogo
+            <input type="checkbox" id="feature-user-queue" checked>
           </label>
 
-          <label style="display:flex; align-items:center; gap:8px;">
-            <input type="checkbox" id="feature-user-suggestion" checked>
+          <label style="display:flex; justify-content:space-between; align-items:center; padding:4px 0;">
             Permitir sugerir canción
+            <input type="checkbox" id="feature-user-suggestion" checked>
           </label>
 
-          <label style="display:flex; align-items:center; gap:8px;">
-            <input type="checkbox" id="feature-user-manual-queue">
+          <label style="display:flex; justify-content:space-between; align-items:center; padding:4px 0;">
             Permitir cola de registro manual
+            <input type="checkbox" id="feature-user-manual-queue">
           </label>
 
           <!-- Registro manual separado -->
-          <label style="display:flex; align-items:center; gap:8px;">
-            <input type="checkbox" id="feature-user-manual-register">
+          <label style="display:flex; justify-content:space-between; align-items:center; padding:4px 0;">
             Permitir registro manual
+            <input type="checkbox" id="feature-user-manual-register">
           </label>
 
           <!-- Cola mixta -->
-          <label style="display:flex; align-items:center; gap:8px;">
-            <input type="checkbox" id="feature-user-mixed-queue">
+          <label style="display:flex; justify-content:space-between; align-items:center; padding:4px 0;">
             Permitir cola mixta (Catálogo + manual)
+            <input type="checkbox" id="feature-user-mixed-queue">
           </label>
 
           <button id="btn-save-user-features" class="btn-secondary">
@@ -505,7 +505,7 @@
       <!-- Cola de participantes + historial + colas manual/mixta -->
       <div class="card" id="card-cola">
         <div class="section-title-row">
-          <h2>Cola por catálogo</h2>
+          <h2>Cola por catálogo <span id="queue-admin-count" class="badge" style="font-size:0.85rem; margin-left:8px;">0 participantes</span></h2>
           <button id="btn-clear-all" class="btn-danger">
             Limpiar cola catálogo
           </button>
@@ -522,7 +522,7 @@
         <div id="queue-admin"></div>
 
         <!-- Cola de participantes (carga manual) -->
-        <h3 style="margin-top: 16px;">Cola de participantes (carga manual)</h3>
+        <h3 style="margin-top: 16px;">Cola de participantes (carga manual) <span id="manual-queue-admin-count" class="badge" style="font-size:0.85rem; margin-left:8px;">0 participantes</span></h3>
 
         <div class="section-title-row" style="margin-top: 8px; margin-bottom: 8px;">
           <button id="btn-toggle-manual-queue" class="btn-primary">
@@ -540,7 +540,7 @@
         <div id="manual-queue-admin"></div>
 
         <!-- Cola mixta -->
-        <h3 style="margin-top: 16px;">Cola mixta (catálogo + manual)</h3>
+        <h3 style="margin-top: 16px;">Cola mixta (catálogo + manual) <span id="mixed-queue-admin-count" class="badge" style="font-size:0.85rem; margin-left:8px;">0 participantes</span></h3>
         <div class="section-title-row" style="margin-top: 8px; margin-bottom: 8px;">
           <button id="btn-toggle-mixed-queue" class="btn-primary">
             Mostrar/Ocultar cola mixta

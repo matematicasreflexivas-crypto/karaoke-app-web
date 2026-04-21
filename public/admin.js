@@ -276,6 +276,11 @@ async function loadQueueAdmin() {
 
   const queue = data.queue || [];
 
+  const countBadge = document.getElementById('queue-admin-count');
+  if (countBadge) {
+    countBadge.textContent = `${queue.length} participante${queue.length !== 1 ? 's' : ''}`;
+  }
+
   smoothRefreshContainer(div, () => {
     div.innerHTML = '';
 
@@ -293,10 +298,6 @@ async function loadQueueAdmin() {
       }
 
       const content = document.createElement('div');
-      content.className = 'queue-admin-item-content';
-
-      // Recuadro de color
-      const colorDot = createColorDot(getItemColor(item, 'catalog'));
       content.appendChild(colorDot);
 
       const textSpan = document.createElement('span');
@@ -423,6 +424,11 @@ async function loadManualQueueAdmin() {
   }
 
   const queue = data.queue || [];
+
+  const manualCountBadge = document.getElementById('manual-queue-admin-count');
+  if (manualCountBadge) {
+    manualCountBadge.textContent = `${queue.length} participante${queue.length !== 1 ? 's' : ''}`;
+  }
 
   smoothRefreshContainer(div, () => {
     div.innerHTML = '';
@@ -586,6 +592,11 @@ async function loadMixedQueueAdmin() {
   }
 
   const queue = Array.isArray(data.mixedQueue) ? data.mixedQueue : (data.queue || []);
+
+  const mixedCountBadge = document.getElementById('mixed-queue-admin-count');
+  if (mixedCountBadge) {
+    mixedCountBadge.textContent = `${queue.length} participante${queue.length !== 1 ? 's' : ''}`;
+  }
 
   smoothRefreshContainer(div, () => {
     div.innerHTML = '';
