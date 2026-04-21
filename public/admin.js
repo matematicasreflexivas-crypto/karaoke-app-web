@@ -129,8 +129,12 @@ document.getElementById('btn-admin-login').onclick = async () => {
   adminLogged = true;
   document.getElementById('admin-panel').style.display = 'block';
 
-  // Ancla de historial para interceptar el botón atrás
-  history.pushState({ karaokeAdmin: true }, '', location.href);
+  // Empujar varias entradas al historial para que el botón atrás del
+  // dispositivo siempre encuentre entradas que consumir y dispare 'popstate'
+  // en lugar de navegar fuera de la página.
+  for (let _i = 0; _i < 8; _i++) {
+    history.pushState({ karaokeAdmin: true }, '', location.href);
+  }
   // Colas
   await loadQueueAdmin();
   await loadManualQueueAdmin();
@@ -222,14 +226,16 @@ function _showAdminBackToast(msg) {
 window.addEventListener('popstate', () => {
   if (!adminLogged) return;
 
-  // Siempre re-empujamos el estado para que el historial no avance
+  // Re-empujar 2 entradas para mantener siempre buffer suficiente
+  // independientemente de la rapidez con que el usuario pulse atrás.
+  history.pushState({ karaokeAdmin: true }, '', location.href);
   history.pushState({ karaokeAdmin: true }, '', location.href);
 
   _adminBackPressCount += 1;
 
-  // Reiniciar contador si el usuario tarda más de 3 s entre pulsaciones
+  // Reiniciar contador si el usuario tarda más de 4 s entre pulsaciones
   clearTimeout(_adminBackPressTimer);
-  _adminBackPressTimer = setTimeout(() => { _adminBackPressCount = 0; }, 3000);
+  _adminBackPressTimer = setTimeout(() => { _adminBackPressCount = 0; }, 4000);
 
   const remaining = 6 - _adminBackPressCount;
   if (remaining > 0) {
