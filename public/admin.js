@@ -129,6 +129,8 @@ document.getElementById('btn-admin-login').onclick = async () => {
   adminLogged = true;
   document.getElementById('admin-panel').style.display = 'block';
 
+  // Ancla de historial para interceptar el botón atrás
+  history.pushState({ karaokeAdmin: true }, '', location.href);
   // Colas
   await loadQueueAdmin();
   await loadManualQueueAdmin();
@@ -202,6 +204,44 @@ document.getElementById('btn-admin-login').onclick = async () => {
     };
   }
 };
+
+// Bloquear el botón "atrás" del dispositivo mientras la sesión admin esté activa.
+// Se necesitan 6 pulsaciones consecutivas para salir.
+let _adminBackPressCount = 0;
+let _adminBackPressTimer = null;
+
+function _showAdminBackToast(msg) {
+  const toast = document.getElementById('admin-back-toast');
+  if (!toast) return;
+  toast.textContent = msg;
+  toast.style.display = 'block';
+  clearTimeout(toast._hideTimer);
+  toast._hideTimer = setTimeout(() => { toast.style.display = 'none'; }, 2500);
+}
+
+window.addEventListener('popstate', () => {
+  if (!adminLogged) return;
+
+  // Siempre re-empujamos el estado para que el historial no avance
+  history.pushState({ karaokeAdmin: true }, '', location.href);
+
+  _adminBackPressCount += 1;
+
+  // Reiniciar contador si el usuario tarda más de 3 s entre pulsaciones
+  clearTimeout(_adminBackPressTimer);
+  _adminBackPressTimer = setTimeout(() => { _adminBackPressCount = 0; }, 3000);
+
+  const remaining = 6 - _adminBackPressCount;
+  if (remaining > 0) {
+    _showAdminBackToast(`Pulsa atrás ${remaining} vez${remaining !== 1 ? 'es' : ''} más para salir`);
+  } else {
+    // 6ª pulsación: cerrar sesión directamente
+    _adminBackPressCount = 0;
+    clearTimeout(_adminBackPressTimer);
+    const btnAdminLogout = document.getElementById('btn-admin-logout');
+    if (btnAdminLogout) btnAdminLogout.click();
+  }
+});
 
 // Limpiar toda la cola normal (catálogo)
 document.getElementById('btn-clear-all').onclick = async () => {
