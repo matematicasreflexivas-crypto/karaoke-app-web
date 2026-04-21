@@ -1283,6 +1283,7 @@ app.get('/api/history', (req, res) => {
     stmt = db.prepare(`
       SELECT id, userName, tableNumber, songTitle, createdAt, playedAt, queuePosition, queueTotal
       FROM history
+      ORDER BY datetime(playedAt) DESC
     `);
     const all = stmt.all();
     rows = all.filter(h => normalizeText(h.tableNumber) === mesaNorm);

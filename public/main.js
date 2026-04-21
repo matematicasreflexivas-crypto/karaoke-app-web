@@ -15,6 +15,7 @@ let manualCardHidden = false;
 let manualQueueCardHidden = false;
 let mixedQueueCardHidden = false;
 let suggestCardHidden = false;
+let historyCardHidden = true;
 
 // Banderas para rastrear estado inicial
 let initialFeaturesApplied = false;
@@ -24,6 +25,7 @@ let lastScrollPosition = 0;
 let queueInterval       = null;
 let manualQueueInterval = null;
 let mixedQueueInterval  = null;
+let historyInterval     = null;
 
 // ================== Helpers generales ==================
 
@@ -227,6 +229,12 @@ document.getElementById('btn-login').onclick = async () => {
   //   manualCard.style.display = 'none';
   // }
 
+  const btnToggleHistoryCardLogin = document.getElementById('btn-toggle-history-card');
+  if (btnToggleHistoryCardLogin) {
+    btnToggleHistoryCardLogin.style.display = 'block';
+    btnToggleHistoryCardLogin.textContent = 'Mostrar historial de mi mesa';
+  }
+
   // Resetear banderas de visibilidad
   queueCardHidden = false;
   searchCardHidden = false;
@@ -234,6 +242,7 @@ document.getElementById('btn-login').onclick = async () => {
   manualQueueCardHidden = false;
   mixedQueueCardHidden = false;
   suggestCardHidden = false;
+  historyCardHidden = true;
 
   if (window.__lastUserFeatures) {
     applyUserFeatures(window.__lastUserFeatures);
@@ -507,6 +516,27 @@ if (btnToggleSuggestCard2) {
     btnToggleSuggestCard2.textContent = visible
       ? 'Mostrar sugerencia de canción'
       : 'Ocultar sugerencia de canción';
+  };
+}
+
+// toggle historial
+const btnToggleHistoryCard = document.getElementById('btn-toggle-history-card');
+if (btnToggleHistoryCard) {
+  btnToggleHistoryCard.onclick = async () => {
+    const historyCard = document.getElementById('history-card');
+    if (!historyCard) return;
+
+    const visible = historyCard.style.display !== 'none';
+    if (visible) {
+      historyCard.style.display = 'none';
+      historyCardHidden = true;
+      btnToggleHistoryCard.textContent = 'Mostrar historial de mi mesa';
+    } else {
+      historyCard.style.display = 'block';
+      historyCardHidden = false;
+      btnToggleHistoryCard.textContent = 'Ocultar historial de mi mesa';
+      await loadHistory();
+    }
   };
 }
 
@@ -968,6 +998,79 @@ async function loadMixedQueue() {
   }
 }
 
+// ================== HISTORIAL DE MESA ==================
+
+async function loadHistory() {
+  if (!loggedUser) return;
+
+  const div = document.getElementById('history-user');
+  if (!div) return;
+
+  let res, data;
+  try {
+    res  = await fetch(`${API_BASE}/api/history?table=${encodeURIComponent(loggedUser.table)}`, { cache: 'no-store' });
+    data = await res.json();
+  } catch (err) {
+    console.error('Error cargando historial', err);
+    div.textContent = 'No se pudo cargar el historial.';
+    return;
+  }
+
+  if (!res.ok || !data.ok) {
+    div.textContent = data.message || 'Error al cargar el historial.';
+    return;
+  }
+
+  const items = data.history || [];
+  div.innerHTML = '';
+
+  if (!items.length) {
+    div.textContent = 'Aún no hay canciones en el historial de esta mesa.';
+    return;
+  }
+
+  items.forEach((h, idx) => {
+    const p = document.createElement('p');
+    p.className = 'queue-item-line';
+
+    const userNameUpper  = toUpperNoAccents(h.userName  || '');
+    const songTitleUpper = toUpperNoAccents(h.songTitle || '');
+    const fechaAtendida  = h.playedAt
+      ? new Date(h.playedAt).toLocaleString('es-MX', { hour12: false })
+      : '';
+
+    const spanIndex = document.createElement('span');
+    spanIndex.textContent = `${idx + 1}. `;
+    p.appendChild(spanIndex);
+
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = userNameUpper;
+    p.appendChild(nameSpan);
+
+    const sep1 = document.createElement('span');
+    sep1.textContent = ' - ';
+    p.appendChild(sep1);
+
+    const songSpan = document.createElement('span');
+    songSpan.textContent = songTitleUpper;
+    p.appendChild(songSpan);
+
+    if (fechaAtendida) {
+      const sep2 = document.createElement('span');
+      sep2.textContent = ' · ';
+      p.appendChild(sep2);
+
+      const dateSpan = document.createElement('span');
+      dateSpan.style.fontSize = '0.8rem';
+      dateSpan.style.color = '#9ca3af';
+      dateSpan.textContent = fechaAtendida;
+      p.appendChild(dateSpan);
+    }
+
+    div.appendChild(p);
+  });
+}
+
 // ================== SUGERENCIAS ==================
 
 const btnSendSuggestion = document.getElementById('btn-send-suggestion');
@@ -1349,6 +1452,10 @@ function startAutoRefreshQueues(features) {
     clearInterval(mixedQueueInterval);
     mixedQueueInterval = null;
   }
+  if (historyInterval) {
+    clearInterval(historyInterval);
+    historyInterval = null;
+  }
 
   if (!loggedUser) return;
 
@@ -1372,6 +1479,13 @@ function startAutoRefreshQueues(features) {
       loadMixedQueue().catch(err => console.error('Error auto loadMixedQueue', err));
     }, 10000);
   }
+
+  // Historial (solo si está visible)
+  historyInterval = setInterval(() => {
+    if (!historyCardHidden) {
+      loadHistory().catch(err => console.error('Error auto loadHistory', err));
+    }
+  }, 15000);
 }
 
 // ================== APLICAR FEATURES ==================
