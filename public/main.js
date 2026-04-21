@@ -399,7 +399,17 @@ async function performSearch() {
     const btn = document.createElement('button');
     btn.className = 'song-result';
     btn.textContent = label;
-    btn.onclick = () => chooseSong(label);
+
+    let touchFired = false;
+    btn.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      touchFired = true;
+      chooseSong(label);
+    });
+    btn.addEventListener('click', () => {
+      if (touchFired) { touchFired = false; return; }
+      chooseSong(label);
+    });
 
     div.appendChild(btn);
   });
