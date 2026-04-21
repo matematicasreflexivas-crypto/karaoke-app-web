@@ -143,7 +143,8 @@ let adminConfig = {
   publicQueueMode: 'catalog',
   publicQueueDisplay: 'catalog',
   minutesPerTurn: 5,
-  publicMessage: ''
+  publicMessage: '',
+  showColorDots: true
 };
 
 try {
@@ -186,6 +187,10 @@ try {
   if (typeof parsed.publicMessage === 'string') {
     adminConfig.publicMessage = parsed.publicMessage;
   }
+
+  if (typeof parsed.showColorDots === 'boolean') {
+    adminConfig.showColorDots = parsed.showColorDots;
+  }
 } catch (e) {
   // si no existe adminConfig.json, usamos los valores por defecto
 }
@@ -221,7 +226,8 @@ app.get('/api/public-info', (req, res) => {
     publicQueueMode: adminConfig.publicQueueMode || 'catalog',
     publicQueueDisplay: adminConfig.publicQueueDisplay || 'catalog',
     minutesPerTurn: typeof adminConfig.minutesPerTurn === 'number' ? adminConfig.minutesPerTurn : 5,
-    publicMessage: adminConfig.publicMessage || ''
+    publicMessage: adminConfig.publicMessage || '',
+    showColorDots: adminConfig.showColorDots !== false
   });
 });
 
@@ -552,6 +558,27 @@ app.post('/api/admin/change-user-features', (req, res) => {
     return res
       .status(500)
       .json({ ok: false, message: 'No se pudieron guardar las opciones de usuario' });
+  }
+});
+
+// mostrar/ocultar recuadros de color en colas de usuario y pantalla pública
+app.post('/api/admin/set-show-color-dots', (req, res) => {
+  const { showColorDots } = req.body || {};
+
+  if (typeof showColorDots !== 'boolean') {
+    return res.status(400).json({ ok: false, message: 'Falta el valor showColorDots (boolean)' });
+  }
+
+  adminConfig.showColorDots = showColorDots;
+
+  try {
+    saveAdminConfig();
+    return res.json({ ok: true, showColorDots });
+  } catch (e) {
+    console.error('Error guardando showColorDots', e);
+    return res
+      .status(500)
+      .json({ ok: false, message: 'No se pudo guardar la preferencia de recuadros de color' });
   }
 });
 

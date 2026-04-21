@@ -7,6 +7,7 @@ window.currentUserTable = null;
 let hasSuggestedWhileInQueue = false;
 
 window.currentSingerName = null;
+window.__showColorDots = true;
 
 // Estado de visibilidad de secciones (para mantenerlas ocultas si el usuario las oculta)
 let queueCardHidden = false;
@@ -51,6 +52,10 @@ function debounce(fn, delay = 400) {
 
 // Crea un recuadro de color visual para items de cola
 function createColorDot(color) {
+  if (!window.__showColorDots) {
+    const empty = document.createElement('span');
+    return empty;
+  }
   const dot = document.createElement('span');
   dot.style.cssText =
     'display:inline-block;width:12px;height:12px;border-radius:3px;flex-shrink:0;' +
@@ -147,6 +152,8 @@ async function loadPublicInfo() {
     } else {
       manualMaxSongsPerTable = 1;
     }
+
+    window.__showColorDots = data.showColorDots !== false;
 
     const features = data.userFeatures || {};
     window.__lastUserFeatures = features;
@@ -1314,8 +1321,8 @@ async function preguntarOtraPersonaParaMesa(maxSongs) {
 
     const wantAnother = confirm(
       `La mesa ${loggedUser.table} puede registrar hasta ${maxSongs} canción(es).\n` +
-        `Actualmente tiene ${countForTable} canción(es) registradas (sumando selección y manual).\n\n` +
-        `¿Quieres registrar OTRA canción para OTRA persona de esta misma mesa (por selección o registro manual)?\n` +
+        `Actualmente tiene ${countForTable} canción(es) registradas.\n\n` +
+        `¿Quieres registrar OTRA canción para OTRA persona de esta misma mesa?\n` +
         `Quedan ${remaining} lugar(es)\n\n` +
         `Pulsa "Aceptar" para SÍ.\n` +
         `Pulsa "Cancelar" para NO.`
@@ -1357,8 +1364,7 @@ async function preguntarOtraPersonaParaMesa(maxSongs) {
 
     alert(
       `Perfecto, ahora registra otra canción para:\n` +
-        `Mesa ${loggedUser.table} - ${extraSingerName}\n\n` +
-        'Puedes hacerlo buscando una canción del catálogo o usando el registro manual.'
+        `Mesa ${loggedUser.table} - ${extraSingerName}`
     );
 
     window.currentSingerName = extraSingerName;
@@ -1401,8 +1407,8 @@ async function preguntarOtraPersonaParaMesaManual(maxSongs) {
 
     const wantAnother = confirm(
       `La mesa ${loggedUser.table} puede registrar hasta ${maxSongs} canción(es).\n` +
-        `Actualmente tiene ${countForTable} canción(es) registradas (sumando selección y manual).\n\n` +
-        `¿Quieres registrar OTRA canción para OTRA persona de esta misma mesa (ya sea por selección o registro manual)?\n` +
+        `Actualmente tiene ${countForTable} canción(es) registradas.\n\n` +
+        `¿Quieres registrar OTRA canción para OTRA persona de esta misma mesa?\n` +
         `Quedan ${remaining} lugar(es)\n\n` +
         `Pulsa "Aceptar" para SÍ.\n` +
         `Pulsa "Cancelar" para NO.`
@@ -1412,7 +1418,7 @@ async function preguntarOtraPersonaParaMesaManual(maxSongs) {
     }
 
     const newNameRaw = prompt(
-      'Escribe el nombre de la otra persona de esta mesa que cantará (puede registrar por selección o manual):'
+      'Escribe el nombre de la otra persona de esta mesa que cantará:'
     );
     if (!newNameRaw) {
       alert(
@@ -1444,8 +1450,7 @@ async function preguntarOtraPersonaParaMesaManual(maxSongs) {
 
     alert(
       `Perfecto, ahora registra la siguiente canción para:\n` +
-        `Mesa ${loggedUser.table} - ${extraSingerName}\n\n` +
-        'Puedes hacerlo buscando una canción del catálogo o usando el registro manual.'
+        `Mesa ${loggedUser.table} - ${extraSingerName}`
     );
 
     window.__extraManualSingerName = extraSingerName;
@@ -1669,6 +1674,8 @@ setInterval(async () => {
     });
     const data = await res.json();
     if (!res.ok || !data.ok) return;
+
+    window.__showColorDots = data.showColorDots !== false;
 
     const newFeatures = data.userFeatures || {};
     const last = window.__lastUserFeatures || {};

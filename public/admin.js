@@ -1853,6 +1853,7 @@ async function loadUserFeaturesAdmin() {
   const cbManualQueue    = document.getElementById('feature-user-manual-queue');
   const cbManualRegister = document.getElementById('feature-user-manual-register');
   const cbMixedQueue     = document.getElementById('feature-user-mixed-queue');
+  const cbColorDots      = document.getElementById('feature-show-color-dots');
 
   if (!cbSearch || !cbQueue || !cbSuggestion || !cbManualQueue || !cbManualRegister || !cbMixedQueue) {
     return;
@@ -1878,6 +1879,10 @@ async function loadUserFeaturesAdmin() {
     cbManualQueue.checked    = manualQueueEnabled;
     cbManualRegister.checked = manualRegisterEnabled;
     cbMixedQueue.checked     = mixedQueueEnabled;
+
+    if (cbColorDots) {
+      cbColorDots.checked = data.showColorDots !== false;
+    }
   } catch (e) {
     console.error('Error leyendo userFeatures en admin', e);
   }
@@ -1891,6 +1896,7 @@ function setupUserFeaturesControls() {
   const cbManualQueue    = document.getElementById('feature-user-manual-queue');
   const cbManualRegister = document.getElementById('feature-user-manual-register');
   const cbMixedQueue     = document.getElementById('feature-user-mixed-queue');
+  const cbColorDots      = document.getElementById('feature-show-color-dots');
 
   if (!btnSave || !cbSearch || !cbQueue || !cbSuggestion || !cbManualQueue || !cbManualRegister || !cbMixedQueue) {
     return;
@@ -1924,11 +1930,33 @@ function setupUserFeaturesControls() {
         alert(data.message || 'No se pudieron guardar las opciones de pantalla de usuario');
         return;
       }
-      alert('Opciones de pantalla de usuario guardadas.\nLos cambios se aplicarán al recargar la pantalla de usuario.');
     } catch (e) {
       console.error(e);
       alert('No se pudo conectar para guardar las opciones de pantalla de usuario');
+      return;
     }
+
+    // Guardar preferencia de recuadros de color
+    if (cbColorDots) {
+      try {
+        const res2  = await fetch(`${API_BASE}/api/admin/set-show-color-dots`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ showColorDots: cbColorDots.checked })
+        });
+        const data2 = await res2.json();
+        if (!res2.ok || !data2.ok) {
+          alert(data2.message || 'No se pudo guardar la preferencia de recuadros de color');
+          return;
+        }
+      } catch (e) {
+        console.error(e);
+        alert('No se pudo conectar para guardar la preferencia de recuadros de color');
+        return;
+      }
+    }
+
+    alert('Opciones de pantalla de usuario guardadas.\nLos cambios se aplicarán al recargar la pantalla de usuario.');
   };
 }
 

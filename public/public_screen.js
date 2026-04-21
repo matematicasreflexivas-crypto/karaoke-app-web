@@ -43,7 +43,8 @@ async function fetchPublicInfo() {
       appTitle: data.appTitle || 'Karaoke',
       qrImageFile: data.qrImageFile || 'qr.png',
       publicQueueDisplay: data.publicQueueDisplay || 'catalog',
-      publicMessage: data.publicMessage || ''
+      publicMessage: data.publicMessage || '',
+      showColorDots: data.showColorDots !== false
     };
   } catch (e) {
     console.error('Error cargando info pública', e);
@@ -54,7 +55,7 @@ async function fetchPublicInfo() {
 
 // ---------------------- RENDER COLA ----------------------
 
-function renderQueue(queue, queueType) {
+function renderQueue(queue, queueType, showColorDots) {
   const list = document.getElementById('queue-list');
   const label = document.getElementById('queue-count-label');
   if (!list || !label) return;
@@ -120,10 +121,12 @@ function renderQueue(queue, queueType) {
     }
 
     const colorDot = document.createElement('span');
-    colorDot.style.cssText =
-      'display:inline-block;width:13px;height:13px;border-radius:3px;flex-shrink:0;' +
-      'background:' + (itemColor === 'orange' ? '#f97316' : '#22c55e') + ';' +
-      'margin-right:6px;vertical-align:middle;';
+    if (showColorDots !== false) {
+      colorDot.style.cssText =
+        'display:inline-block;width:13px;height:13px;border-radius:3px;flex-shrink:0;' +
+        'background:' + (itemColor === 'orange' ? '#f97316' : '#22c55e') + ';' +
+        'margin-right:6px;vertical-align:middle;';
+    }
 
     const line = document.createElement('div');
     line.className = 'queue-item-line';
@@ -220,12 +223,13 @@ async function refreshPublicScreen() {
   
   // Obtener el tipo de cola que debe mostrar
   const queueType = info?.publicQueueDisplay || 'catalog';
+  const showColorDots = info?.showColorDots !== false;
   
   console.log('Cargando cola de tipo:', queueType);
   
   const queue = await fetchQueue(queueType);
 
-  if (queue !== null) renderQueue(queue, queueType);
+  if (queue !== null) renderQueue(queue, queueType, showColorDots);
   renderPublicInfo(info);
 }
 
