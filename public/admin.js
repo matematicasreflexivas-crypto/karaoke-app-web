@@ -298,6 +298,10 @@ async function loadQueueAdmin() {
       }
 
       const content = document.createElement('div');
+      content.className = 'queue-admin-item-content';
+
+      // Recuadro de color
+      const colorDot = createColorDot(getItemColor(item, 'catalog'));
       content.appendChild(colorDot);
 
       const textSpan = document.createElement('span');
