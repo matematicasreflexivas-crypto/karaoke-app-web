@@ -390,6 +390,37 @@
             Este título se mostrará en la pantalla de usuario y en la pantalla pública en lugar del texto fijo.
           </p>
         </div>
+
+        <!-- Mensaje al público -->
+        <div class="card">
+          <h2>Mensaje al público</h2>
+          <div class="form-group">
+            <div>
+              <label for="admin-pass-public-message">Contraseña de administrador</label>
+              <input
+                id="admin-pass-public-message"
+                type="password"
+                placeholder="Contraseña admin actual"
+              />
+            </div>
+
+            <div>
+              <label for="new-public-message">Mensaje (dejar vacío para ocultar)</label>
+              <input
+                id="new-public-message"
+                type="text"
+                placeholder="Ej. ¡Esta noche todos son estrellas! 🎤"
+              />
+            </div>
+
+            <button id="btn-change-public-message" class="btn-secondary">
+              Guardar mensaje
+            </button>
+          </div>
+          <p class="hint">
+            Este texto aparece en la pantalla pública entre la cola de participantes y la contraseña del día. Déjalo vacío para que no se muestre nada.
+          </p>
+        </div>
       </div>
 
       <!-- Control de horario de registro de canciones -->

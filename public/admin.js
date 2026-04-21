@@ -2188,6 +2188,44 @@ document.getElementById('btn-change-app-title').onclick = async () => {
   document.getElementById('admin-pass-app-title').value = '';
 };
 
+// Cambiar mensaje al público (pantalla pública)
+document.getElementById('btn-change-public-message').onclick = async () => {
+  if (!adminLogged) {
+    alert('Primero inicia sesión como admin');
+    return;
+  }
+
+  const adminPass = document.getElementById('admin-pass-public-message').value.trim();
+  const newMessage = document.getElementById('new-public-message').value;
+
+  if (!adminPass) {
+    alert('Escribe la contraseña de administrador');
+    return;
+  }
+
+  let res, data;
+  try {
+    res = await fetch(`${API_BASE}/api/admin/change-public-message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminPassword: adminPass, newMessage })
+    });
+    data = await res.json();
+  } catch (e) {
+    console.error(e);
+    alert('No se pudo conectar para cambiar el mensaje');
+    return;
+  }
+
+  if (!res.ok || !data.ok) {
+    alert(data.message || 'No se pudo cambiar el mensaje');
+    return;
+  }
+
+  alert(newMessage.trim() ? 'Mensaje actualizado correctamente' : 'Mensaje eliminado (no se mostrará)');
+  document.getElementById('admin-pass-public-message').value = '';
+};
+
 // ========= MINUTOS POR TURNO =========
 
 async function loadMinutesPerTurn() {

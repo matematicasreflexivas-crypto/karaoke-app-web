@@ -142,7 +142,8 @@ let adminConfig = {
   manualMaxSongsPerTable: 1,
   publicQueueMode: 'catalog',
   publicQueueDisplay: 'catalog',
-  minutesPerTurn: 5
+  minutesPerTurn: 5,
+  publicMessage: ''
 };
 
 try {
@@ -181,6 +182,10 @@ try {
   if (typeof parsed.minutesPerTurn === 'number' && parsed.minutesPerTurn > 0) {
     adminConfig.minutesPerTurn = parsed.minutesPerTurn;
   }
+
+  if (typeof parsed.publicMessage === 'string') {
+    adminConfig.publicMessage = parsed.publicMessage;
+  }
 } catch (e) {
   // si no existe adminConfig.json, usamos los valores por defecto
 }
@@ -215,7 +220,8 @@ app.get('/api/public-info', (req, res) => {
         : 1,
     publicQueueMode: adminConfig.publicQueueMode || 'catalog',
     publicQueueDisplay: adminConfig.publicQueueDisplay || 'catalog',
-    minutesPerTurn: typeof adminConfig.minutesPerTurn === 'number' ? adminConfig.minutesPerTurn : 5
+    minutesPerTurn: typeof adminConfig.minutesPerTurn === 'number' ? adminConfig.minutesPerTurn : 5,
+    publicMessage: adminConfig.publicMessage || ''
   });
 });
 
@@ -678,6 +684,29 @@ app.post('/api/admin/set-minutes-per-turn', (req, res) => {
   } catch (e) {
     console.error('Error guardando minutesPerTurn', e);
     return res.status(500).json({ ok: false, message: 'No se pudo guardar' });
+  }
+});
+
+// ========== MENSAJE AL PÚBLICO ==========
+app.post('/api/admin/change-public-message', (req, res) => {
+  const { adminPassword, newMessage } = req.body || {};
+
+  if (!adminPassword) {
+    return res.status(400).json({ ok: false, message: 'Faltan datos' });
+  }
+
+  if (adminPassword !== adminConfig.adminPassword) {
+    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
+  }
+
+  adminConfig.publicMessage = typeof newMessage === 'string' ? newMessage.trim() : '';
+
+  try {
+    saveAdminConfig();
+    return res.json({ ok: true, publicMessage: adminConfig.publicMessage });
+  } catch (e) {
+    console.error('Error guardando mensaje público', e);
+    return res.status(500).json({ ok: false, message: 'No se pudo guardar el mensaje' });
   }
 });
 

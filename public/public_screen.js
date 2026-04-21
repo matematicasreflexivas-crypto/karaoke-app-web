@@ -42,7 +42,8 @@ async function fetchPublicInfo() {
       userPassword: data.userPassword || '',
       appTitle: data.appTitle || 'Karaoke',
       qrImageFile: data.qrImageFile || 'qr.png',
-      publicQueueDisplay: data.publicQueueDisplay || 'catalog'
+      publicQueueDisplay: data.publicQueueDisplay || 'catalog',
+      publicMessage: data.publicMessage || ''
     };
   } catch (e) {
     console.error('Error cargando info pública', e);
@@ -159,11 +160,14 @@ function renderPublicInfo(info) {
   const passEl = document.getElementById('public-password');
   const qrEl = document.getElementById('public-qr');
   const headerTitle = document.querySelector('header h1');
+  const msgBar = document.getElementById('public-message-bar');
+  const msgText = document.getElementById('public-message-text');
   if (!passEl || !qrEl || !headerTitle) return;
 
   if (!info) {
     headerTitle.textContent = 'Turnos para el Karaoke';
     passEl.textContent = '••••';
+    if (msgBar) msgBar.style.display = 'none';
     qrEl.innerHTML = `
       <div class="footer-qr-placeholder">
         No se pudo cargar la información pública.
@@ -175,6 +179,16 @@ function renderPublicInfo(info) {
   // título dinámico (nombre del bar)
   headerTitle.textContent = `TURNOS  ${info.appTitle}`;
   document.title = `Pantalla ${info.appTitle}`;
+
+  // mensaje al público
+  if (msgBar && msgText) {
+    if (info.publicMessage) {
+      msgText.textContent = info.publicMessage;
+      msgBar.style.display = 'flex';
+    } else {
+      msgBar.style.display = 'none';
+    }
+  }
 
   // contraseña
   passEl.textContent = info.userPassword || '••••';
