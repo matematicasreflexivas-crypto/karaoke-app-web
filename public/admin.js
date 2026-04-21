@@ -129,6 +129,12 @@ document.getElementById('btn-admin-login').onclick = async () => {
   adminLogged = true;
   document.getElementById('admin-panel').style.display = 'block';
 
+  // Reiniciar el contador de pulsaciones (puede haber quedado de una sesión anterior)
+  _adminBackPressCount = 0;
+  clearTimeout(_adminBackPressTimer);
+  _adminBackPressTimer = null;
+  _adminBackDebounce = null;
+
   // Empujar varias entradas al historial para que el botón atrás del
   // dispositivo siempre encuentre entradas que consumir y dispare 'popstate'
   // en lugar de navegar fuera de la página.
@@ -184,35 +190,42 @@ document.getElementById('btn-admin-login').onclick = async () => {
   }
 
   // Inicializar botón de cerrar sesión admin (HTML: btn-admin-logout)
-  const btnAdminLogout  = document.getElementById('btn-admin-logout');
-  const adminLoginCard  = document.getElementById('admin-login-card') || document.getElementById('admin-login');
-  const adminPanel      = document.getElementById('admin-panel');
+  const btnAdminLogout = document.getElementById('btn-admin-logout');
   if (btnAdminLogout) {
     btnAdminLogout.onclick = () => {
       if (!adminLogged) return;
       const ok = confirm('¿Seguro que quieres cerrar sesión de administrador?');
       if (!ok) return;
-
-      adminLogged = false;
-      clearAllIntervals();
-
-      if (adminPanel) adminPanel.style.display = 'none';
-      if (adminLoginCard) adminLoginCard.style.display = 'block';
-
-      // Limpieza sencilla de campos de contraseña visibles
-      const passInputIds = ['admin-pass', 'old-admin-pass', 'new-admin-pass', 'admin-pass-user-change', 'admin-pass-app-title'];
-      passInputIds.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-      });
+      _doAdminLogout();
     };
   }
 };
+
+// ========== LÓGICA DE CIERRE DE SESIÓN (usada por botón Y por botón atrás) ==========
+
+function _doAdminLogout() {
+  adminLogged = false;
+  clearAllIntervals();
+
+  const adminPanel     = document.getElementById('admin-panel');
+  const adminLoginCard = document.getElementById('admin-login-card') || document.getElementById('admin-login');
+  if (adminPanel)     adminPanel.style.display = 'none';
+  if (adminLoginCard) adminLoginCard.style.display = 'block';
+
+  const passInputIds = ['admin-pass', 'old-admin-pass', 'new-admin-pass', 'admin-pass-user-change', 'admin-pass-app-title'];
+  passInputIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+}
 
 // Bloquear el botón "atrás" del dispositivo mientras la sesión admin esté activa.
 // Se necesitan 6 pulsaciones consecutivas para salir.
 let _adminBackPressCount = 0;
 let _adminBackPressTimer = null;
+// Debounce para que múltiples eventos popstate disparados por una sola
+// pulsación del botón atrás de Android cuenten como UN SOLO intento.
+let _adminBackDebounce = null;
 
 function _showAdminBackToast(msg) {
   const toast = document.getElementById('admin-back-toast');
@@ -226,10 +239,13 @@ function _showAdminBackToast(msg) {
 window.addEventListener('popstate', () => {
   if (!adminLogged) return;
 
-  // Re-empujar 2 entradas para mantener siempre buffer suficiente
-  // independientemente de la rapidez con que el usuario pulse atrás.
+  // Re-empujar una entrada para mantener siempre buffer suficiente.
   history.pushState({ karaokeAdmin: true }, '', location.href);
-  history.pushState({ karaokeAdmin: true }, '', location.href);
+
+  // Debounce: en Android el botón atrás puede disparar popstate varias veces
+  // por una sola pulsación física. Solo contamos la primera dentro de 350 ms.
+  if (_adminBackDebounce) return;
+  _adminBackDebounce = setTimeout(() => { _adminBackDebounce = null; }, 350);
 
   _adminBackPressCount += 1;
 
@@ -241,11 +257,11 @@ window.addEventListener('popstate', () => {
   if (remaining > 0) {
     _showAdminBackToast(`Pulsa atrás ${remaining} vez${remaining !== 1 ? 'es' : ''} más para salir`);
   } else {
-    // 6ª pulsación: cerrar sesión directamente
+    // 6ª pulsación: cerrar sesión directamente (sin confirm para no bloquear
+    // el evento de navegación en Android).
     _adminBackPressCount = 0;
     clearTimeout(_adminBackPressTimer);
-    const btnAdminLogout = document.getElementById('btn-admin-logout');
-    if (btnAdminLogout) btnAdminLogout.click();
+    _doAdminLogout();
   }
 });
 
