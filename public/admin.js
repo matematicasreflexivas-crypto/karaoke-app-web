@@ -1680,8 +1680,8 @@ function setupToggleButtons() {
   const btnToggleQueue = document.getElementById('btn-toggle-queue');
   const queueDiv       = document.getElementById('queue-admin');
   if (btnToggleQueue && queueDiv) {
-    queueAdminHidden = false;
-    queueDiv.style.display = 'block';
+    queueAdminHidden = true;
+    queueDiv.style.display = 'none';
     btnToggleQueue.onclick = () => {
       if (!adminLogged) {
         alert('Primero inicia sesión como admin');
@@ -1700,15 +1700,15 @@ function setupToggleButtons() {
       }
       startAutoRefreshAdmin();
     };
-    btnToggleQueue.textContent = 'Ocultar cola por catálogo';
+    btnToggleQueue.textContent = 'Mostrar cola por catálogo';
   }
 
   // Cola manual
   const btnToggleManualQueue = document.getElementById('btn-toggle-manual-queue');
   const manualQueueDiv       = document.getElementById('manual-queue-admin');
   if (btnToggleManualQueue && manualQueueDiv) {
-    manualQueueAdminHidden = false;
-    manualQueueDiv.style.display = 'block';
+    manualQueueAdminHidden = true;
+    manualQueueDiv.style.display = 'none';
     btnToggleManualQueue.onclick = () => {
       if (!adminLogged) {
         alert('Primero inicia sesión como admin');
@@ -1727,15 +1727,15 @@ function setupToggleButtons() {
       }
       startAutoRefreshAdmin();
     };
-    btnToggleManualQueue.textContent = 'Ocultar cola manual';
+    btnToggleManualQueue.textContent = 'Mostrar cola manual';
   }
 
   // Cola mixta
   const btnToggleMixedQueue = document.getElementById('btn-toggle-mixed-queue');
   const mixedQueueDiv       = document.getElementById('mixed-queue-admin');
   if (btnToggleMixedQueue && mixedQueueDiv) {
-    mixedQueueAdminHidden = false;
-    mixedQueueDiv.style.display = 'block';
+    mixedQueueAdminHidden = true;
+    mixedQueueDiv.style.display = 'none';
     btnToggleMixedQueue.onclick = () => {
       if (!adminLogged) {
         alert('Primero inicia sesión como admin');
@@ -1754,15 +1754,15 @@ function setupToggleButtons() {
       }
       startAutoRefreshAdmin();
     };
-    btnToggleMixedQueue.textContent = 'Ocultar cola mixta';
+    btnToggleMixedQueue.textContent = 'Mostrar cola mixta';
   }
 
   // Listado de mesas
   const btnToggleTables = document.getElementById('btn-toggle-tables');
   const tablesDiv       = document.getElementById('tables-admin');
   if (btnToggleTables && tablesDiv) {
-    tablesHidden = false;
-    tablesDiv.style.display = 'block';
+    tablesHidden = true;
+    tablesDiv.style.display = 'none';
     btnToggleTables.onclick = () => {
       if (!adminLogged) {
         alert('Primero inicia sesión como admin');
@@ -1780,7 +1780,7 @@ function setupToggleButtons() {
         loadTablesAdmin();
       }
     };
-    btnToggleTables.textContent = 'Ocultar mesas';
+    btnToggleTables.textContent = 'Mostrar mesas';
   }
 }
 
