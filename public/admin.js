@@ -904,9 +904,9 @@ async function loadHistoryAdmin(fromDateStr, toDateStr) {
   const div = document.getElementById('history-admin');
   if (!div) return;
 
-  const prevScrollTop = div.scrollTop;
-
-  div.innerHTML = 'Cargando historial...';
+  // Save scroll positions BEFORE the async fetch so the page never jumps
+  const prevScrollTop   = div.scrollTop;
+  const prevPageScrollY = window.scrollY;
 
   let res, data;
   try {
@@ -914,12 +914,12 @@ async function loadHistoryAdmin(fromDateStr, toDateStr) {
     data = await res.json();
   } catch (e) {
     console.error(e);
-    div.textContent = 'No se pudo conectar para cargar historial';
+    smoothRefreshContainer(div, () => { div.textContent = 'No se pudo conectar para cargar historial'; });
     return;
   }
 
   if (!res.ok || !data.ok) {
-    div.textContent = data.message || 'Error cargando historial';
+    smoothRefreshContainer(div, () => { div.textContent = data.message || 'Error cargando historial'; });
     return;
   }
 
@@ -948,10 +948,19 @@ async function loadHistoryAdmin(fromDateStr, toDateStr) {
     });
   }
 
+  // Lock height to prevent container collapse, then rebuild
+  const prevMinHeight = div.style.minHeight;
+  div.style.minHeight = div.offsetHeight + 'px';
+
   div.innerHTML = '';
 
   if (!items.length) {
     div.textContent = 'Aún no hay historial.';
+    div.style.minHeight = prevMinHeight;
+    div.scrollTop = prevScrollTop;
+    if (window.scrollY !== prevPageScrollY) {
+      window.scrollTo({ top: prevPageScrollY, behavior: 'instant' });
+    }
     return;
   }
 
@@ -1005,7 +1014,14 @@ async function loadHistoryAdmin(fromDateStr, toDateStr) {
     div.appendChild(row);
   });
 
-  div.scrollTop = prevScrollTop;
+  // Restore container scroll and release height lock
+  div.scrollTop       = prevScrollTop;
+  div.style.minHeight = prevMinHeight;
+
+  // Restore page-level scroll if the layout shift moved it
+  if (window.scrollY !== prevPageScrollY) {
+    window.scrollTo({ top: prevPageScrollY, behavior: 'instant' });
+  }
 }
 
 // Descargar CSV de historial
