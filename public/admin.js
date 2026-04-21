@@ -294,6 +294,15 @@ async function loadQueueAdmin() {
   if (countBadge) {
     countBadge.textContent = `${queue.length} participante${queue.length !== 1 ? 's' : ''}`;
   }
+  const waitBadge = document.getElementById('queue-admin-wait');
+  if (waitBadge) {
+    if (queue.length > 0) {
+      waitBadge.textContent = `⏱ ${formatWaitTime(queue.length - 1)}`;
+      waitBadge.style.display = '';
+    } else {
+      waitBadge.style.display = 'none';
+    }
+  }
 
   smoothRefreshContainer(div, () => {
     div.innerHTML = '';
@@ -446,6 +455,15 @@ async function loadManualQueueAdmin() {
   const manualCountBadge = document.getElementById('manual-queue-admin-count');
   if (manualCountBadge) {
     manualCountBadge.textContent = `${queue.length} participante${queue.length !== 1 ? 's' : ''}`;
+  }
+  const manualWaitBadge = document.getElementById('manual-queue-admin-wait');
+  if (manualWaitBadge) {
+    if (queue.length > 0) {
+      manualWaitBadge.textContent = `⏱ ${formatWaitTime(queue.length - 1)}`;
+      manualWaitBadge.style.display = '';
+    } else {
+      manualWaitBadge.style.display = 'none';
+    }
   }
 
   smoothRefreshContainer(div, () => {
@@ -614,6 +632,15 @@ async function loadMixedQueueAdmin() {
   const mixedCountBadge = document.getElementById('mixed-queue-admin-count');
   if (mixedCountBadge) {
     mixedCountBadge.textContent = `${queue.length} participante${queue.length !== 1 ? 's' : ''}`;
+  }
+  const mixedWaitBadge = document.getElementById('mixed-queue-admin-wait');
+  if (mixedWaitBadge) {
+    if (queue.length > 0) {
+      mixedWaitBadge.textContent = `⏱ ${formatWaitTime(queue.length - 1)}`;
+      mixedWaitBadge.style.display = '';
+    } else {
+      mixedWaitBadge.style.display = 'none';
+    }
   }
 
   smoothRefreshContainer(div, () => {
