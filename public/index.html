@@ -292,6 +292,24 @@
     @media (min-width: 768px) {
       .container { width: 480px; }
     }
+
+    /* Toast de aviso al pulsar atrás */
+    #back-toast {
+      display: none;
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(30,30,30,0.92);
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 24px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      z-index: 9999;
+      pointer-events: none;
+      white-space: nowrap;
+    }
   </style>
 
   <script>
@@ -451,6 +469,7 @@
     </div>
   </div>
 
+  <div id="back-toast"></div>
   <script src="main.js"></script>
 </body>
 </html>

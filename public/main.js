@@ -615,75 +615,107 @@ if (btnToggleSuggestCard2) {
 const btnLogout = document.getElementById('btn-logout');
 if (btnLogout) {
   btnLogout.onclick = () => {
-    const confirmLogout = confirm('¿Seguro que quieres cerrar sesión?');
-    if (!confirmLogout) return;
-
-    // Detener intervalos de refresco
-    if (queueInterval) { clearInterval(queueInterval); queueInterval = null; }
-    if (manualQueueInterval) { clearInterval(manualQueueInterval); manualQueueInterval = null; }
-    if (mixedQueueInterval) { clearInterval(mixedQueueInterval); mixedQueueInterval = null; }
-
-    // Limpiar estado
-    loggedUser = null;
-    window.currentUserName = null;
-    window.currentUserTable = null;
-    window.currentSingerName = null;
-    hasSuggestedWhileInQueue = false;
-    initialFeaturesApplied = false;
-
-    // Resetear banderas
-    queueCardHidden = false;
-    searchCardHidden = false;
-    manualCardHidden = false;
-    manualQueueCardHidden = false;
-    mixedQueueCardHidden = false;
-    suggestCardHidden = false;
-
-    // Ocultar contenido de usuario
-    const userContent = document.getElementById('user-content');
-    if (userContent) userContent.style.display = 'none';
-
-    // Mostrar login card
-    const loginCard = document.getElementById('login-card');
-    if (loginCard) loginCard.style.display = 'block';
-
-    // Ocultar botón de toggle login
-    const toggleLoginBtn = document.getElementById('btn-toggle-login-card');
-    if (toggleLoginBtn) toggleLoginBtn.style.display = 'none';
-
-    // Limpiar inputs
-    const nameInput = document.getElementById('name');
-    const tableInput = document.getElementById('table');
-    const passInput = document.getElementById('pass');
-    if (nameInput) nameInput.value = '';
-    if (tableInput) tableInput.value = '';
-    if (passInput) passInput.value = '';
-
-    // Limpiar resultados y colas
-    const songsDiv = document.getElementById('songs');
-    if (songsDiv) songsDiv.innerHTML = '';
-    const queueDiv = document.getElementById('queue');
-    if (queueDiv) queueDiv.innerHTML = '';
-    const manualQueueDiv = document.getElementById('manual-queue');
-    if (manualQueueDiv) manualQueueDiv.innerHTML = '';
-    const mixedQueueDiv = document.getElementById('mixed-queue-list');
-    if (mixedQueueDiv) mixedQueueDiv.innerHTML = '';
-
-    // Ocultar filas de info de colas
-    ['queue-info-row', 'manual-queue-info-row', 'mixed-queue-info-row'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = 'none';
-    });
-
-    const resultsCard = document.getElementById('search-results-card');
-    if (resultsCard) resultsCard.style.display = 'none';
+    if (!confirm('¿Seguro que quieres cerrar sesión?')) return;
+    doLogout();
   };
 }
 
-// Bloquear el botón "atrás" del smartphone mientras la sesión esté activa
+function doLogout() {
+  // Detener intervalos de refresco
+  if (queueInterval) { clearInterval(queueInterval); queueInterval = null; }
+  if (manualQueueInterval) { clearInterval(manualQueueInterval); manualQueueInterval = null; }
+  if (mixedQueueInterval) { clearInterval(mixedQueueInterval); mixedQueueInterval = null; }
+
+  // Limpiar estado
+  loggedUser = null;
+  window.currentUserName = null;
+  window.currentUserTable = null;
+  window.currentSingerName = null;
+  hasSuggestedWhileInQueue = false;
+  initialFeaturesApplied = false;
+
+  // Resetear banderas
+  queueCardHidden = false;
+  searchCardHidden = false;
+  manualCardHidden = false;
+  manualQueueCardHidden = false;
+  mixedQueueCardHidden = false;
+  suggestCardHidden = false;
+
+  // Ocultar contenido de usuario
+  const userContent = document.getElementById('user-content');
+  if (userContent) userContent.style.display = 'none';
+
+  // Mostrar login card
+  const loginCard = document.getElementById('login-card');
+  if (loginCard) loginCard.style.display = 'block';
+
+  // Ocultar botón de toggle login
+  const toggleLoginBtn = document.getElementById('btn-toggle-login-card');
+  if (toggleLoginBtn) toggleLoginBtn.style.display = 'none';
+
+  // Limpiar inputs
+  const nameInput = document.getElementById('name');
+  const tableInput = document.getElementById('table');
+  const passInput = document.getElementById('pass');
+  if (nameInput) nameInput.value = '';
+  if (tableInput) tableInput.value = '';
+  if (passInput) passInput.value = '';
+
+  // Limpiar resultados y colas
+  const songsDiv = document.getElementById('songs');
+  if (songsDiv) songsDiv.innerHTML = '';
+  const queueDiv = document.getElementById('queue');
+  if (queueDiv) queueDiv.innerHTML = '';
+  const manualQueueDiv = document.getElementById('manual-queue');
+  if (manualQueueDiv) manualQueueDiv.innerHTML = '';
+  const mixedQueueDiv = document.getElementById('mixed-queue-list');
+  if (mixedQueueDiv) mixedQueueDiv.innerHTML = '';
+
+  // Ocultar filas de info de colas
+  ['queue-info-row', 'manual-queue-info-row', 'mixed-queue-info-row'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  const resultsCard = document.getElementById('search-results-card');
+  if (resultsCard) resultsCard.style.display = 'none';
+}
+
+// Bloquear el botón "atrás" del smartphone mientras la sesión esté activa.
+// Se necesitan 4 pulsaciones consecutivas para salir.
+let _backPressCount = 0;
+let _backPressTimer = null;
+
+function _showBackToast(msg) {
+  const toast = document.getElementById('back-toast');
+  if (!toast) return;
+  toast.textContent = msg;
+  toast.style.display = 'block';
+  clearTimeout(toast._hideTimer);
+  toast._hideTimer = setTimeout(() => { toast.style.display = 'none'; }, 2200);
+}
+
 window.addEventListener('popstate', () => {
-  if (loggedUser) {
-    history.pushState({ karaoke: true }, '', location.href);
+  if (!loggedUser) return;
+
+  // Siempre re-empujamos el estado para que el historial no avance
+  history.pushState({ karaoke: true }, '', location.href);
+
+  _backPressCount += 1;
+
+  // Reiniciar contador si el usuario tarda más de 3 s entre pulsaciones
+  clearTimeout(_backPressTimer);
+  _backPressTimer = setTimeout(() => { _backPressCount = 0; }, 3000);
+
+  const remaining = 4 - _backPressCount;
+  if (remaining > 0) {
+    _showBackToast(`Pulsa atrás ${remaining} vez${remaining !== 1 ? 'es' : ''} más para salir`);
+  } else {
+    // 4ª pulsación: cerrar sesión directamente
+    _backPressCount = 0;
+    clearTimeout(_backPressTimer);
+    doLogout();
   }
 });
 
