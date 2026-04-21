@@ -80,6 +80,14 @@ db.exec(`
 try { db.exec(`ALTER TABLE queue ADD COLUMN highlightColor TEXT`); } catch (e) { /* ya existe */ }
 try { db.exec(`ALTER TABLE manual_queue ADD COLUMN highlightColor TEXT`); } catch (e) { /* ya existe */ }
 
+// Migraciones: agregar columnas de posición en las 3 colas
+try { db.exec(`ALTER TABLE history ADD COLUMN catalogPosition INTEGER`); } catch (e) { /* ya existe */ }
+try { db.exec(`ALTER TABLE history ADD COLUMN catalogTotal INTEGER`); } catch (e) { /* ya existe */ }
+try { db.exec(`ALTER TABLE history ADD COLUMN manualPosition INTEGER`); } catch (e) { /* ya existe */ }
+try { db.exec(`ALTER TABLE history ADD COLUMN manualTotal INTEGER`); } catch (e) { /* ya existe */ }
+try { db.exec(`ALTER TABLE history ADD COLUMN mixedPosition INTEGER`); } catch (e) { /* ya existe */ }
+try { db.exec(`ALTER TABLE history ADD COLUMN mixedTotal INTEGER`); } catch (e) { /* ya existe */ }
+
 // ===== FIN SQLITE =====
 
 const app = express();
@@ -904,14 +912,34 @@ function moveQueueItemToHistory(id) {
   }
   const item = queue[index];
 
-  const queuePosition = index + 1;
-  const queueTotal    = queue.length;
+  const catalogPosition = index + 1;
+  const catalogTotal    = queue.length;
+  const queuePosition   = catalogPosition;
+  const queueTotal      = catalogTotal;
+
+  // Calcular posición en cola mixta (catálogo + manual ordenados por createdAt)
+  const manualQueue = readManualQueueFromDb();
+  const mixedAll = [
+    ...queue.map(q => ({ ...q, _source: 'catalog' })),
+    ...manualQueue.map(q => ({ ...q, _source: 'manual' }))
+  ].sort((a, b) => {
+    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return ta - tb;
+  });
+  const mixedIndex    = mixedAll.findIndex(q => q._source === 'catalog' && q.id === item.id);
+  const mixedPosition = mixedIndex >= 0 ? mixedIndex + 1 : null;
+  const mixedTotal    = mixedAll.length;
 
   const playedAt = new Date().toISOString();
 
   const insertHistory = db.prepare(`
-    INSERT INTO history (userName, tableNumber, songTitle, createdAt, playedAt, queuePosition, queueTotal)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO history (userName, tableNumber, songTitle, createdAt, playedAt,
+      queuePosition, queueTotal,
+      catalogPosition, catalogTotal,
+      manualPosition, manualTotal,
+      mixedPosition, mixedTotal)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   insertHistory.run(
     item.userName,
@@ -920,12 +948,18 @@ function moveQueueItemToHistory(id) {
     item.createdAt,
     playedAt,
     queuePosition,
-    queueTotal
+    queueTotal,
+    catalogPosition,
+    catalogTotal,
+    null,
+    null,
+    mixedPosition,
+    mixedTotal
   );
 
   deleteQueueItem(id);
 
-  return { ...item, playedAt, queuePosition, queueTotal };
+  return { ...item, playedAt, queuePosition, queueTotal, catalogPosition, catalogTotal, manualPosition: null, manualTotal: null, mixedPosition, mixedTotal };
 }
 
 // ========== COLA MANUAL (helpers) ==========
@@ -1073,8 +1107,24 @@ function moveManualQueueItemToHistory(id) {
   }
   const item = queue[index];
 
-  const queuePosition = index + 1;
-  const queueTotal    = queue.length;
+  const manualPosition = index + 1;
+  const manualTotal    = queue.length;
+  const queuePosition  = manualPosition;
+  const queueTotal     = manualTotal;
+
+  // Calcular posición en cola mixta (catálogo + manual ordenados por createdAt)
+  const catalogQueue = readQueueFromDb();
+  const mixedAll = [
+    ...catalogQueue.map(q => ({ ...q, _source: 'catalog' })),
+    ...queue.map(q => ({ ...q, _source: 'manual' }))
+  ].sort((a, b) => {
+    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return ta - tb;
+  });
+  const mixedIndex    = mixedAll.findIndex(q => q._source === 'manual' && q.id === item.id);
+  const mixedPosition = mixedIndex >= 0 ? mixedIndex + 1 : null;
+  const mixedTotal    = mixedAll.length;
 
   const playedAt = new Date().toISOString();
 
@@ -1082,8 +1132,12 @@ function moveManualQueueItemToHistory(id) {
   const songTitleForHistory = item.manualSongTitle || item.songTitle || '';
 
   const insertHistory = db.prepare(`
-    INSERT INTO history (userName, tableNumber, songTitle, createdAt, playedAt, queuePosition, queueTotal)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO history (userName, tableNumber, songTitle, createdAt, playedAt,
+      queuePosition, queueTotal,
+      catalogPosition, catalogTotal,
+      manualPosition, manualTotal,
+      mixedPosition, mixedTotal)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   insertHistory.run(
     item.userName,
@@ -1092,12 +1146,18 @@ function moveManualQueueItemToHistory(id) {
     item.createdAt || new Date().toISOString(),
     playedAt,
     queuePosition,
-    queueTotal
+    queueTotal,
+    null,
+    null,
+    manualPosition,
+    manualTotal,
+    mixedPosition,
+    mixedTotal
   );
 
   deleteManualQueueItem(id);
 
-  return { ...item, playedAt, queuePosition, queueTotal };
+  return { ...item, playedAt, queuePosition, queueTotal, catalogPosition: null, catalogTotal: null, manualPosition, manualTotal, mixedPosition, mixedTotal };
 }
 
 // ====== ENDPOINTS DELETE PARA COLA MANUAL ======
@@ -1436,14 +1496,22 @@ app.get('/api/history', (req, res) => {
   if (table) {
     const mesaNorm = normalizeText(String(table).trim());
     stmt = db.prepare(`
-      SELECT id, userName, tableNumber, songTitle, createdAt, playedAt, queuePosition, queueTotal
+      SELECT id, userName, tableNumber, songTitle, createdAt, playedAt,
+        queuePosition, queueTotal,
+        catalogPosition, catalogTotal,
+        manualPosition, manualTotal,
+        mixedPosition, mixedTotal
       FROM history
     `);
     const all = stmt.all();
     rows = all.filter(h => normalizeText(h.tableNumber) === mesaNorm);
   } else {
     stmt = db.prepare(`
-      SELECT id, userName, tableNumber, songTitle, createdAt, playedAt, queuePosition, queueTotal
+      SELECT id, userName, tableNumber, songTitle, createdAt, playedAt,
+        queuePosition, queueTotal,
+        catalogPosition, catalogTotal,
+        manualPosition, manualTotal,
+        mixedPosition, mixedTotal
       FROM history
       ORDER BY datetime(playedAt) DESC
     `);
@@ -1455,14 +1523,18 @@ app.get('/api/history', (req, res) => {
 
 app.get('/api/history/export', (req, res) => {
   const stmt = db.prepare(`
-    SELECT userName, tableNumber, songTitle, createdAt, playedAt, queuePosition, queueTotal
+    SELECT userName, tableNumber, songTitle, createdAt, playedAt,
+      queuePosition, queueTotal,
+      catalogPosition, catalogTotal,
+      manualPosition, manualTotal,
+      mixedPosition, mixedTotal
     FROM history
     ORDER BY datetime(playedAt) DESC
   `);
   const rows = stmt.all();
 
   let csv =
-    'userName,tableNumber,songTitle,createdAt,playedAt,queuePosition,queueTotal\n';
+    'userName,tableNumber,songTitle,createdAt,playedAt,queuePosition,queueTotal,catalogPosition,catalogTotal,manualPosition,manualTotal,mixedPosition,mixedTotal\n';
   for (const r of rows) {
     const createdDate = r.createdAt ? new Date(r.createdAt) : null;
     const playedDate  = r.playedAt  ? new Date(r.playedAt)  : null;
@@ -1479,10 +1551,16 @@ app.get('/api/history/export', (req, res) => {
     const song   = `"${(r.songTitle || '').replace(/"/g, '""')}"`;
     const created = `"${createdStr.replace(/"/g, '""')}"`;
     const played  = `"${playedStr.replace(/"/g, '""')}"`;
-    const pos   = r.queuePosition != null ? r.queuePosition : '';
-    const total = r.queueTotal    != null ? r.queueTotal    : '';
+    const pos           = r.queuePosition    != null ? r.queuePosition    : '';
+    const total         = r.queueTotal       != null ? r.queueTotal       : '';
+    const catalogPos    = r.catalogPosition  != null ? r.catalogPosition  : '';
+    const catalogTot    = r.catalogTotal     != null ? r.catalogTotal     : '';
+    const manualPos     = r.manualPosition   != null ? r.manualPosition   : '';
+    const manualTot     = r.manualTotal      != null ? r.manualTotal      : '';
+    const mixedPos      = r.mixedPosition    != null ? r.mixedPosition    : '';
+    const mixedTot      = r.mixedTotal       != null ? r.mixedTotal       : '';
 
-    csv += `${user},${table},${song},${created},${played},${pos},${total}\n`;
+    csv += `${user},${table},${song},${created},${played},${pos},${total},${catalogPos},${catalogTot},${manualPos},${manualTot},${mixedPos},${mixedTot}\n`;
   }
 
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');

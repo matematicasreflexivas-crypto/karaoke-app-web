@@ -953,7 +953,19 @@ async function loadHistoryAdmin(fromDateStr, toDateStr) {
 
     const fechaRegistro = h.createdAt ? new Date(h.createdAt).toLocaleString('es-MX') : '';
     const fechaAtendida = h.playedAt ? new Date(h.playedAt).toLocaleString('es-MX') : '';
-    const lugarCola = (h.queuePosition != null && h.queueTotal != null)
+
+    // Posiciones en las 3 colas (registros nuevos)
+    const lugarCatalogo = (h.catalogPosition != null && h.catalogTotal != null)
+      ? ` | Lugar en cola catálogo: ${h.catalogPosition}/${h.catalogTotal}`
+      : '';
+    const lugarManual = (h.manualPosition != null && h.manualTotal != null)
+      ? ` | Lugar en cola manual: ${h.manualPosition}/${h.manualTotal}`
+      : '';
+    const lugarMixta = (h.mixedPosition != null && h.mixedTotal != null)
+      ? ` | Lugar en cola mixta: ${h.mixedPosition}/${h.mixedTotal}`
+      : '';
+    // Compatibilidad con registros anteriores que solo tienen queuePosition
+    const lugarColaLegacy = (!lugarCatalogo && !lugarManual && h.queuePosition != null && h.queueTotal != null)
       ? ` | Lugar en cola: ${h.queuePosition}/${h.queueTotal}`
       : '';
 
@@ -967,7 +979,10 @@ async function loadHistoryAdmin(fromDateStr, toDateStr) {
     if (fechaAtendida) {
       texto += ` | Atendido: ${fechaAtendida}`;
     }
-    texto += lugarCola;
+    texto += lugarCatalogo;
+    texto += lugarManual;
+    texto += lugarMixta;
+    texto += lugarColaLegacy;
 
     textSpan.textContent = texto;
 
