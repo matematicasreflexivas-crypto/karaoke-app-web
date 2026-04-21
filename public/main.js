@@ -709,9 +709,7 @@ window.addEventListener('popstate', () => {
   _backPressTimer = setTimeout(() => { _backPressCount = 0; }, 3000);
 
   const remaining = 4 - _backPressCount;
-  if (remaining > 0) {
-    _showBackToast(`Pulsa atrás ${remaining} vez${remaining !== 1 ? 'es' : ''} más para salir`);
-  } else {
+  if (remaining <= 0) {
     // 4ª pulsación: cerrar sesión directamente
     _backPressCount = 0;
     clearTimeout(_backPressTimer);
