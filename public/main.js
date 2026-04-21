@@ -137,7 +137,7 @@ async function loadPublicInfo() {
     const title = data.appTitle || 'Karaoke';
     document.title = `${title} - Usuario`;
     const h1 = document.querySelector('h1');
-    if (h1) h1.textContent = `${title}  `;
+    if (h1) h1.textContent = title;
 
     if (
       typeof data.manualMaxSongsPerTable === 'number' &&
@@ -340,12 +340,6 @@ async function performSearch() {
     }, 300);
   } else {
     div.style.maxHeight = '22vh';
-    if (resultsCard) resultsCard.style.display = 'none';
-    return;
-  }
-
-  if (!hayTextoBusqueda) {
-    div.innerHTML = '';
     if (resultsCard) resultsCard.style.display = 'none';
     return;
   }

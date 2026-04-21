@@ -177,7 +177,7 @@ function renderPublicInfo(info) {
   }
 
   // título dinámico (nombre del bar)
-  headerTitle.textContent = `TURNOS  ${info.appTitle}`;
+  headerTitle.textContent = `TURNOS ${info.appTitle}`;
   document.title = `Pantalla ${info.appTitle}`;
 
   // mensaje al público
