@@ -109,6 +109,38 @@ function smoothRefreshContainer(div, renderFn) {
   div.style.overflowY = prevOverflowY || 'auto';
 }
 
+// ================== TIEMPO DE ESPERA EN COLA ==================
+
+const AVG_SONG_MINUTES = 3.5; // duración promedio estimada por canción
+
+function formatWaitTime(minutes) {
+  if (minutes < 1) return '< 1 min';
+  if (minutes < 60) return `~${Math.round(minutes)} min`;
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  return m > 0 ? `~${h}h ${m}min` : `~${h}h`;
+}
+
+function updateQueueInfoRow(rowId, count) {
+  const row = document.getElementById(rowId);
+  if (!row) return;
+  if (!count) {
+    row.style.display = 'none';
+    return;
+  }
+  const waitMinutes = (count - 1) * AVG_SONG_MINUTES;
+  const countSpan = document.createElement('span');
+  countSpan.className = 'info-count';
+  countSpan.textContent = `👥 ${count} participante${count !== 1 ? 's' : ''}`;
+  const waitSpan = document.createElement('span');
+  waitSpan.className = 'info-wait';
+  waitSpan.textContent = `⏱ ${formatWaitTime(waitMinutes)}`;
+  row.innerHTML = '';
+  row.appendChild(countSpan);
+  row.appendChild(waitSpan);
+  row.style.display = 'flex';
+}
+
 function getResultsCard() {
   return (
     Array.from(document.querySelectorAll('.card')).find(card => {
@@ -217,6 +249,10 @@ document.getElementById('btn-login').onclick = async () => {
   window.currentUserName   = name.trim();
   window.currentUserTable  = table.trim();
   window.currentSingerName = name.trim();
+
+  // Bloquear el botón "atrás" del smartphone: empujamos un estado al historial.
+  // El handler popstate lo re-empujará mientras la sesión esté activa.
+  history.pushState({ karaoke: true }, '', location.href);
 
   alert('Ingresaste como ' + name);
 
@@ -633,10 +669,23 @@ if (btnLogout) {
     const mixedQueueDiv = document.getElementById('mixed-queue-list');
     if (mixedQueueDiv) mixedQueueDiv.innerHTML = '';
 
+    // Ocultar filas de info de colas
+    ['queue-info-row', 'manual-queue-info-row', 'mixed-queue-info-row'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+
     const resultsCard = document.getElementById('search-results-card');
     if (resultsCard) resultsCard.style.display = 'none';
   };
 }
+
+// Bloquear el botón "atrás" del smartphone mientras la sesión esté activa
+window.addEventListener('popstate', () => {
+  if (loggedUser) {
+    history.pushState({ karaoke: true }, '', location.href);
+  }
+});
 
 // búsqueda en vivo
 const artistInput2 = document.getElementById('artist');
@@ -881,12 +930,12 @@ async function loadQueue() {
   });
   }); // end smoothRefreshContainer
 
+  updateQueueInfoRow('queue-info-row', data.queue.length);
+
   if (!isUserInQueue) {
     hasSuggestedWhileInQueue = false;
   }
 }
-
-// ================== COLA MANUAL ==================
 
 async function loadManualQueue() {
   if (!loggedUser) return;
@@ -989,6 +1038,8 @@ async function loadManualQueue() {
     div.appendChild(p);
   });
   }); // end smoothRefreshContainer
+
+  updateQueueInfoRow('manual-queue-info-row', data.queue.length);
 }
 
 // ================== COLA MIXTA ==================
@@ -1106,6 +1157,8 @@ async function loadMixedQueue() {
     container.appendChild(row);
   });
   }); // end smoothRefreshContainer
+
+  updateQueueInfoRow('mixed-queue-info-row', mixed.length);
 
   const card = document.getElementById('mixed-queue-card');
   if (card && !mixedQueueCardHidden) {
