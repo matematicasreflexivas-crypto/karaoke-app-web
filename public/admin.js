@@ -50,13 +50,27 @@ function formatTiempoEnCola(createdAt) {
 // Helper para refresco suave de contenedores con scroll
 function smoothRefreshContainer(div, renderFn) {
   if (!div) return;
-  const prevScrollTop = div.scrollTop;
-  const prevOverflowY = div.style.overflowY;
 
-  div.style.overflowY = 'hidden';
+  // Save scroll positions before any DOM mutation
+  const prevScrollTop   = div.scrollTop;
+  const prevPageScrollY = window.scrollY;
+
+  // Lock the container height so it doesn't collapse to 0 when innerHTML is cleared,
+  // which would otherwise cause the whole page to jump
+  const prevMinHeight = div.style.minHeight;
+  div.style.minHeight  = div.offsetHeight + 'px';
+
   renderFn();
-  div.scrollTop        = prevScrollTop;
-  div.style.overflowY  = prevOverflowY || 'auto';
+
+  // Restore container scroll position
+  div.scrollTop       = prevScrollTop;
+  // Unset the height lock
+  div.style.minHeight = prevMinHeight;
+
+  // Restore page-level scroll position in case the layout shift moved it
+  if (window.scrollY !== prevPageScrollY) {
+    window.scrollTo({ top: prevPageScrollY, behavior: 'instant' });
+  }
 }
 
 // Retorna el color efectivo de un item de cola
