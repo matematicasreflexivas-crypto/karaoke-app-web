@@ -1202,8 +1202,8 @@ app.post('/api/queue', (req, res) => {
     totalAfterInsert, // <- IMPORTANTE para el front
     message:
       restantes > 0
-        ? `Registro exitoso. Tu mesa (${mesaStr}) puede registrar todavía ${restantes} participante(s) más (sumando selección + manual).`
-        : `Registro exitoso. Tu mesa (${mesaStr}) ha alcanzado el máximo de ${maxSongs} participante(s) en la cola (sumando selección + manual).`
+        ? `Registro exitoso. Tu mesa (${mesaStr}) puede registrar todavía ${restantes} participante(s) más.`
+        : `Registro exitoso. Tu mesa (${mesaStr}) ha alcanzado el máximo de ${maxSongs} participante(s) en la cola.`
   });
 });
 
@@ -1332,8 +1332,8 @@ app.post('/api/manual-queue', (req, res) => {
     totalAfterInsert, // <- IMPORTANTE para el front
     message:
       restantes > 0
-        ? `Registro exitoso. Tu mesa (${mesaStr}) puede registrar todavía ${restantes} participante(s) más (sumando selección + manual).`
-        : `Registro exitoso. Tu mesa (${mesaStr}) ha alcanzado el máximo de ${maxSongs} participante(s) en la cola (sumando selección + manual).`
+        ? `Registro exitoso. Tu mesa (${mesaStr}) puede registrar todavía ${restantes} participante(s) más.`
+        : `Registro exitoso. Tu mesa (${mesaStr}) ha alcanzado el máximo de ${maxSongs} participante(s) en la cola.`
   });
 });
 
