@@ -97,7 +97,18 @@ const PORT = process.env.PORT || 3000;
 
 // ===== SEGURIDAD: cabeceras HTTP =====
 app.use(helmet({
-  contentSecurityPolicy: false // se desactiva para no romper los scripts inline del frontend
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc:  ["'self'", "'unsafe-inline'"],
+      styleSrc:   ["'self'", "'unsafe-inline'"],
+      imgSrc:     ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'"],
+      fontSrc:    ["'self'"],
+      objectSrc:  ["'none'"],
+      frameAncestors: ["'none'"]
+    }
+  }
 }));
 
 // ===== SEGURIDAD: límite de peticiones en login =====
@@ -107,6 +118,15 @@ const loginLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { ok: false, message: 'Demasiados intentos. Espera 15 minutos.' }
+});
+
+// ===== SEGURIDAD: límite de peticiones para subidas de archivos =====
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, message: 'Demasiadas subidas. Espera 15 minutos.' }
 });
 
 // ===== CORS =====
@@ -313,7 +333,7 @@ const uploadQr = multer({
   }
 });
 
-app.post('/api/admin/upload-qr', uploadQr.single('qr'), (req, res) => {
+app.post('/api/admin/upload-qr', uploadLimiter, uploadQr.single('qr'), (req, res) => {
   const adminPassword = (req.body || {}).adminPassword;
   if (!adminPassword) {
     return res.status(400).json({ ok: false, message: 'Falta contraseña de administrador' });
@@ -920,7 +940,9 @@ const upload = multer({
   }
 });
 
-app.post('/api/songs/upload', upload.single('excel'), (req, res) => {
+const UPLOADS_DIR = path.resolve(path.join(__dirname, 'uploads'));
+
+app.post('/api/songs/upload', uploadLimiter, upload.single('excel'), (req, res) => {
   const adminPassword = (req.body || {}).adminPassword;
   if (!adminPassword) {
     if (req.file) fs.unlinkSync(req.file.path);
@@ -937,8 +959,15 @@ app.post('/api/songs/upload', upload.single('excel'), (req, res) => {
       .json({ ok: false, message: 'No se envió archivo' });
   }
 
+  // Prevenir path traversal: verificar que la ruta generada por multer esté dentro del directorio de uploads
+  const resolvedFilePath = path.resolve(req.file.path);
+  if (!resolvedFilePath.startsWith(UPLOADS_DIR + path.sep) && resolvedFilePath !== UPLOADS_DIR) {
+    fs.unlinkSync(resolvedFilePath);
+    return res.status(400).json({ ok: false, message: 'Ruta de archivo inválida' });
+  }
+
   try {
-    const workbook  = xlsx.readFile(req.file.path);
+    const workbook  = xlsx.readFile(resolvedFilePath);
     const sheetName = workbook.SheetNames[0];
     const sheet     = workbook.Sheets[sheetName];
 
@@ -964,7 +993,7 @@ app.post('/api/songs/upload', upload.single('excel'), (req, res) => {
       count++;
     }
 
-    fs.unlinkSync(req.file.path);
+    fs.unlinkSync(resolvedFilePath);
 
     console.log('Canciones cargadas desde Excel a SQLite:', count);
     res.json({ ok: true, count });
