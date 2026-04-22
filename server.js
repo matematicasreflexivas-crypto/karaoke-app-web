@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const xlsx = require('xlsx');
+const bcrypt = require('bcryptjs');
 
 // ===== SQLITE (NUEVO) =====
 const Database = require('better-sqlite3');
@@ -121,6 +122,16 @@ function normalizePassword(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+const BCRYPT_HASH_RE = /^\$2[aby]\$\d{2}\$/;
+
+function isBcryptHash(value) {
+  return typeof value === 'string' && BCRYPT_HASH_RE.test(value);
+}
+
+function hashPassword(value) {
+  return bcrypt.hashSync(value, 12);
+}
+
 function normalizeConfigPassword(value) {
   if (typeof value === 'string') {
     return value.trim();
@@ -133,6 +144,28 @@ function normalizeConfigPassword(value) {
 
 function normalizeTitle(value) {
   return String(value ?? '').trim();
+}
+
+function comparePassword(candidate, stored) {
+  const normalizedCandidate = normalizePassword(candidate);
+  if (!normalizedCandidate) {
+    return false;
+  }
+  if (isBcryptHash(stored)) {
+    return bcrypt.compareSync(normalizedCandidate, stored);
+  }
+  return normalizedCandidate === stored;
+}
+
+function prepareStoredPassword(nextPassword, currentStoredPassword) {
+  const normalized = normalizePassword(nextPassword);
+  if (!normalized) {
+    return currentStoredPassword;
+  }
+  if (isBcryptHash(currentStoredPassword)) {
+    return hashPassword(normalized);
+  }
+  return normalized;
 }
 
 // ========== CONFIG ADMIN / USUARIO ==========
@@ -208,11 +241,11 @@ function saveAdminConfig() {
 }
 
 function isAdminPasswordValid(candidate) {
-  return normalizePassword(candidate) === adminConfig.adminPassword;
+  return comparePassword(candidate, adminConfig.adminPassword);
 }
 
 function isUserPasswordValid(candidate) {
-  return normalizePassword(candidate) === adminConfig.userPassword;
+  return comparePassword(candidate, adminConfig.userPassword);
 }
 
 // Info pública del día
@@ -453,7 +486,10 @@ app.post('/api/admin/change-password', (req, res) => {
       .json({ ok: false, message: 'Contraseña actual incorrecta' });
   }
 
-  adminConfig.adminPassword = newPassword;
+  adminConfig.adminPassword = prepareStoredPassword(
+    newPassword,
+    adminConfig.adminPassword
+  );
 
   try {
     saveAdminConfig();
@@ -480,7 +516,10 @@ app.post('/api/admin/change-user-password', (req, res) => {
       .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
   }
 
-  adminConfig.userPassword = newUserPassword;
+  adminConfig.userPassword = prepareStoredPassword(
+    newUserPassword,
+    adminConfig.userPassword
+  );
 
   try {
     saveAdminConfig();
