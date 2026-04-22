@@ -2,6 +2,7 @@
 const API_BASE = '';
 
 let adminLogged = false;
+let _adminPass = '';
 let minutesPerTurn = 5;
 
 // Flags de visibilidad de secciones
@@ -127,7 +128,7 @@ document.getElementById('btn-admin-login').onclick = async () => {
   }
 
   adminLogged = true;
-  document.getElementById('admin-panel').style.display = 'block';
+  _adminPass = pass;
 
   // Reiniciar el contador de pulsaciones (puede haber quedado de una sesión anterior)
   _adminBackPressCount = 0;
@@ -205,6 +206,7 @@ document.getElementById('btn-admin-login').onclick = async () => {
 
 function _doAdminLogout() {
   adminLogged = false;
+  _adminPass = '';
   clearAllIntervals();
 
   const adminPanel     = document.getElementById('admin-panel');
@@ -296,6 +298,7 @@ document.getElementById('form-upload').onsubmit = async (e) => {
 
   const formData = new FormData();
   formData.append('excel', fileInput.files[0]);
+  formData.append('adminPassword', _adminPass);
 
   let res;
   try {
@@ -325,6 +328,56 @@ document.getElementById('form-upload').onsubmit = async (e) => {
   }
 
   alert('Excel cargado (' + data.count + ' canciones).');
+};
+
+// Subir imagen QR
+const formUploadQr = document.getElementById('form-upload-qr');
+if (formUploadQr) {
+  formUploadQr.onsubmit = async (e) => {
+    e.preventDefault();
+    if (!adminLogged) {
+      alert('Primero inicia sesión como admin');
+      return;
+    }
+
+    const fileInput = document.getElementById('qr-file');
+    if (!fileInput || !fileInput.files.length) {
+      alert('Selecciona una imagen');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('qr', fileInput.files[0]);
+    formData.append('adminPassword', _adminPass);
+
+    let res;
+    try {
+      res = await fetch(`${API_BASE}/api/admin/upload-qr`, {
+        method: 'POST',
+        body: formData
+      });
+    } catch (err) {
+      console.error(err);
+      alert('No se pudo subir la imagen QR');
+      return;
+    }
+
+    let data;
+    try {
+      data = await res.json();
+    } catch (err) {
+      alert('El servidor no respondió JSON');
+      return;
+    }
+
+    if (!res.ok || !data.ok) {
+      alert(data.message || 'Error al subir la imagen QR');
+      return;
+    }
+
+    alert('Imagen QR actualizada correctamente.');
+  };
+}
 };
 
 // ========== COLA ADMIN: CATÁLOGO ==========
@@ -959,7 +1012,9 @@ function setupClearMixedQueueButton() {
 
     try {
       const res = await fetch(`${API_BASE}/api/mixed-queue`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminPassword: _adminPass })
       });
 
       let data;
@@ -1223,7 +1278,9 @@ function setupHistoryButtons() {
 
       try {
         const res = await fetch(`${API_BASE}/api/history`, {
-          method: 'DELETE'
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ adminPassword: _adminPass })
         });
 
         let data;
@@ -1412,7 +1469,9 @@ function setupSuggestionsSection() {
 
       try {
         const res = await fetch(`${API_BASE}/api/song-suggestions`, {
-          method: 'DELETE'
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ adminPassword: _adminPass })
         });
         let data;
         try {
@@ -1602,7 +1661,7 @@ async function loadTablesAdmin() {
         const resPut = await fetch(`${API_BASE}/api/tables/${t.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ maxSongs: val })
+          body: JSON.stringify({ adminPassword: _adminPass, maxSongs: val })
         });
         const dataPut = await resPut.json();
         if (!resPut.ok || !dataPut.ok) {
@@ -1627,7 +1686,9 @@ async function loadTablesAdmin() {
       if (!ok) return;
 
       const resDel = await fetch(`${API_BASE}/api/tables/${t.id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminPassword: _adminPass })
       });
 
       let dataDel;
@@ -1687,7 +1748,7 @@ function setupAddTableButton() {
       res = await fetch(`${API_BASE}/api/tables`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tableNumber: value, maxSongs: maxSongsVal })
+        body: JSON.stringify({ adminPassword: _adminPass, tableNumber: value, maxSongs: maxSongsVal })
       });
       data = await res.json();
     } catch (e) {
@@ -1724,7 +1785,9 @@ function setupClearTablesButton() {
     let res, data;
     try {
       res = await fetch(`${API_BASE}/api/tables`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminPassword: _adminPass })
       });
       data = await res.json();
     } catch (e) {
@@ -1758,7 +1821,9 @@ function setupClearManualQueueButton() {
 
     try {
       const res = await fetch(`${API_BASE}/api/manual-queue`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminPassword: _adminPass })
       });
 
       let data;
@@ -2041,6 +2106,7 @@ function setupUserFeaturesControls() {
     }
 
     const body = {
+      adminPassword: _adminPass,
       userFeatures: {
         search:         cbSearch.checked,
         queue:          cbQueue.checked,
@@ -2074,7 +2140,7 @@ function setupUserFeaturesControls() {
         const res2  = await fetch(`${API_BASE}/api/admin/set-show-color-dots`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ showColorDots: cbColorDots.checked })
+          body: JSON.stringify({ adminPassword: _adminPass, showColorDots: cbColorDots.checked })
         });
         const data2 = await res2.json();
         if (!res2.ok || !data2.ok) {
@@ -2422,7 +2488,7 @@ function setupMinutesPerTurnControl() {
       const res  = await fetch(`${API_BASE}/api/admin/set-minutes-per-turn`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ minutesPerTurn: val })
+        body: JSON.stringify({ adminPassword: _adminPass, minutesPerTurn: val })
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {

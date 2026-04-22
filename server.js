@@ -4,6 +4,8 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const xlsx = require('xlsx');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 // ===== SQLITE (NUEVO) =====
 const Database = require('better-sqlite3');
@@ -93,6 +95,20 @@ try { db.exec(`ALTER TABLE history ADD COLUMN mixedTotal INTEGER`); } catch (e) 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ===== SEGURIDAD: cabeceras HTTP =====
+app.use(helmet({
+  contentSecurityPolicy: false // se desactiva para no romper los scripts inline del frontend
+}));
+
+// ===== SEGURIDAD: límite de peticiones en login =====
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, message: 'Demasiados intentos. Espera 15 minutos.' }
+});
+
 // ===== CORS =====
 app.use((req, res, next) => {
   const allowedOrigins = [
@@ -127,6 +143,11 @@ function normalizeText(str) {
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
     : '';
+}
+
+// Validar longitud máxima de un campo de texto
+function exceedsMaxLength(value, max) {
+  return typeof value === 'string' && value.length > max;
 }
 
 // ========== CONFIG ADMIN / USUARIO ==========
@@ -211,11 +232,10 @@ function saveAdminConfig() {
   );
 }
 
-// Info pública del día
+// Info pública del día (NO expone userPassword)
 app.get('/api/public-info', (req, res) => {
   res.json({
     ok: true,
-    userPassword: adminConfig.userPassword,
     qrImageFile: adminConfig.qrImageFile || null,
     appTitle: adminConfig.appTitle || 'Karaoke',
     isQueueOpen: adminConfig.isQueueOpen,
@@ -269,6 +289,9 @@ if (!fs.existsSync(qrFolder)) {
   fs.mkdirSync(qrFolder, { recursive: true });
 }
 
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const QR_MAX_SIZE_MB = 2;
+
 const qrStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, qrFolder);
@@ -278,9 +301,31 @@ const qrStorage = multer.diskStorage({
   }
 });
 
-const uploadQr = multer({ storage: qrStorage });
+const uploadQr = multer({
+  storage: qrStorage,
+  limits: { fileSize: QR_MAX_SIZE_MB * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Solo se permiten imágenes (JPEG, PNG, GIF, WEBP)'));
+    }
+  }
+});
 
 app.post('/api/admin/upload-qr', uploadQr.single('qr'), (req, res) => {
+  const adminPassword = (req.body || {}).adminPassword;
+  if (!adminPassword) {
+    return res.status(400).json({ ok: false, message: 'Falta contraseña de administrador' });
+  }
+  if (adminPassword !== adminConfig.adminPassword) {
+    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
+  }
+
+  if (!req.file) {
+    return res.status(400).json({ ok: false, message: 'No se recibió ningún archivo' });
+  }
+
   try {
     adminConfig.qrImageFile = 'qr.png';
     saveAdminConfig();
@@ -341,11 +386,18 @@ app.get('/api/tables', (req, res) => {
 });
 
 app.post('/api/tables', (req, res) => {
-  const { tableNumber, maxSongs } = req.body;
+  const { adminPassword, tableNumber, maxSongs } = req.body;
+  if (!adminPassword || adminPassword !== adminConfig.adminPassword) {
+    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
+  }
   if (!tableNumber) {
     return res
       .status(400)
       .json({ ok: false, message: 'Falta el número de mesa' });
+  }
+
+  if (exceedsMaxLength(String(tableNumber), 50)) {
+    return res.status(400).json({ ok: false, message: 'Número de mesa demasiado largo' });
   }
 
   const mesaOriginal = String(tableNumber).trim();
@@ -375,7 +427,11 @@ app.post('/api/tables', (req, res) => {
 // actualizar solo el maxSongs de una mesa
 app.put('/api/tables/:id', (req, res) => {
   const id = Number(req.params.id);
-  const { maxSongs } = req.body;
+  const { adminPassword, maxSongs } = req.body;
+
+  if (!adminPassword || adminPassword !== adminConfig.adminPassword) {
+    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
+  }
 
   if (!maxSongs && maxSongs !== 0) {
     return res
@@ -393,12 +449,20 @@ app.put('/api/tables/:id', (req, res) => {
 });
 
 app.delete('/api/tables/:id', (req, res) => {
+  const adminPassword = (req.body || {}).adminPassword;
+  if (!adminPassword || adminPassword !== adminConfig.adminPassword) {
+    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
+  }
   const id = Number(req.params.id);
   deleteTable(id);
   res.json({ ok: true });
 });
 
 app.delete('/api/tables', (req, res) => {
+  const adminPassword = (req.body || {}).adminPassword;
+  if (!adminPassword || adminPassword !== adminConfig.adminPassword) {
+    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
+  }
   clearTables();
   res.json({ ok: true });
 });
@@ -425,7 +489,7 @@ function getTableConfig(tableNumber) {
 }
 
 // ========== ADMIN ==========
-app.post('/api/admin/login', (req, res) => {
+app.post('/api/admin/login', loginLimiter, (req, res) => {
   const { password } = req.body;
   if (password === adminConfig.adminPassword) {
     return res.json({ ok: true });
@@ -543,10 +607,14 @@ app.post('/api/admin/set-queue-open', (req, res) => {
 
 // cambiar banderas de secciones visibles en pantalla de usuario
 app.post('/api/admin/change-user-features', (req, res) => {
-  const { userFeatures } = req.body || {};
+  const { adminPassword, userFeatures } = req.body || {};
 
-  if (!userFeatures || typeof userFeatures !== 'object') {
-    return res.status(400).json({ ok: false, message: 'Faltan datos de userFeatures' });
+  if (!adminPassword || !userFeatures || typeof userFeatures !== 'object') {
+    return res.status(400).json({ ok: false, message: 'Faltan datos de userFeatures o contraseña' });
+  }
+
+  if (adminPassword !== adminConfig.adminPassword) {
+    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
   }
 
   adminConfig.userFeatures = {
@@ -571,10 +639,14 @@ app.post('/api/admin/change-user-features', (req, res) => {
 
 // mostrar/ocultar recuadros de color en colas de usuario y pantalla pública
 app.post('/api/admin/set-show-color-dots', (req, res) => {
-  const { showColorDots } = req.body || {};
+  const { adminPassword, showColorDots } = req.body || {};
 
-  if (typeof showColorDots !== 'boolean') {
-    return res.status(400).json({ ok: false, message: 'Falta el valor showColorDots (boolean)' });
+  if (!adminPassword || typeof showColorDots !== 'boolean') {
+    return res.status(400).json({ ok: false, message: 'Falta contraseña o valor showColorDots (boolean)' });
+  }
+
+  if (adminPassword !== adminConfig.adminPassword) {
+    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
   }
 
   adminConfig.showColorDots = showColorDots;
@@ -709,7 +781,16 @@ app.post('/api/admin/set-public-queue-display', (req, res) => {
 
 // ========== MINUTOS POR TURNO ==========
 app.post('/api/admin/set-minutes-per-turn', (req, res) => {
-  const { minutesPerTurn } = req.body || {};
+  const { adminPassword, minutesPerTurn } = req.body || {};
+
+  if (!adminPassword) {
+    return res.status(400).json({ ok: false, message: 'Falta contraseña de administrador' });
+  }
+
+  if (adminPassword !== adminConfig.adminPassword) {
+    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
+  }
+
   let val = parseInt(minutesPerTurn, 10);
   if (Number.isNaN(val) || val < 1) val = 5;
   adminConfig.minutesPerTurn = val;
@@ -746,13 +827,17 @@ app.post('/api/admin/change-public-message', (req, res) => {
 });
 
 // ========== LOGIN USUARIO ==========
-app.post('/api/user/login', (req, res) => {
+app.post('/api/user/login', loginLimiter, (req, res) => {
   const { name, table, password } = req.body;
 
   if (!name || !table || !password) {
     return res
       .status(400)
       .json({ ok: false, message: 'Faltan datos para iniciar sesión' });
+  }
+
+  if (exceedsMaxLength(name, 100) || exceedsMaxLength(table, 50)) {
+    return res.status(400).json({ ok: false, message: 'Datos demasiado largos' });
   }
 
   if (password !== adminConfig.userPassword) {
@@ -815,9 +900,37 @@ app.get('/api/songs', (req, res) => {
   res.json({ ok: true, songs: filtered });
 });
 
-const upload = multer({ dest: 'uploads/' });
+const ALLOWED_EXCEL_TYPES = [
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+  'application/octet-stream' // algunos navegadores envían este tipo para .xlsx
+];
+const EXCEL_MAX_SIZE_MB = 10;
+
+const upload = multer({
+  dest: 'uploads/',
+  limits: { fileSize: EXCEL_MAX_SIZE_MB * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ext === '.xlsx' || ext === '.xls' || ALLOWED_EXCEL_TYPES.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Solo se permiten archivos Excel (.xlsx, .xls)'));
+    }
+  }
+});
 
 app.post('/api/songs/upload', upload.single('excel'), (req, res) => {
+  const adminPassword = (req.body || {}).adminPassword;
+  if (!adminPassword) {
+    if (req.file) fs.unlinkSync(req.file.path);
+    return res.status(400).json({ ok: false, message: 'Falta contraseña de administrador' });
+  }
+  if (adminPassword !== adminConfig.adminPassword) {
+    if (req.file) fs.unlinkSync(req.file.path);
+    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
+  }
+
   if (!req.file) {
     return res
       .status(400)
@@ -844,8 +957,8 @@ app.post('/api/songs/upload', upload.single('excel'), (req, res) => {
 
       if (!colA && !colB) continue;
 
-      const title  = (colB || '').toString();
-      const artist = (colA || '').toString();
+      const title  = (colB || '').toString().slice(0, 200);
+      const artist = (colA || '').toString().slice(0, 200);
 
       insertSong(title, artist);
       count++;
@@ -1095,6 +1208,10 @@ app.delete('/api/queue/:id', (req, res) => {
 });
 
 app.delete('/api/queue', (req, res) => {
+  const adminPassword = (req.body || {}).adminPassword;
+  if (!adminPassword || adminPassword !== adminConfig.adminPassword) {
+    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
+  }
   clearQueue();
   return res.json({ ok: true });
 });
@@ -1172,6 +1289,10 @@ app.delete('/api/manual-queue/:id', (req, res) => {
 });
 
 app.delete('/api/manual-queue', (req, res) => {
+  const adminPassword = (req.body || {}).adminPassword;
+  if (!adminPassword || adminPassword !== adminConfig.adminPassword) {
+    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
+  }
   clearManualQueue();
   return res.json({ ok: true });
 });
@@ -1211,6 +1332,10 @@ app.post('/api/queue', (req, res) => {
   const { userName, tableNumber, songTitle } = req.body;
   if (!userName || !tableNumber || !songTitle) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
+  }
+
+  if (exceedsMaxLength(userName, 100) || exceedsMaxLength(String(tableNumber), 50) || exceedsMaxLength(songTitle, 200)) {
+    return res.status(400).json({ ok: false, message: 'Datos demasiado largos' });
   }
 
   if (!isTableAllowed(tableNumber)) {
@@ -1310,6 +1435,16 @@ app.post('/api/manual-queue', (req, res) => {
 
   if (!userName || !tableNumber || !songTitle) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
+  }
+
+  if (
+    exceedsMaxLength(userName, 100) ||
+    exceedsMaxLength(String(tableNumber), 50) ||
+    exceedsMaxLength(songTitle, 200) ||
+    exceedsMaxLength(manualSongTitle, 200) ||
+    exceedsMaxLength(manualSongArtist, 200)
+  ) {
+    return res.status(400).json({ ok: false, message: 'Datos demasiado largos' });
   }
 
   if (!isTableAllowed(tableNumber)) {
@@ -1474,6 +1609,10 @@ app.get('/api/mixed-queue', (req, res) => {
 
 // BORRAR TODA LA COLA MIXTA (queue + manual_queue)
 app.delete('/api/mixed-queue', (req, res) => {
+  const adminPassword = (req.body || {}).adminPassword;
+  if (!adminPassword || adminPassword !== adminConfig.adminPassword) {
+    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
+  }
   try {
     clearQueue();
     clearManualQueue();
@@ -1573,6 +1712,10 @@ app.get('/api/history/export', (req, res) => {
 
 // Borrar todo el historial
 app.delete('/api/history', (req, res) => {
+  const adminPassword = (req.body || {}).adminPassword;
+  if (!adminPassword || adminPassword !== adminConfig.adminPassword) {
+    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
+  }
   const stmt = db.prepare(`DELETE FROM history`);
   stmt.run();
   res.json({ ok: true });
@@ -1613,6 +1756,15 @@ app.post('/api/song-suggestions', (req, res) => {
       return res
         .status(400)
         .json({ ok: false, message: 'Faltan título o intérprete' });
+    }
+
+    if (
+      exceedsMaxLength(title, 200) ||
+      exceedsMaxLength(artist, 200) ||
+      exceedsMaxLength(userName, 100) ||
+      exceedsMaxLength(tableNumber, 50)
+    ) {
+      return res.status(400).json({ ok: false, message: 'Datos demasiado largos' });
     }
 
     const id = insertSongSuggestion(
@@ -1665,6 +1817,10 @@ app.delete('/api/song-suggestions/:id', (req, res) => {
 });
 
 app.delete('/api/song-suggestions', (req, res) => {
+  const adminPassword = (req.body || {}).adminPassword;
+  if (!adminPassword || adminPassword !== adminConfig.adminPassword) {
+    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
+  }
   try {
     const stmt = db.prepare(`DELETE FROM song_suggestions`);
     stmt.run();
