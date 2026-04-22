@@ -1,6 +1,6 @@
 {
-  "adminPassword": "1234",
-  "userPassword": "usuario",
+  "adminPassword": "$2b$12$ndl.mynDiU9Rrve3Fhx/n.qY64aOrWHUCdHkkyceiBzXv.keY3jv6",
+  "userPassword": "$2b$12$35YwwLm3ebRRGJy0z4xcIO35VwdisQ7VWKcDvbhTa4.8moFwcBvSG",
   "qrImageFile": "qr.png",
   "appTitle": "AQUÍ TODOS CANTAN",
   "isQueueOpen": true,

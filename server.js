@@ -6,6 +6,14 @@ const multer = require('multer');
 const xlsx = require('xlsx');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+
+// JWT secret: use env var in production, otherwise generate one per process start
+// (tokens are invalidated on server restart – acceptable for this app)
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
+const JWT_EXPIRY = '8h';
 
 // ===== SQLITE (NUEVO) =====
 const Database = require('better-sqlite3');
@@ -154,6 +162,31 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ===== ADMIN TOKEN MIDDLEWARE =====
+// Verifies a JWT issued at login. Protected routes use this instead of
+// comparing raw passwords on every request.
+function requireAdminToken(req, res, next) {
+  const authHeader = req.headers.authorization;
+  const token =
+    (authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null) ||
+    (req.body && req.body.adminToken) ||
+    (req.query && req.query.adminToken);
+
+  if (!token) {
+    return res
+      .status(401)
+      .json({ ok: false, message: 'Token de administrador requerido' });
+  }
+  try {
+    jwt.verify(token, JWT_SECRET);
+    next();
+  } catch (_) {
+    return res
+      .status(401)
+      .json({ ok: false, message: 'Sesión de administrador inválida o expirada. Vuelve a iniciar sesión.' });
+  }
+}
+
 // Normalizar texto
 function normalizeText(str) {
   return str
@@ -252,6 +285,28 @@ function saveAdminConfig() {
   );
 }
 
+// ===== MIGRAR CONTRASEÑAS A BCRYPT si aún están en texto plano =====
+// bcrypt hashes always start with "$2" – plain-text ones never do.
+(function migratePasswords() {
+  let changed = false;
+  if (!adminConfig.adminPassword.startsWith('$2')) {
+    adminConfig.adminPassword = bcrypt.hashSync(adminConfig.adminPassword, 12);
+    changed = true;
+  }
+  if (!adminConfig.userPassword.startsWith('$2')) {
+    adminConfig.userPassword = bcrypt.hashSync(adminConfig.userPassword, 12);
+    changed = true;
+  }
+  if (changed) {
+    try {
+      saveAdminConfig();
+      console.log('Contraseñas migradas a bcrypt y guardadas en adminConfig.json');
+    } catch (e) {
+      console.error('No se pudieron guardar las contraseñas hasheadas:', e);
+    }
+  }
+})();
+
 // Info pública del día (NO expone userPassword)
 app.get('/api/public-info', (req, res) => {
   res.json({
@@ -280,15 +335,10 @@ app.get('/api/public-info', (req, res) => {
 });
 
 // Cambiar nombre de archivo de QR público
-app.post('/api/admin/set-qr-file', (req, res) => {
-  const { adminPassword, qrImageFile } = req.body;
-  if (!adminPassword || !qrImageFile) {
+app.post('/api/admin/set-qr-file', requireAdminToken, (req, res) => {
+  const { qrImageFile } = req.body;
+  if (!qrImageFile) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
-  }
-  if (adminPassword !== adminConfig.adminPassword) {
-    return res
-      .status(401)
-      .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
   }
   adminConfig.qrImageFile = qrImageFile;
 
@@ -333,15 +383,7 @@ const uploadQr = multer({
   }
 });
 
-app.post('/api/admin/upload-qr', uploadLimiter, uploadQr.single('qr'), (req, res) => {
-  const adminPassword = (req.body || {}).adminPassword;
-  if (!adminPassword) {
-    return res.status(400).json({ ok: false, message: 'Falta contraseña de administrador' });
-  }
-  if (adminPassword !== adminConfig.adminPassword) {
-    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
-  }
-
+app.post('/api/admin/upload-qr', uploadLimiter, requireAdminToken, uploadQr.single('qr'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ ok: false, message: 'No se recibió ningún archivo' });
   }
@@ -405,11 +447,8 @@ app.get('/api/tables', (req, res) => {
   res.json({ ok: true, tables });
 });
 
-app.post('/api/tables', (req, res) => {
-  const { adminPassword, tableNumber, maxSongs } = req.body;
-  if (!adminPassword || adminPassword !== adminConfig.adminPassword) {
-    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
-  }
+app.post('/api/tables', requireAdminToken, (req, res) => {
+  const { tableNumber, maxSongs } = req.body;
   if (!tableNumber) {
     return res
       .status(400)
@@ -445,13 +484,10 @@ app.post('/api/tables', (req, res) => {
 });
 
 // actualizar solo el maxSongs de una mesa
-app.put('/api/tables/:id', (req, res) => {
+app.put('/api/tables/:id', requireAdminToken, (req, res) => {
   const id = Number(req.params.id);
-  const { adminPassword, maxSongs } = req.body;
+  const { maxSongs } = req.body;
 
-  if (!adminPassword || adminPassword !== adminConfig.adminPassword) {
-    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
-  }
 
   if (!maxSongs && maxSongs !== 0) {
     return res
@@ -468,21 +504,13 @@ app.put('/api/tables/:id', (req, res) => {
   res.json({ ok: true });
 });
 
-app.delete('/api/tables/:id', (req, res) => {
-  const adminPassword = (req.body || {}).adminPassword;
-  if (!adminPassword || adminPassword !== adminConfig.adminPassword) {
-    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
-  }
+app.delete('/api/tables/:id', requireAdminToken, (req, res) => {
   const id = Number(req.params.id);
   deleteTable(id);
   res.json({ ok: true });
 });
 
-app.delete('/api/tables', (req, res) => {
-  const adminPassword = (req.body || {}).adminPassword;
-  if (!adminPassword || adminPassword !== adminConfig.adminPassword) {
-    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
-  }
+app.delete('/api/tables', requireAdminToken, (req, res) => {
   clearTables();
   res.json({ ok: true });
 });
@@ -511,27 +539,29 @@ function getTableConfig(tableNumber) {
 // ========== ADMIN ==========
 app.post('/api/admin/login', loginLimiter, (req, res) => {
   const { password } = req.body;
-  if (password === adminConfig.adminPassword) {
-    return res.json({ ok: true });
+  if (!password) {
+    return res.status(400).json({ ok: false, message: 'Falta la contraseña' });
   }
-  return res
-    .status(401)
-    .json({ ok: false, message: 'Contraseña incorrecta' });
+  if (!bcrypt.compareSync(password, adminConfig.adminPassword)) {
+    return res.status(401).json({ ok: false, message: 'Contraseña incorrecta' });
+  }
+  const token = jwt.sign({ role: 'admin' }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
+  return res.json({ ok: true, token });
 });
 
-app.post('/api/admin/change-password', (req, res) => {
+app.post('/api/admin/change-password', requireAdminToken, (req, res) => {
   const { oldPassword, newPassword } = req.body;
 
   if (!oldPassword || !newPassword) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
   }
-  if (oldPassword !== adminConfig.adminPassword) {
+  if (!bcrypt.compareSync(oldPassword, adminConfig.adminPassword)) {
     return res
       .status(401)
       .json({ ok: false, message: 'Contraseña actual incorrecta' });
   }
 
-  adminConfig.adminPassword = newPassword;
+  adminConfig.adminPassword = bcrypt.hashSync(newPassword, 12);
 
   try {
     saveAdminConfig();
@@ -544,20 +574,14 @@ app.post('/api/admin/change-password', (req, res) => {
   }
 });
 
-app.post('/api/admin/change-user-password', (req, res) => {
-  const { adminPassword, newUserPassword } = req.body;
+app.post('/api/admin/change-user-password', requireAdminToken, (req, res) => {
+  const { newUserPassword } = req.body;
 
-  if (!adminPassword || !newUserPassword) {
-    return res.status(400).json({ ok: false, message: 'Faltan datos' });
+  if (!newUserPassword) {
+    return res.status(400).json({ ok: false, message: 'Falta la nueva contraseña' });
   }
 
-  if (adminPassword !== adminConfig.adminPassword) {
-    return res
-      .status(401)
-      .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
-  }
-
-  adminConfig.userPassword = newUserPassword;
+  adminConfig.userPassword = bcrypt.hashSync(newUserPassword, 12);
 
   try {
     saveAdminConfig();
@@ -572,18 +596,13 @@ app.post('/api/admin/change-user-password', (req, res) => {
 });
 
 // cambiar título de la aplicación
-app.post('/api/admin/change-app-title', (req, res) => {
-  const { adminPassword, newTitle } = req.body;
+app.post('/api/admin/change-app-title', requireAdminToken, (req, res) => {
+  const { newTitle } = req.body;
 
-  if (!adminPassword || !newTitle) {
+  if (!newTitle) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
   }
 
-  if (adminPassword !== adminConfig.adminPassword) {
-    return res
-      .status(401)
-      .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
-  }
 
   adminConfig.appTitle = String(newTitle).trim();
 
@@ -599,18 +618,13 @@ app.post('/api/admin/change-app-title', (req, res) => {
 });
 
 // abrir/cerrar el registro de canciones
-app.post('/api/admin/set-queue-open', (req, res) => {
-  const { adminPassword, isQueueOpen } = req.body || {};
+app.post('/api/admin/set-queue-open', requireAdminToken, (req, res) => {
+  const { isQueueOpen } = req.body || {};
 
-  if (!adminPassword || typeof isQueueOpen !== 'boolean') {
+  if (typeof isQueueOpen !== 'boolean') {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
   }
 
-  if (adminPassword !== adminConfig.adminPassword) {
-    return res
-      .status(401)
-      .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
-  }
 
   adminConfig.isQueueOpen = isQueueOpen;
 
@@ -626,16 +640,13 @@ app.post('/api/admin/set-queue-open', (req, res) => {
 });
 
 // cambiar banderas de secciones visibles en pantalla de usuario
-app.post('/api/admin/change-user-features', (req, res) => {
-  const { adminPassword, userFeatures } = req.body || {};
+app.post('/api/admin/change-user-features', requireAdminToken, (req, res) => {
+  const { userFeatures } = req.body || {};
 
-  if (!adminPassword || !userFeatures || typeof userFeatures !== 'object') {
+  if (!userFeatures || typeof userFeatures !== 'object') {
     return res.status(400).json({ ok: false, message: 'Faltan datos de userFeatures o contraseña' });
   }
 
-  if (adminPassword !== adminConfig.adminPassword) {
-    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
-  }
 
   adminConfig.userFeatures = {
     search:         userFeatures.search         !== false,
@@ -658,16 +669,13 @@ app.post('/api/admin/change-user-features', (req, res) => {
 });
 
 // mostrar/ocultar recuadros de color en colas de usuario y pantalla pública
-app.post('/api/admin/set-show-color-dots', (req, res) => {
-  const { adminPassword, showColorDots } = req.body || {};
+app.post('/api/admin/set-show-color-dots', requireAdminToken, (req, res) => {
+  const { showColorDots } = req.body || {};
 
-  if (!adminPassword || typeof showColorDots !== 'boolean') {
+  if (typeof showColorDots !== 'boolean') {
     return res.status(400).json({ ok: false, message: 'Falta contraseña o valor showColorDots (boolean)' });
   }
 
-  if (adminPassword !== adminConfig.adminPassword) {
-    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
-  }
 
   adminConfig.showColorDots = showColorDots;
 
@@ -683,18 +691,13 @@ app.post('/api/admin/set-show-color-dots', (req, res) => {
 });
 
 // cambiar límite global de canciones manuales por mesa (se mantiene como info)
-app.post('/api/admin/change-manual-max-songs', (req, res) => {
-  const { adminPassword, manualMaxSongsPerTable } = req.body || {};
+app.post('/api/admin/change-manual-max-songs', requireAdminToken, (req, res) => {
+  const { manualMaxSongsPerTable } = req.body || {};
 
-  if (!adminPassword || manualMaxSongsPerTable == null) {
+  if (manualMaxSongsPerTable == null) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
   }
 
-  if (adminPassword !== adminConfig.adminPassword) {
-    return res
-      .status(401)
-      .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
-  }
 
   let val = parseInt(manualMaxSongsPerTable, 10);
   if (Number.isNaN(val) || val < 1) val = 1;
@@ -713,18 +716,13 @@ app.post('/api/admin/change-manual-max-songs', (req, res) => {
 });
 
 // aplicar un maxSongs global a todas las mesas
-app.post('/api/admin/apply-max-songs-all-tables', (req, res) => {
-  const { adminPassword, maxSongs } = req.body || {};
+app.post('/api/admin/apply-max-songs-all-tables', requireAdminToken, (req, res) => {
+  const { maxSongs } = req.body || {};
 
-  if (!adminPassword || maxSongs == null) {
+  if (maxSongs == null) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
   }
 
-  if (adminPassword !== adminConfig.adminPassword) {
-    return res
-      .status(401)
-      .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
-  }
 
   let val = parseInt(maxSongs, 10);
   if (Number.isNaN(val) || val < 1) val = 1;
@@ -736,18 +734,13 @@ app.post('/api/admin/apply-max-songs-all-tables', (req, res) => {
 });
 
 // cambiar qué cola muestra la pantalla pública (ANTIGUO - mantener por compatibilidad)
-app.post('/api/admin/change-public-queue-mode', (req, res) => {
-  const { adminPassword, publicQueueMode } = req.body || {};
+app.post('/api/admin/change-public-queue-mode', requireAdminToken, (req, res) => {
+  const { publicQueueMode } = req.body || {};
 
-  if (!adminPassword || !publicQueueMode) {
+  if (!publicQueueMode) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
   }
 
-  if (adminPassword !== adminConfig.adminPassword) {
-    return res
-      .status(401)
-      .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
-  }
 
   const mode = publicQueueMode === 'manual' ? 'manual' : 'catalog';
   adminConfig.publicQueueMode = mode;
@@ -764,18 +757,13 @@ app.post('/api/admin/change-public-queue-mode', (req, res) => {
 });
 
 // ========== NUEVO: Controlar qué cola mostrar en pantalla pública ==========
-app.post('/api/admin/set-public-queue-display', (req, res) => {
-  const { adminPassword, publicQueueDisplay } = req.body || {};
+app.post('/api/admin/set-public-queue-display', requireAdminToken, (req, res) => {
+  const { publicQueueDisplay } = req.body || {};
 
-  if (!adminPassword || !publicQueueDisplay) {
+  if (!publicQueueDisplay) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
   }
 
-  if (adminPassword !== adminConfig.adminPassword) {
-    return res
-      .status(401)
-      .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
-  }
 
   // Validar que sea una opción válida
   if (!['catalog', 'manual', 'mixed'].includes(publicQueueDisplay)) {
@@ -800,16 +788,8 @@ app.post('/api/admin/set-public-queue-display', (req, res) => {
 });
 
 // ========== MINUTOS POR TURNO ==========
-app.post('/api/admin/set-minutes-per-turn', (req, res) => {
-  const { adminPassword, minutesPerTurn } = req.body || {};
-
-  if (!adminPassword) {
-    return res.status(400).json({ ok: false, message: 'Falta contraseña de administrador' });
-  }
-
-  if (adminPassword !== adminConfig.adminPassword) {
-    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
-  }
+app.post('/api/admin/set-minutes-per-turn', requireAdminToken, (req, res) => {
+  const { minutesPerTurn } = req.body || {};
 
   let val = parseInt(minutesPerTurn, 10);
   if (Number.isNaN(val) || val < 1) val = 5;
@@ -824,16 +804,8 @@ app.post('/api/admin/set-minutes-per-turn', (req, res) => {
 });
 
 // ========== MENSAJE AL PÚBLICO ==========
-app.post('/api/admin/change-public-message', (req, res) => {
-  const { adminPassword, newMessage } = req.body || {};
-
-  if (!adminPassword) {
-    return res.status(400).json({ ok: false, message: 'Faltan datos' });
-  }
-
-  if (adminPassword !== adminConfig.adminPassword) {
-    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
-  }
+app.post('/api/admin/change-public-message', requireAdminToken, (req, res) => {
+  const { newMessage } = req.body || {};
 
   adminConfig.publicMessage = typeof newMessage === 'string' ? newMessage.trim() : '';
 
@@ -860,7 +832,7 @@ app.post('/api/user/login', loginLimiter, (req, res) => {
     return res.status(400).json({ ok: false, message: 'Datos demasiado largos' });
   }
 
-  if (password !== adminConfig.userPassword) {
+  if (!bcrypt.compareSync(password, adminConfig.userPassword)) {
     return res
       .status(401)
       .json({ ok: false, message: 'Contraseña de usuario incorrecta' });
@@ -942,22 +914,12 @@ const upload = multer({
 
 const UPLOADS_DIR = path.resolve(path.join(__dirname, 'uploads'));
 
-app.post('/api/songs/upload', uploadLimiter, upload.single('excel'), (req, res) => {
+app.post('/api/songs/upload', uploadLimiter, requireAdminToken, upload.single('excel'), (req, res) => {
   // Construir la ruta segura usando path.basename para prevenir path traversal
   // (path.basename es reconocido por CodeQL como sanitizador de path injection)
   const safeFilePath = req.file
     ? path.join(UPLOADS_DIR, path.basename(req.file.path))
     : null;
-
-  const adminPassword = (req.body || {}).adminPassword;
-  if (!adminPassword) {
-    if (safeFilePath && fs.existsSync(safeFilePath)) fs.unlinkSync(safeFilePath);
-    return res.status(400).json({ ok: false, message: 'Falta contraseña de administrador' });
-  }
-  if (adminPassword !== adminConfig.adminPassword) {
-    if (safeFilePath && fs.existsSync(safeFilePath)) fs.unlinkSync(safeFilePath);
-    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
-  }
 
   if (!req.file || !safeFilePath) {
     return res
@@ -1235,11 +1197,7 @@ app.delete('/api/queue/:id', (req, res) => {
   return res.json({ ok: true });
 });
 
-app.delete('/api/queue', (req, res) => {
-  const adminPassword = (req.body || {}).adminPassword;
-  if (!adminPassword || adminPassword !== adminConfig.adminPassword) {
-    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
-  }
+app.delete('/api/queue', requireAdminToken, (req, res) => {
   clearQueue();
   return res.json({ ok: true });
 });
@@ -1316,11 +1274,7 @@ app.delete('/api/manual-queue/:id', (req, res) => {
   return res.json({ ok: true });
 });
 
-app.delete('/api/manual-queue', (req, res) => {
-  const adminPassword = (req.body || {}).adminPassword;
-  if (!adminPassword || adminPassword !== adminConfig.adminPassword) {
-    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
-  }
+app.delete('/api/manual-queue', requireAdminToken, (req, res) => {
   clearManualQueue();
   return res.json({ ok: true });
 });
@@ -1636,11 +1590,7 @@ app.get('/api/mixed-queue', (req, res) => {
 });
 
 // BORRAR TODA LA COLA MIXTA (queue + manual_queue)
-app.delete('/api/mixed-queue', (req, res) => {
-  const adminPassword = (req.body || {}).adminPassword;
-  if (!adminPassword || adminPassword !== adminConfig.adminPassword) {
-    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
-  }
+app.delete('/api/mixed-queue', requireAdminToken, (req, res) => {
   try {
     clearQueue();
     clearManualQueue();
@@ -1739,11 +1689,7 @@ app.get('/api/history/export', (req, res) => {
 });
 
 // Borrar todo el historial
-app.delete('/api/history', (req, res) => {
-  const adminPassword = (req.body || {}).adminPassword;
-  if (!adminPassword || adminPassword !== adminConfig.adminPassword) {
-    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
-  }
+app.delete('/api/history', requireAdminToken, (req, res) => {
   const stmt = db.prepare(`DELETE FROM history`);
   stmt.run();
   res.json({ ok: true });
@@ -1844,11 +1790,7 @@ app.delete('/api/song-suggestions/:id', (req, res) => {
   }
 });
 
-app.delete('/api/song-suggestions', (req, res) => {
-  const adminPassword = (req.body || {}).adminPassword;
-  if (!adminPassword || adminPassword !== adminConfig.adminPassword) {
-    return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
-  }
+app.delete('/api/song-suggestions', requireAdminToken, (req, res) => {
   try {
     const stmt = db.prepare(`DELETE FROM song_suggestions`);
     stmt.run();

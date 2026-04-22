@@ -2,7 +2,7 @@
 const API_BASE = '';
 
 let adminLogged = false;
-let _adminPass = '';
+let _adminToken = '';
 let minutesPerTurn = 5;
 
 // Flags de visibilidad de secciones
@@ -128,7 +128,7 @@ document.getElementById('btn-admin-login').onclick = async () => {
   }
 
   adminLogged = true;
-  _adminPass = pass;
+  _adminToken = data.token || '';
 
   // Reiniciar el contador de pulsaciones (puede haber quedado de una sesión anterior)
   _adminBackPressCount = 0;
@@ -182,7 +182,7 @@ document.getElementById('btn-admin-login').onclick = async () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        adminPassword: pass,
+        adminToken: _adminToken,
         manualMaxSongsPerTable: 1000
       })
     });
@@ -206,7 +206,7 @@ document.getElementById('btn-admin-login').onclick = async () => {
 
 function _doAdminLogout() {
   adminLogged = false;
-  _adminPass = '';
+  _adminToken = '';
   clearAllIntervals();
 
   const adminPanel     = document.getElementById('admin-panel');
@@ -214,7 +214,7 @@ function _doAdminLogout() {
   if (adminPanel)     adminPanel.style.display = 'none';
   if (adminLoginCard) adminLoginCard.style.display = 'block';
 
-  const passInputIds = ['admin-pass', 'old-admin-pass', 'new-admin-pass', 'admin-pass-user-change', 'admin-pass-app-title'];
+  const passInputIds = ['admin-pass', 'old-admin-pass', 'new-admin-pass'];
   passInputIds.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
@@ -298,7 +298,7 @@ document.getElementById('form-upload').onsubmit = async (e) => {
 
   const formData = new FormData();
   formData.append('excel', fileInput.files[0]);
-  formData.append('adminPassword', _adminPass);
+  formData.append('adminToken', _adminToken);
 
   let res;
   try {
@@ -348,7 +348,7 @@ if (formUploadQr) {
 
     const formData = new FormData();
     formData.append('qr', fileInput.files[0]);
-    formData.append('adminPassword', _adminPass);
+    formData.append('adminToken', _adminToken);
 
     let res;
     try {
@@ -378,7 +378,6 @@ if (formUploadQr) {
     alert('Imagen QR actualizada correctamente.');
   };
 }
-};
 
 // ========== COLA ADMIN: CATÁLOGO ==========
 
@@ -1014,7 +1013,7 @@ function setupClearMixedQueueButton() {
       const res = await fetch(`${API_BASE}/api/mixed-queue`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminPassword: _adminPass })
+        body: JSON.stringify({ adminToken: _adminToken })
       });
 
       let data;
@@ -1280,7 +1279,7 @@ function setupHistoryButtons() {
         const res = await fetch(`${API_BASE}/api/history`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ adminPassword: _adminPass })
+          body: JSON.stringify({ adminToken: _adminToken })
         });
 
         let data;
@@ -1471,7 +1470,7 @@ function setupSuggestionsSection() {
         const res = await fetch(`${API_BASE}/api/song-suggestions`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ adminPassword: _adminPass })
+          body: JSON.stringify({ adminToken: _adminToken })
         });
         let data;
         try {
@@ -1531,15 +1530,13 @@ function setupQueueOpenButtons() {
         return;
       }
 
-      const pass = prompt('Confirma la contraseña de administrador para cerrar registros:');
-      if (!pass) return;
 
       let res, data;
       try {
         res = await fetch(`${API_BASE}/api/admin/set-queue-open`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ adminPassword: pass, isQueueOpen: false })
+          body: JSON.stringify({ adminToken: _adminToken, isQueueOpen: false })
         });
         data = await res.json();
       } catch (e) {
@@ -1565,15 +1562,13 @@ function setupQueueOpenButtons() {
         return;
       }
 
-      const pass = prompt('Confirma la contraseña de administrador para abrir registros:');
-      if (!pass) return;
 
       let res, data;
       try {
         res = await fetch(`${API_BASE}/api/admin/set-queue-open`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ adminPassword: pass, isQueueOpen: true })
+          body: JSON.stringify({ adminToken: _adminToken, isQueueOpen: true })
         });
         data = await res.json();
       } catch (e) {
@@ -1661,7 +1656,7 @@ async function loadTablesAdmin() {
         const resPut = await fetch(`${API_BASE}/api/tables/${t.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ adminPassword: _adminPass, maxSongs: val })
+          body: JSON.stringify({ adminToken: _adminToken, maxSongs: val })
         });
         const dataPut = await resPut.json();
         if (!resPut.ok || !dataPut.ok) {
@@ -1688,7 +1683,7 @@ async function loadTablesAdmin() {
       const resDel = await fetch(`${API_BASE}/api/tables/${t.id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminPassword: _adminPass })
+        body: JSON.stringify({ adminToken: _adminToken })
       });
 
       let dataDel;
@@ -1748,7 +1743,7 @@ function setupAddTableButton() {
       res = await fetch(`${API_BASE}/api/tables`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminPassword: _adminPass, tableNumber: value, maxSongs: maxSongsVal })
+        body: JSON.stringify({ adminToken: _adminToken, tableNumber: value, maxSongs: maxSongsVal })
       });
       data = await res.json();
     } catch (e) {
@@ -1787,7 +1782,7 @@ function setupClearTablesButton() {
       res = await fetch(`${API_BASE}/api/tables`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminPassword: _adminPass })
+        body: JSON.stringify({ adminToken: _adminToken })
       });
       data = await res.json();
     } catch (e) {
@@ -1823,7 +1818,7 @@ function setupClearManualQueueButton() {
       const res = await fetch(`${API_BASE}/api/manual-queue`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminPassword: _adminPass })
+        body: JSON.stringify({ adminToken: _adminToken })
       });
 
       let data;
@@ -2106,7 +2101,7 @@ function setupUserFeaturesControls() {
     }
 
     const body = {
-      adminPassword: _adminPass,
+      adminToken: _adminToken,
       userFeatures: {
         search:         cbSearch.checked,
         queue:          cbQueue.checked,
@@ -2140,7 +2135,7 @@ function setupUserFeaturesControls() {
         const res2  = await fetch(`${API_BASE}/api/admin/set-show-color-dots`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ adminPassword: _adminPass, showColorDots: cbColorDots.checked })
+          body: JSON.stringify({ adminToken: _adminToken, showColorDots: cbColorDots.checked })
         });
         const data2 = await res2.json();
         if (!res2.ok || !data2.ok) {
@@ -2209,7 +2204,7 @@ function setupManualQueueSettingsControls() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          adminPassword: pass,
+          adminToken: _adminToken,
           manualMaxSongsPerTable: manualMax
         })
       });
@@ -2223,7 +2218,7 @@ function setupManualQueueSettingsControls() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          adminPassword: pass,
+          adminToken: _adminToken,
           publicQueueMode: mode
         })
       });
@@ -2277,7 +2272,7 @@ function setupPublicQueueDisplayButton() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          adminPassword: document.getElementById('admin-pass').value.trim(),
+          adminToken: _adminToken,
           publicQueueDisplay: preference
         })
       });
@@ -2341,13 +2336,10 @@ document.getElementById('btn-change-user-pass').onclick = async () => {
     return;
   }
 
-  const adminPassForChange = document
-    .getElementById('admin-pass-user-change')
-    .value.trim();
   const newUserPass = document.getElementById('new-user-pass').value.trim();
 
-  if (!adminPassForChange || !newUserPass) {
-    alert('Escribe la contraseña de administrador y la nueva contraseña de usuario');
+  if (!newUserPass) {
+    alert('Escribe la nueva contraseña de usuario');
     return;
   }
 
@@ -2355,7 +2347,7 @@ document.getElementById('btn-change-user-pass').onclick = async () => {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      adminPassword: adminPassForChange,
+      adminToken: _adminToken,
       newUserPassword: newUserPass
     })
   });
@@ -2368,7 +2360,6 @@ document.getElementById('btn-change-user-pass').onclick = async () => {
 
   alert('Contraseña de usuario cambiada correctamente');
 
-  document.getElementById('admin-pass-user-change').value = '';
   document.getElementById('new-user-pass').value = '';
 };
 
@@ -2379,11 +2370,10 @@ document.getElementById('btn-change-app-title').onclick = async () => {
     return;
   }
 
-  const adminPass = document.getElementById('admin-pass-app-title').value.trim();
   const newTitle  = document.getElementById('new-app-title').value.trim();
 
-  if (!adminPass || !newTitle) {
-    alert('Escribe la contraseña de administrador y el nuevo título');
+  if (!newTitle) {
+    alert('Escribe el nuevo título');
     return;
   }
 
@@ -2393,7 +2383,7 @@ document.getElementById('btn-change-app-title').onclick = async () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        adminPassword: adminPass,
+        adminToken: _adminToken,
         newTitle
       })
     });
@@ -2410,8 +2400,6 @@ document.getElementById('btn-change-app-title').onclick = async () => {
   }
 
   alert('Título actualizado correctamente');
-
-  document.getElementById('admin-pass-app-title').value = '';
 };
 
 // Cambiar mensaje al público (pantalla pública)
@@ -2421,20 +2409,14 @@ document.getElementById('btn-change-public-message').onclick = async () => {
     return;
   }
 
-  const adminPass = document.getElementById('admin-pass-public-message').value.trim();
   const newMessage = document.getElementById('new-public-message').value;
-
-  if (!adminPass) {
-    alert('Escribe la contraseña de administrador');
-    return;
-  }
 
   let res, data;
   try {
     res = await fetch(`${API_BASE}/api/admin/change-public-message`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adminPassword: adminPass, newMessage })
+      body: JSON.stringify({ adminToken: _adminToken, newMessage })
     });
     data = await res.json();
   } catch (e) {
@@ -2449,7 +2431,6 @@ document.getElementById('btn-change-public-message').onclick = async () => {
   }
 
   alert(newMessage.trim() ? 'Mensaje actualizado correctamente' : 'Mensaje eliminado (no se mostrará)');
-  document.getElementById('admin-pass-public-message').value = '';
 };
 
 // ========= MINUTOS POR TURNO =========
@@ -2488,7 +2469,7 @@ function setupMinutesPerTurnControl() {
       const res  = await fetch(`${API_BASE}/api/admin/set-minutes-per-turn`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminPassword: _adminPass, minutesPerTurn: val })
+        body: JSON.stringify({ adminToken: _adminToken, minutesPerTurn: val })
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
