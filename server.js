@@ -118,7 +118,7 @@ function normalizeText(str) {
 }
 
 function normalizePassword(value) {
-  return value == null ? '' : String(value).trim();
+  return String(value ?? '').trim();
 }
 
 // ========== CONFIG ADMIN / USUARIO ==========
@@ -194,11 +194,11 @@ function saveAdminConfig() {
 }
 
 function isAdminPasswordValid(candidate) {
-  return normalizePassword(candidate) === normalizePassword(adminConfig.adminPassword);
+  return normalizePassword(candidate) === adminConfig.adminPassword;
 }
 
 function isUserPasswordValid(candidate) {
-  return normalizePassword(candidate) === normalizePassword(adminConfig.userPassword);
+  return normalizePassword(candidate) === adminConfig.userPassword;
 }
 
 // Info pública del día
