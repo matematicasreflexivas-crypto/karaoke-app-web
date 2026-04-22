@@ -118,7 +118,13 @@ function normalizeText(str) {
 }
 
 function normalizePassword(value) {
-  return String(value ?? '').trim();
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+  if (typeof value === 'number') {
+    return String(value).trim();
+  }
+  return '';
 }
 
 // ========== CONFIG ADMIN / USUARIO ==========
