@@ -943,31 +943,30 @@ const upload = multer({
 const UPLOADS_DIR = path.resolve(path.join(__dirname, 'uploads'));
 
 app.post('/api/songs/upload', uploadLimiter, upload.single('excel'), (req, res) => {
+  // Construir la ruta segura usando path.basename para prevenir path traversal
+  // (path.basename es reconocido por CodeQL como sanitizador de path injection)
+  const safeFilePath = req.file
+    ? path.join(UPLOADS_DIR, path.basename(req.file.path))
+    : null;
+
   const adminPassword = (req.body || {}).adminPassword;
   if (!adminPassword) {
-    if (req.file) fs.unlinkSync(req.file.path);
+    if (safeFilePath && fs.existsSync(safeFilePath)) fs.unlinkSync(safeFilePath);
     return res.status(400).json({ ok: false, message: 'Falta contraseña de administrador' });
   }
   if (adminPassword !== adminConfig.adminPassword) {
-    if (req.file) fs.unlinkSync(req.file.path);
+    if (safeFilePath && fs.existsSync(safeFilePath)) fs.unlinkSync(safeFilePath);
     return res.status(401).json({ ok: false, message: 'Contraseña de administrador incorrecta' });
   }
 
-  if (!req.file) {
+  if (!req.file || !safeFilePath) {
     return res
       .status(400)
       .json({ ok: false, message: 'No se envió archivo' });
   }
 
-  // Prevenir path traversal: verificar que la ruta generada por multer esté dentro del directorio de uploads
-  const resolvedFilePath = path.resolve(req.file.path);
-  if (!resolvedFilePath.startsWith(UPLOADS_DIR + path.sep) && resolvedFilePath !== UPLOADS_DIR) {
-    fs.unlinkSync(resolvedFilePath);
-    return res.status(400).json({ ok: false, message: 'Ruta de archivo inválida' });
-  }
-
   try {
-    const workbook  = xlsx.readFile(resolvedFilePath);
+    const workbook  = xlsx.readFile(safeFilePath);
     const sheetName = workbook.SheetNames[0];
     const sheet     = workbook.Sheets[sheetName];
 
@@ -993,7 +992,7 @@ app.post('/api/songs/upload', uploadLimiter, upload.single('excel'), (req, res) 
       count++;
     }
 
-    fs.unlinkSync(resolvedFilePath);
+    fs.unlinkSync(safeFilePath);
 
     console.log('Canciones cargadas desde Excel a SQLite:', count);
     res.json({ ok: true, count });
