@@ -118,6 +118,10 @@ function normalizeText(str) {
 }
 
 function normalizePassword(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeConfigPassword(value) {
   if (typeof value === 'string') {
     return value.trim();
   }
@@ -161,9 +165,9 @@ try {
   const cfg = fs.readFileSync(adminConfigPath, 'utf8');
   const parsed = JSON.parse(cfg);
   adminConfig.adminPassword =
-    normalizePassword(parsed.adminPassword) || DEFAULT_ADMIN_PASSWORD;
+    normalizeConfigPassword(parsed.adminPassword) || DEFAULT_ADMIN_PASSWORD;
   adminConfig.userPassword =
-    normalizePassword(parsed.userPassword) || DEFAULT_USER_PASSWORD;
+    normalizeConfigPassword(parsed.userPassword) || DEFAULT_USER_PASSWORD;
   adminConfig.qrImageFile   = parsed.qrImageFile   || 'qr-dia.png';
   adminConfig.appTitle      = parsed.appTitle      || 'Karaoke';
   adminConfig.isQueueOpen =
