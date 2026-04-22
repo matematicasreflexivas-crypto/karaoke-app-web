@@ -127,6 +127,10 @@ function normalizePassword(value) {
   return '';
 }
 
+function normalizeTitle(value) {
+  return String(value ?? '').trim();
+}
+
 // ========== CONFIG ADMIN / USUARIO ==========
 const adminConfigPath = path.join(__dirname, 'adminConfig.json');
 console.log('adminConfigPath:', adminConfigPath);
@@ -489,7 +493,7 @@ app.post('/api/admin/change-user-password', (req, res) => {
 // cambiar título de la aplicación
 app.post('/api/admin/change-app-title', (req, res) => {
   const adminPassword = normalizePassword(req.body?.adminPassword);
-  const newTitle = String(req.body?.newTitle ?? '').trim();
+  const newTitle = normalizeTitle(req.body?.newTitle);
 
   if (!adminPassword || !newTitle) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
