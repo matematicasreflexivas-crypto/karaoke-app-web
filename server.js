@@ -117,13 +117,20 @@ function normalizeText(str) {
     : '';
 }
 
+function normalizePassword(value) {
+  return value == null ? '' : String(value).trim();
+}
+
 // ========== CONFIG ADMIN / USUARIO ==========
 const adminConfigPath = path.join(__dirname, 'adminConfig.json');
 console.log('adminConfigPath:', adminConfigPath);
 
+const DEFAULT_ADMIN_PASSWORD = '1234';
+const DEFAULT_USER_PASSWORD = '1234';
+
 let adminConfig = {
-  adminPassword: '1234',
-  userPassword: '1234',
+  adminPassword: DEFAULT_ADMIN_PASSWORD,
+  userPassword: DEFAULT_USER_PASSWORD,
   qrImageFile: 'qr-dia.png',
   appTitle: 'Karaoke',
   isQueueOpen: true,
@@ -143,8 +150,10 @@ let adminConfig = {
 try {
   const cfg = fs.readFileSync(adminConfigPath, 'utf8');
   const parsed = JSON.parse(cfg);
-  adminConfig.adminPassword = parsed.adminPassword || '1234';
-  adminConfig.userPassword  = parsed.userPassword  || '1234';
+  adminConfig.adminPassword =
+    normalizePassword(parsed.adminPassword) || DEFAULT_ADMIN_PASSWORD;
+  adminConfig.userPassword =
+    normalizePassword(parsed.userPassword) || DEFAULT_USER_PASSWORD;
   adminConfig.qrImageFile   = parsed.qrImageFile   || 'qr-dia.png';
   adminConfig.appTitle      = parsed.appTitle      || 'Karaoke';
   adminConfig.isQueueOpen =
@@ -184,6 +193,14 @@ function saveAdminConfig() {
   );
 }
 
+function isAdminPasswordValid(candidate) {
+  return normalizePassword(candidate) === normalizePassword(adminConfig.adminPassword);
+}
+
+function isUserPasswordValid(candidate) {
+  return normalizePassword(candidate) === normalizePassword(adminConfig.userPassword);
+}
+
 // Info pública del día
 app.get('/api/public-info', (req, res) => {
   res.json({
@@ -211,11 +228,12 @@ app.get('/api/public-info', (req, res) => {
 
 // Cambiar nombre de archivo de QR público
 app.post('/api/admin/set-qr-file', (req, res) => {
-  const { adminPassword, qrImageFile } = req.body;
+  const adminPassword = normalizePassword(req.body?.adminPassword);
+  const { qrImageFile } = req.body || {};
   if (!adminPassword || !qrImageFile) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
   }
-  if (adminPassword !== adminConfig.adminPassword) {
+  if (!isAdminPasswordValid(adminPassword)) {
     return res
       .status(401)
       .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
@@ -396,8 +414,11 @@ function getTableConfig(tableNumber) {
 
 // ========== ADMIN ==========
 app.post('/api/admin/login', (req, res) => {
-  const { password } = req.body;
-  if (password === adminConfig.adminPassword) {
+  const password = normalizePassword(req.body?.password);
+  if (!password) {
+    return res.status(400).json({ ok: false, message: 'Faltan datos' });
+  }
+  if (isAdminPasswordValid(password)) {
     return res.json({ ok: true });
   }
   return res
@@ -406,12 +427,13 @@ app.post('/api/admin/login', (req, res) => {
 });
 
 app.post('/api/admin/change-password', (req, res) => {
-  const { oldPassword, newPassword } = req.body;
+  const oldPassword = normalizePassword(req.body?.oldPassword);
+  const newPassword = normalizePassword(req.body?.newPassword);
 
   if (!oldPassword || !newPassword) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
   }
-  if (oldPassword !== adminConfig.adminPassword) {
+  if (!isAdminPasswordValid(oldPassword)) {
     return res
       .status(401)
       .json({ ok: false, message: 'Contraseña actual incorrecta' });
@@ -431,13 +453,14 @@ app.post('/api/admin/change-password', (req, res) => {
 });
 
 app.post('/api/admin/change-user-password', (req, res) => {
-  const { adminPassword, newUserPassword } = req.body;
+  const adminPassword = normalizePassword(req.body?.adminPassword);
+  const newUserPassword = normalizePassword(req.body?.newUserPassword);
 
   if (!adminPassword || !newUserPassword) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
   }
 
-  if (adminPassword !== adminConfig.adminPassword) {
+  if (!isAdminPasswordValid(adminPassword)) {
     return res
       .status(401)
       .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
@@ -459,13 +482,14 @@ app.post('/api/admin/change-user-password', (req, res) => {
 
 // cambiar título de la aplicación
 app.post('/api/admin/change-app-title', (req, res) => {
-  const { adminPassword, newTitle } = req.body;
+  const adminPassword = normalizePassword(req.body?.adminPassword);
+  const newTitle = req.body?.newTitle;
 
   if (!adminPassword || !newTitle) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
   }
 
-  if (adminPassword !== adminConfig.adminPassword) {
+  if (!isAdminPasswordValid(adminPassword)) {
     return res
       .status(401)
       .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
@@ -486,13 +510,14 @@ app.post('/api/admin/change-app-title', (req, res) => {
 
 // abrir/cerrar el registro de canciones
 app.post('/api/admin/set-queue-open', (req, res) => {
-  const { adminPassword, isQueueOpen } = req.body || {};
+  const adminPassword = normalizePassword(req.body?.adminPassword);
+  const { isQueueOpen } = req.body || {};
 
   if (!adminPassword || typeof isQueueOpen !== 'boolean') {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
   }
 
-  if (adminPassword !== adminConfig.adminPassword) {
+  if (!isAdminPasswordValid(adminPassword)) {
     return res
       .status(401)
       .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
@@ -541,13 +566,14 @@ app.post('/api/admin/change-user-features', (req, res) => {
 
 // cambiar límite global de canciones manuales por mesa (se mantiene como info)
 app.post('/api/admin/change-manual-max-songs', (req, res) => {
-  const { adminPassword, manualMaxSongsPerTable } = req.body || {};
+  const adminPassword = normalizePassword(req.body?.adminPassword);
+  const { manualMaxSongsPerTable } = req.body || {};
 
   if (!adminPassword || manualMaxSongsPerTable == null) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
   }
 
-  if (adminPassword !== adminConfig.adminPassword) {
+  if (!isAdminPasswordValid(adminPassword)) {
     return res
       .status(401)
       .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
@@ -571,13 +597,14 @@ app.post('/api/admin/change-manual-max-songs', (req, res) => {
 
 // aplicar un maxSongs global a todas las mesas
 app.post('/api/admin/apply-max-songs-all-tables', (req, res) => {
-  const { adminPassword, maxSongs } = req.body || {};
+  const adminPassword = normalizePassword(req.body?.adminPassword);
+  const { maxSongs } = req.body || {};
 
   if (!adminPassword || maxSongs == null) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
   }
 
-  if (adminPassword !== adminConfig.adminPassword) {
+  if (!isAdminPasswordValid(adminPassword)) {
     return res
       .status(401)
       .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
@@ -594,13 +621,14 @@ app.post('/api/admin/apply-max-songs-all-tables', (req, res) => {
 
 // cambiar qué cola muestra la pantalla pública (ANTIGUO - mantener por compatibilidad)
 app.post('/api/admin/change-public-queue-mode', (req, res) => {
-  const { adminPassword, publicQueueMode } = req.body || {};
+  const adminPassword = normalizePassword(req.body?.adminPassword);
+  const { publicQueueMode } = req.body || {};
 
   if (!adminPassword || !publicQueueMode) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
   }
 
-  if (adminPassword !== adminConfig.adminPassword) {
+  if (!isAdminPasswordValid(adminPassword)) {
     return res
       .status(401)
       .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
@@ -622,13 +650,14 @@ app.post('/api/admin/change-public-queue-mode', (req, res) => {
 
 // ========== NUEVO: Controlar qué cola mostrar en pantalla pública ==========
 app.post('/api/admin/set-public-queue-display', (req, res) => {
-  const { adminPassword, publicQueueDisplay } = req.body || {};
+  const adminPassword = normalizePassword(req.body?.adminPassword);
+  const { publicQueueDisplay } = req.body || {};
 
   if (!adminPassword || !publicQueueDisplay) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
   }
 
-  if (adminPassword !== adminConfig.adminPassword) {
+  if (!isAdminPasswordValid(adminPassword)) {
     return res
       .status(401)
       .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
@@ -658,7 +687,8 @@ app.post('/api/admin/set-public-queue-display', (req, res) => {
 
 // ========== LOGIN USUARIO ==========
 app.post('/api/user/login', (req, res) => {
-  const { name, table, password } = req.body;
+  const { name, table } = req.body;
+  const password = normalizePassword(req.body?.password);
 
   if (!name || !table || !password) {
     return res
@@ -666,7 +696,7 @@ app.post('/api/user/login', (req, res) => {
       .json({ ok: false, message: 'Faltan datos para iniciar sesión' });
   }
 
-  if (password !== adminConfig.userPassword) {
+  if (!isUserPasswordValid(password)) {
     return res
       .status(401)
       .json({ ok: false, message: 'Contraseña de usuario incorrecta' });
