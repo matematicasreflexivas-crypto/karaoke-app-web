@@ -15,6 +15,7 @@ let manualCardHidden = false;
 let manualQueueCardHidden = false;
 let mixedQueueCardHidden = false;
 let suggestCardHidden = false;
+let historyCardHidden = true;
 
 // Banderas para rastrear estado inicial
 let initialFeaturesApplied = false;
@@ -24,6 +25,7 @@ let lastScrollPosition = 0;
 let queueInterval       = null;
 let manualQueueInterval = null;
 let mixedQueueInterval  = null;
+let historyInterval     = null;
 
 // ================== Helpers generales ==================
 
@@ -234,6 +236,7 @@ document.getElementById('btn-login').onclick = async () => {
   manualQueueCardHidden = false;
   mixedQueueCardHidden = false;
   suggestCardHidden = false;
+  historyCardHidden = true;
 
   if (window.__lastUserFeatures) {
     applyUserFeatures(window.__lastUserFeatures);
@@ -968,7 +971,90 @@ async function loadMixedQueue() {
   }
 }
 
-// ================== SUGERENCIAS ==================
+// ================== HISTORIAL (USUARIO) ==================
+
+async function loadHistory() {
+  if (!loggedUser) return;
+
+  const container = document.getElementById('history-list');
+  if (!container) return;
+
+  const features = window.__lastUserFeatures || {};
+  if (!features.history) {
+    container.innerHTML = '';
+    const card = document.getElementById('history-card');
+    if (card) card.style.display = 'none';
+    return;
+  }
+
+  let res, data;
+  try {
+    res  = await fetch(`${API_BASE}/api/history`, { cache: 'no-store' });
+    data = await res.json();
+  } catch (e) {
+    console.error('Error cargando historial', e);
+    container.textContent = 'No se pudo cargar el historial.';
+    return;
+  }
+
+  if (!res.ok || !data.ok) {
+    container.textContent = data.message || 'Error al cargar el historial.';
+    return;
+  }
+
+  const items = data.history || [];
+  if (!items.length) {
+    container.textContent = 'Aún no hay canciones en el historial.';
+    return;
+  }
+
+  const prevScrollTop = container.scrollTop;
+  container.innerHTML = '';
+
+  items.forEach((h, idx) => {
+    const p = document.createElement('p');
+    p.className = 'queue-item-line';
+
+    const userNameUpper  = toUpperNoAccents(h.userName || '');
+    const songTitleUpper = toUpperNoAccents(h.songTitle || '');
+    const playedAt = h.playedAt ? new Date(h.playedAt).toLocaleString('es-MX') : '';
+
+    const text = playedAt
+      ? `${idx + 1}. Mesa ${h.tableNumber} - ${userNameUpper} - ${songTitleUpper} | ${playedAt}`
+      : `${idx + 1}. Mesa ${h.tableNumber} - ${userNameUpper} - ${songTitleUpper}`;
+
+    p.textContent = text;
+    container.appendChild(p);
+  });
+
+  container.scrollTop = prevScrollTop;
+}
+
+// toggle historial
+const btnToggleHistoryCard = document.getElementById('btn-toggle-history-card');
+if (btnToggleHistoryCard) {
+  btnToggleHistoryCard.onclick = async () => {
+    if (btnToggleHistoryCard.dataset.disabled === 'true') return;
+
+    const historyCard = document.getElementById('history-card');
+    if (!historyCard) return;
+
+    const visible = historyCard.style.display !== 'none';
+
+    if (visible) {
+      historyCard.style.display = 'none';
+      historyCardHidden = true;
+      btnToggleHistoryCard.textContent = 'Mostrar historial de canciones';
+    } else {
+      historyCard.style.display = 'block';
+      historyCardHidden = false;
+      btnToggleHistoryCard.textContent = 'Ocultar historial de canciones';
+      await loadHistory();
+    }
+  };
+}
+
+
 
 const btnSendSuggestion = document.getElementById('btn-send-suggestion');
 if (btnSendSuggestion) {
@@ -1349,6 +1435,10 @@ function startAutoRefreshQueues(features) {
     clearInterval(mixedQueueInterval);
     mixedQueueInterval = null;
   }
+  if (historyInterval) {
+    clearInterval(historyInterval);
+    historyInterval = null;
+  }
 
   if (!loggedUser) return;
 
@@ -1371,6 +1461,13 @@ function startAutoRefreshQueues(features) {
     mixedQueueInterval = setInterval(() => {
       loadMixedQueue().catch(err => console.error('Error auto loadMixedQueue', err));
     }, 10000);
+  }
+
+  // Historial
+  if (features.history && !historyCardHidden) {
+    historyInterval = setInterval(() => {
+      loadHistory().catch(err => console.error('Error auto loadHistory', err));
+    }, 15000);
   }
 }
 
@@ -1525,6 +1622,28 @@ function applyUserFeatures(features) {
       btnToggleSuggestCard.textContent = suggestCardHidden
         ? 'Mostrar sugerencia de canción'
         : 'Ocultar sugerencia de canción';
+    }
+  }
+
+  // Historial
+  const historyEnabled = !!features.history;
+  const historyCard          = document.getElementById('history-card');
+  const btnToggleHistoryCard2 = document.getElementById('btn-toggle-history-card');
+
+  if (!historyEnabled) {
+    if (historyCard) historyCard.style.display = 'none';
+    if (btnToggleHistoryCard2) {
+      btnToggleHistoryCard2.style.display = 'none';
+      btnToggleHistoryCard2.dataset.disabled = 'true';
+    }
+    historyCardHidden = true;
+  } else {
+    if (btnToggleHistoryCard2) {
+      btnToggleHistoryCard2.dataset.disabled = 'false';
+      btnToggleHistoryCard2.style.display = loggedUser ? 'block' : 'none';
+      btnToggleHistoryCard2.textContent = historyCardHidden
+        ? 'Mostrar historial de canciones'
+        : 'Ocultar historial de canciones';
     }
   }
 

@@ -133,7 +133,8 @@ let adminConfig = {
     suggestion: true,
     manualQueue: false,
     manualRegister: false,
-    mixedQueue: false
+    mixedQueue: false,
+    history: false
   },
   manualMaxSongsPerTable: 1,
   publicQueueMode: 'catalog',
@@ -157,7 +158,8 @@ try {
       suggestion:     parsed.userFeatures.suggestion     !== false,
       manualQueue:    parsed.userFeatures.manualQueue    === true,
       manualRegister: parsed.userFeatures.manualRegister === true,
-      mixedQueue:     parsed.userFeatures.mixedQueue     === true
+      mixedQueue:     parsed.userFeatures.mixedQueue     === true,
+      history:        parsed.userFeatures.history        === true
     };
   }
 
@@ -198,7 +200,8 @@ app.get('/api/public-info', (req, res) => {
       suggestion:     adminConfig.userFeatures.suggestion     !== false,
       manualQueue:    adminConfig.userFeatures.manualQueue    === true,
       manualRegister: adminConfig.userFeatures.manualRegister === true,
-      mixedQueue:     adminConfig.userFeatures.mixedQueue     === true
+      mixedQueue:     adminConfig.userFeatures.mixedQueue     === true,
+      history:        adminConfig.userFeatures.history        === true
     },
     manualMaxSongsPerTable:
       typeof adminConfig.manualMaxSongsPerTable === 'number'
@@ -525,7 +528,8 @@ app.post('/api/admin/change-user-features', (req, res) => {
     suggestion:     userFeatures.suggestion     !== false,
     manualQueue:    userFeatures.manualQueue    === true,
     manualRegister: userFeatures.manualRegister === true,
-    mixedQueue:     userFeatures.mixedQueue     === true
+    mixedQueue:     userFeatures.mixedQueue     === true,
+    history:        userFeatures.history        === true
   };
 
   try {
