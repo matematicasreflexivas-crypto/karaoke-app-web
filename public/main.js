@@ -206,13 +206,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ================== LOGIN DE USUARIO ==================
 
+function showLoginError(msg) {
+  const el = document.getElementById('login-error');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+function hideLoginError() {
+  const el = document.getElementById('login-error');
+  if (el) el.style.display = 'none';
+}
+
 document.getElementById('btn-login').onclick = async () => {
+  hideLoginError();
   let name  = document.getElementById('name').value.trim();
   const table = document.getElementById('table').value.trim();
   const pass  = document.getElementById('pass').value.trim();
 
   if (!name || !table || !pass) {
-    alert('Llena nombre, mesa y contraseña');
+    showLoginError('Llena nombre, mesa y contraseña');
     return;
   }
 
@@ -227,7 +239,7 @@ document.getElementById('btn-login').onclick = async () => {
     });
   } catch (err) {
     console.error(err);
-    alert('No se pudo conectar con el servidor para iniciar sesión');
+    showLoginError('No se pudo conectar con el servidor para iniciar sesión');
     return;
   }
 
@@ -236,12 +248,12 @@ document.getElementById('btn-login').onclick = async () => {
     data = await res.json();
   } catch (err) {
     console.error(err);
-    alert('Respuesta inválida del servidor al iniciar sesión');
+    showLoginError('Respuesta inválida del servidor al iniciar sesión');
     return;
   }
 
   if (!res.ok || !data.ok) {
-    alert(data.message || 'No se pudo iniciar sesión');
+    showLoginError(data.message || 'No se pudo iniciar sesión');
     return;
   }
 
@@ -253,8 +265,6 @@ document.getElementById('btn-login').onclick = async () => {
   // Bloquear el botón "atrás" del smartphone: empujamos un estado al historial.
   // El handler popstate lo re-empujará mientras la sesión esté activa.
   history.pushState({ karaoke: true }, '', location.href);
-
-  alert('Ingresaste como ' + name);
 
   const loginCard            = document.getElementById('login-card');
   const userContent          = document.getElementById('user-content');
