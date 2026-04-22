@@ -15,6 +15,7 @@ let manualCardHidden = false;
 let manualQueueCardHidden = false;
 let mixedQueueCardHidden = false;
 let suggestCardHidden = false;
+let historyCardHidden = false;
 
 // Banderas para rastrear estado inicial
 let initialFeaturesApplied = false;
@@ -24,6 +25,7 @@ let lastScrollPosition = 0;
 let queueInterval       = null;
 let manualQueueInterval = null;
 let mixedQueueInterval  = null;
+let historyInterval     = null;
 
 // ================== Helpers generales ==================
 
@@ -217,6 +219,14 @@ document.getElementById('btn-login').onclick = async () => {
     suggestCard.style.display = 'none';
   }
 
+  const historyCard          = document.getElementById('history-card');
+  const btnToggleHistoryCard = document.getElementById('btn-toggle-history-card');
+  if (historyCard) historyCard.style.display = 'block';
+  if (btnToggleHistoryCard) {
+    btnToggleHistoryCard.style.display = 'block';
+    btnToggleHistoryCard.textContent = 'Ocultar historial de tu mesa';
+  }
+
   if (btnToggleManualCard) {
     btnToggleManualCard.style.display = 'block';
     // El texto y la visibilidad final los decide applyUserFeatures según manualRegister
@@ -234,6 +244,7 @@ document.getElementById('btn-login').onclick = async () => {
   manualQueueCardHidden = false;
   mixedQueueCardHidden = false;
   suggestCardHidden = false;
+  historyCardHidden = false;
 
   if (window.__lastUserFeatures) {
     applyUserFeatures(window.__lastUserFeatures);
@@ -242,6 +253,7 @@ document.getElementById('btn-login').onclick = async () => {
   await loadQueue();
   await loadManualQueue();
   await loadMixedQueue();
+  await loadUserHistory();
 
   startAutoRefreshQueues(window.__lastUserFeatures || {});
 };
@@ -507,6 +519,27 @@ if (btnToggleSuggestCard2) {
     btnToggleSuggestCard2.textContent = visible
       ? 'Mostrar sugerencia de canción'
       : 'Ocultar sugerencia de canción';
+  };
+}
+
+// toggle historial
+const btnToggleHistoryCard2 = document.getElementById('btn-toggle-history-card');
+if (btnToggleHistoryCard2) {
+  btnToggleHistoryCard2.onclick = () => {
+    const historyCard = document.getElementById('history-card');
+    if (!historyCard) return;
+
+    const visible = historyCard.style.display !== 'none';
+    if (visible) {
+      historyCard.style.display = 'none';
+      historyCardHidden = true;
+      btnToggleHistoryCard2.textContent = 'Mostrar historial de tu mesa';
+    } else {
+      historyCard.style.display = 'block';
+      historyCardHidden = false;
+      btnToggleHistoryCard2.textContent = 'Ocultar historial de tu mesa';
+      loadUserHistory();
+    }
   };
 }
 
@@ -968,6 +1001,58 @@ async function loadMixedQueue() {
   }
 }
 
+// ================== HISTORIAL DE LA MESA ==================
+
+async function loadUserHistory() {
+  if (!loggedUser) return;
+
+  const container = document.getElementById('user-history');
+  if (!container) return;
+
+  let res, data;
+  try {
+    res  = await fetch(`${API_BASE}/api/history?table=${encodeURIComponent(loggedUser.table)}`, {
+      cache: 'no-store'
+    });
+    data = await res.json();
+  } catch (e) {
+    console.error('Error cargando historial de la mesa', e);
+    container.textContent = 'No se pudo cargar el historial.';
+    return;
+  }
+
+  if (!res.ok || !data.ok) {
+    container.textContent = data.message || 'Error al cargar el historial.';
+    return;
+  }
+
+  const items = data.history || [];
+
+  const prevScrollTop = container.scrollTop;
+  container.innerHTML = '';
+
+  if (!items.length) {
+    container.textContent = 'Aún no hay canciones en el historial de tu mesa.';
+    return;
+  }
+
+  items.forEach((h, idx) => {
+    const p = document.createElement('p');
+    p.className = 'queue-item-line';
+
+    const userNameUpper  = toUpperNoAccents(h.userName  || '');
+    const songTitleUpper = toUpperNoAccents(h.songTitle || '');
+    const playedAt = h.playedAt
+      ? new Date(h.playedAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+      : '';
+
+    p.textContent = `${idx + 1}. ${userNameUpper} — ${songTitleUpper}${playedAt ? ' (' + playedAt + ')' : ''}`;
+    container.appendChild(p);
+  });
+
+  container.scrollTop = prevScrollTop;
+}
+
 // ================== SUGERENCIAS ==================
 
 const btnSendSuggestion = document.getElementById('btn-send-suggestion');
@@ -1349,6 +1434,10 @@ function startAutoRefreshQueues(features) {
     clearInterval(mixedQueueInterval);
     mixedQueueInterval = null;
   }
+  if (historyInterval) {
+    clearInterval(historyInterval);
+    historyInterval = null;
+  }
 
   if (!loggedUser) return;
 
@@ -1372,6 +1461,13 @@ function startAutoRefreshQueues(features) {
       loadMixedQueue().catch(err => console.error('Error auto loadMixedQueue', err));
     }, 10000);
   }
+
+  // Historial de la mesa
+  historyInterval = setInterval(() => {
+    if (!historyCardHidden) {
+      loadUserHistory().catch(err => console.error('Error auto loadUserHistory', err));
+    }
+  }, 15000);
 }
 
 // ================== APLICAR FEATURES ==================
