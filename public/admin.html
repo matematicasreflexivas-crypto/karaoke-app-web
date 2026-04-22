@@ -292,6 +292,29 @@
       }
     }
 
+    /* Toast de notificación general (reemplaza alert()) */
+    #admin-notify-toast {
+      display: none;
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(30,30,30,0.95);
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      z-index: 99999;
+      pointer-events: none;
+      white-space: pre-wrap;
+      max-width: 90vw;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    #admin-notify-toast.error  { background: rgba(185,28,28,0.95); }
+    #admin-notify-toast.success { background: rgba(21,128,61,0.95); }
+
     /* Toast de aviso al pulsar atrás (admin) */
     #admin-back-toast {
       display: none;
@@ -328,6 +351,7 @@
           <input id="admin-pass" type="password" placeholder="Contraseña admin" />
         </div>
         <button id="btn-admin-login" class="btn-primary">Entrar</button>
+        <p id="admin-login-error" style="color:#f87171;font-size:0.875rem;margin-top:8px;display:none;"></p>
       </div>
     </div>
 
@@ -790,6 +814,7 @@
   </div>
 
   <div id="admin-back-toast"></div>
+  <div id="admin-notify-toast"></div>
   <script src="admin.js"></script>
 </body>
 </html>
