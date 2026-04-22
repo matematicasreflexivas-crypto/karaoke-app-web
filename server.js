@@ -483,7 +483,7 @@ app.post('/api/admin/change-user-password', (req, res) => {
 // cambiar título de la aplicación
 app.post('/api/admin/change-app-title', (req, res) => {
   const adminPassword = normalizePassword(req.body?.adminPassword);
-  const newTitle = req.body?.newTitle;
+  const newTitle = String(req.body?.newTitle ?? '').trim();
 
   if (!adminPassword || !newTitle) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
@@ -495,7 +495,7 @@ app.post('/api/admin/change-app-title', (req, res) => {
       .json({ ok: false, message: 'Contraseña de administrador incorrecta' });
   }
 
-  adminConfig.appTitle = String(newTitle).trim();
+  adminConfig.appTitle = newTitle;
 
   try {
     saveAdminConfig();
