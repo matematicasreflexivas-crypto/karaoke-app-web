@@ -10,9 +10,24 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 
-// JWT secret: use env var in production, otherwise generate one per process start
-// (tokens are invalidated on server restart – acceptable for this app)
-const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
+// JWT secret: prefer env var (production), then a persistent file (development),
+// then generate a new one (sessions lost on restart).
+function loadOrCreateJwtSecret() {
+  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+  const secretFile = path.join(__dirname, '.jwt_secret');
+  try {
+    const existing = fs.readFileSync(secretFile, 'utf8').trim();
+    if (existing.length >= 32) return existing;
+  } catch (_) { /* file doesn't exist yet */ }
+  const newSecret = crypto.randomBytes(32).toString('hex');
+  try {
+    fs.writeFileSync(secretFile, newSecret, { mode: 0o600 });
+  } catch (e) {
+    console.warn('No se pudo persistir el JWT secret:', e.message);
+  }
+  return newSecret;
+}
+const JWT_SECRET = loadOrCreateJwtSecret();
 const JWT_EXPIRY = '8h';
 
 // ===== SQLITE (NUEVO) =====
@@ -122,7 +137,7 @@ app.use(helmet({
 // ===== SEGURIDAD: límite de peticiones en login =====
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 20,
+  max: 10,
   standardHeaders: true,
   legacyHeaders: false,
   message: { ok: false, message: 'Demasiados intentos. Espera 15 minutos.' }
@@ -135,6 +150,15 @@ const uploadLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { ok: false, message: 'Demasiadas subidas. Espera 15 minutos.' }
+});
+
+// ===== SEGURIDAD: límite de peticiones para rutas de admin autenticadas =====
+const adminApiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, message: 'Demasiadas peticiones de administrador. Espera un momento.' }
 });
 
 // ===== CORS =====
@@ -165,12 +189,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ===== ADMIN TOKEN MIDDLEWARE =====
 // Verifies a JWT issued at login. Protected routes use this instead of
 // comparing raw passwords on every request.
+// Token is accepted only from Authorization header or request body (never query params,
+// to avoid leaking into server logs and browser history).
 function requireAdminToken(req, res, next) {
   const authHeader = req.headers.authorization;
   const token =
     (authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null) ||
-    (req.body && req.body.adminToken) ||
-    (req.query && req.query.adminToken);
+    (req.body && req.body.adminToken);
 
   if (!token) {
     return res
@@ -178,7 +203,10 @@ function requireAdminToken(req, res, next) {
       .json({ ok: false, message: 'Token de administrador requerido' });
   }
   try {
-    jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.role !== 'admin') {
+      return res.status(403).json({ ok: false, message: 'Permiso insuficiente' });
+    }
     next();
   } catch (_) {
     return res
@@ -335,7 +363,7 @@ app.get('/api/public-info', (req, res) => {
 });
 
 // Cambiar nombre de archivo de QR público
-app.post('/api/admin/set-qr-file', requireAdminToken, (req, res) => {
+app.post('/api/admin/set-qr-file', adminApiLimiter, requireAdminToken, (req, res) => {
   const { qrImageFile } = req.body;
   if (!qrImageFile) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
@@ -447,7 +475,7 @@ app.get('/api/tables', (req, res) => {
   res.json({ ok: true, tables });
 });
 
-app.post('/api/tables', requireAdminToken, (req, res) => {
+app.post('/api/tables', adminApiLimiter, requireAdminToken, (req, res) => {
   const { tableNumber, maxSongs } = req.body;
   if (!tableNumber) {
     return res
@@ -484,7 +512,7 @@ app.post('/api/tables', requireAdminToken, (req, res) => {
 });
 
 // actualizar solo el maxSongs de una mesa
-app.put('/api/tables/:id', requireAdminToken, (req, res) => {
+app.put('/api/tables/:id', adminApiLimiter, requireAdminToken, (req, res) => {
   const id = Number(req.params.id);
   const { maxSongs } = req.body;
 
@@ -504,13 +532,13 @@ app.put('/api/tables/:id', requireAdminToken, (req, res) => {
   res.json({ ok: true });
 });
 
-app.delete('/api/tables/:id', requireAdminToken, (req, res) => {
+app.delete('/api/tables/:id', adminApiLimiter, requireAdminToken, (req, res) => {
   const id = Number(req.params.id);
   deleteTable(id);
   res.json({ ok: true });
 });
 
-app.delete('/api/tables', requireAdminToken, (req, res) => {
+app.delete('/api/tables', adminApiLimiter, requireAdminToken, (req, res) => {
   clearTables();
   res.json({ ok: true });
 });
@@ -549,7 +577,7 @@ app.post('/api/admin/login', loginLimiter, (req, res) => {
   return res.json({ ok: true, token });
 });
 
-app.post('/api/admin/change-password', requireAdminToken, (req, res) => {
+app.post('/api/admin/change-password', adminApiLimiter, requireAdminToken, (req, res) => {
   const { oldPassword, newPassword } = req.body;
 
   if (!oldPassword || !newPassword) {
@@ -574,7 +602,7 @@ app.post('/api/admin/change-password', requireAdminToken, (req, res) => {
   }
 });
 
-app.post('/api/admin/change-user-password', requireAdminToken, (req, res) => {
+app.post('/api/admin/change-user-password', adminApiLimiter, requireAdminToken, (req, res) => {
   const { newUserPassword } = req.body;
 
   if (!newUserPassword) {
@@ -596,7 +624,7 @@ app.post('/api/admin/change-user-password', requireAdminToken, (req, res) => {
 });
 
 // cambiar título de la aplicación
-app.post('/api/admin/change-app-title', requireAdminToken, (req, res) => {
+app.post('/api/admin/change-app-title', adminApiLimiter, requireAdminToken, (req, res) => {
   const { newTitle } = req.body;
 
   if (!newTitle) {
@@ -618,7 +646,7 @@ app.post('/api/admin/change-app-title', requireAdminToken, (req, res) => {
 });
 
 // abrir/cerrar el registro de canciones
-app.post('/api/admin/set-queue-open', requireAdminToken, (req, res) => {
+app.post('/api/admin/set-queue-open', adminApiLimiter, requireAdminToken, (req, res) => {
   const { isQueueOpen } = req.body || {};
 
   if (typeof isQueueOpen !== 'boolean') {
@@ -640,7 +668,7 @@ app.post('/api/admin/set-queue-open', requireAdminToken, (req, res) => {
 });
 
 // cambiar banderas de secciones visibles en pantalla de usuario
-app.post('/api/admin/change-user-features', requireAdminToken, (req, res) => {
+app.post('/api/admin/change-user-features', adminApiLimiter, requireAdminToken, (req, res) => {
   const { userFeatures } = req.body || {};
 
   if (!userFeatures || typeof userFeatures !== 'object') {
@@ -669,7 +697,7 @@ app.post('/api/admin/change-user-features', requireAdminToken, (req, res) => {
 });
 
 // mostrar/ocultar recuadros de color en colas de usuario y pantalla pública
-app.post('/api/admin/set-show-color-dots', requireAdminToken, (req, res) => {
+app.post('/api/admin/set-show-color-dots', adminApiLimiter, requireAdminToken, (req, res) => {
   const { showColorDots } = req.body || {};
 
   if (typeof showColorDots !== 'boolean') {
@@ -691,7 +719,7 @@ app.post('/api/admin/set-show-color-dots', requireAdminToken, (req, res) => {
 });
 
 // cambiar límite global de canciones manuales por mesa (se mantiene como info)
-app.post('/api/admin/change-manual-max-songs', requireAdminToken, (req, res) => {
+app.post('/api/admin/change-manual-max-songs', adminApiLimiter, requireAdminToken, (req, res) => {
   const { manualMaxSongsPerTable } = req.body || {};
 
   if (manualMaxSongsPerTable == null) {
@@ -716,7 +744,7 @@ app.post('/api/admin/change-manual-max-songs', requireAdminToken, (req, res) => 
 });
 
 // aplicar un maxSongs global a todas las mesas
-app.post('/api/admin/apply-max-songs-all-tables', requireAdminToken, (req, res) => {
+app.post('/api/admin/apply-max-songs-all-tables', adminApiLimiter, requireAdminToken, (req, res) => {
   const { maxSongs } = req.body || {};
 
   if (maxSongs == null) {
@@ -734,7 +762,7 @@ app.post('/api/admin/apply-max-songs-all-tables', requireAdminToken, (req, res) 
 });
 
 // cambiar qué cola muestra la pantalla pública (ANTIGUO - mantener por compatibilidad)
-app.post('/api/admin/change-public-queue-mode', requireAdminToken, (req, res) => {
+app.post('/api/admin/change-public-queue-mode', adminApiLimiter, requireAdminToken, (req, res) => {
   const { publicQueueMode } = req.body || {};
 
   if (!publicQueueMode) {
@@ -757,7 +785,7 @@ app.post('/api/admin/change-public-queue-mode', requireAdminToken, (req, res) =>
 });
 
 // ========== NUEVO: Controlar qué cola mostrar en pantalla pública ==========
-app.post('/api/admin/set-public-queue-display', requireAdminToken, (req, res) => {
+app.post('/api/admin/set-public-queue-display', adminApiLimiter, requireAdminToken, (req, res) => {
   const { publicQueueDisplay } = req.body || {};
 
   if (!publicQueueDisplay) {
@@ -788,7 +816,7 @@ app.post('/api/admin/set-public-queue-display', requireAdminToken, (req, res) =>
 });
 
 // ========== MINUTOS POR TURNO ==========
-app.post('/api/admin/set-minutes-per-turn', requireAdminToken, (req, res) => {
+app.post('/api/admin/set-minutes-per-turn', adminApiLimiter, requireAdminToken, (req, res) => {
   const { minutesPerTurn } = req.body || {};
 
   let val = parseInt(minutesPerTurn, 10);
@@ -804,7 +832,7 @@ app.post('/api/admin/set-minutes-per-turn', requireAdminToken, (req, res) => {
 });
 
 // ========== MENSAJE AL PÚBLICO ==========
-app.post('/api/admin/change-public-message', requireAdminToken, (req, res) => {
+app.post('/api/admin/change-public-message', adminApiLimiter, requireAdminToken, (req, res) => {
   const { newMessage } = req.body || {};
 
   adminConfig.publicMessage = typeof newMessage === 'string' ? newMessage.trim() : '';
@@ -1197,7 +1225,7 @@ app.delete('/api/queue/:id', (req, res) => {
   return res.json({ ok: true });
 });
 
-app.delete('/api/queue', requireAdminToken, (req, res) => {
+app.delete('/api/queue', adminApiLimiter, requireAdminToken, (req, res) => {
   clearQueue();
   return res.json({ ok: true });
 });
@@ -1274,7 +1302,7 @@ app.delete('/api/manual-queue/:id', (req, res) => {
   return res.json({ ok: true });
 });
 
-app.delete('/api/manual-queue', requireAdminToken, (req, res) => {
+app.delete('/api/manual-queue', adminApiLimiter, requireAdminToken, (req, res) => {
   clearManualQueue();
   return res.json({ ok: true });
 });
@@ -1590,7 +1618,7 @@ app.get('/api/mixed-queue', (req, res) => {
 });
 
 // BORRAR TODA LA COLA MIXTA (queue + manual_queue)
-app.delete('/api/mixed-queue', requireAdminToken, (req, res) => {
+app.delete('/api/mixed-queue', adminApiLimiter, requireAdminToken, (req, res) => {
   try {
     clearQueue();
     clearManualQueue();
@@ -1689,7 +1717,7 @@ app.get('/api/history/export', (req, res) => {
 });
 
 // Borrar todo el historial
-app.delete('/api/history', requireAdminToken, (req, res) => {
+app.delete('/api/history', adminApiLimiter, requireAdminToken, (req, res) => {
   const stmt = db.prepare(`DELETE FROM history`);
   stmt.run();
   res.json({ ok: true });
@@ -1790,7 +1818,7 @@ app.delete('/api/song-suggestions/:id', (req, res) => {
   }
 });
 
-app.delete('/api/song-suggestions', requireAdminToken, (req, res) => {
+app.delete('/api/song-suggestions', adminApiLimiter, requireAdminToken, (req, res) => {
   try {
     const stmt = db.prepare(`DELETE FROM song_suggestions`);
     stmt.run();
