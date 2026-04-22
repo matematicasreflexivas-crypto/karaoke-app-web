@@ -1,0 +1,208 @@
+Ahora quiero que hagamos el ultimo gran cambio. Que en la pantalla del administrador también se pueda agregar la cantidad de canciones que se pueden cantar por mesa y entonces que en la pantalla del usuario cuando seleccione una canción le aparezca un mensaje que le diga que si quiere otra persona de esa mesa registrar otra canción (suponiendo que el administrador registró que esa mesa podría registrar 3 canciones ) y que se le de la opción de registrar otro nombre de usuario con esa mesa y  buscar otra canción y que se le vuelva a preguntar según sea el número de canciones permitidas. Los usuarios que pueden cantar de esa mesa tendrían que ser de nombres distintos, porque si introduce el mismo nombre de usuario, que le aparezca un mensaje para decirle  que ese usuario de esa mesa  ya seleccionó una canción y deben ser personas distintas. Cada vez que le pregunte el sistema si desea agregar otra canción para otra persona de esa mesa , se debe poder seleccionar sí o no, y si contesta sí se agrega y si contesta no, entonces se registra hasta ese momento en la cola de participantes. Que scripts completos necesitas para hacer los cambios y para que me los devuelvas corregidos y completos.
+
+Mira la idea es que quiero tener la flexibilidad de ingresar canciones y formar las colas respectivas de participantes. Por ejemplo si ahorita quiero que los usuarios solo registren canciones por selección, solo activo "Permitir sección "Buscar canción" en administrador en el área donde podemos seleccionar las secciones visibles para los usuarios y Permitir "Cola de participantes" en pantalla de usuario entonces tengo un sistema que permite que los usuarios registren canciones por selección y vean la cola de participantes por selección. Si quisiera que los usuarios solo registraran manualmente entonces debe también aparecer una sección en esa área que diga y haga ""Permitir registrar canción" (para registrar canción e interprete) esa todavia falta separarla de la sección "Permitir "Cola manual" (usuario escribe canción e intérprete)" de tal manera que sí activo sólo estas dos (ahorita estan juntas en  "Permitir "Cola manual" (usuario escribe canción e intérprete)" para que las vea el usuario, entonces tengo otro sistema de registro de canciones sólo manual. La idea es que ahora quiero tener un registro de canciones mixto, es decir que yo pueda activar en el área de secciones visibles para el usuario, "Permitir sección "Buscar canción" ,""Permitir registrar canción" (para registrar canción e interprete) (ojo esta parte aun no está separada), y activar una nueva sección en donde aparezca una nueva cola de participantes pero Mixta, con registros que pueden ser por selección y que pueden ser por registro y diferenciar solamente quiza con un sombreado unos de otros en la misma cola. Esta cola mixta también tendría que aparecer para ser administrable en la pantalla de administrador y deberán llevar los mismos datos que manejamos en todas las colas.Quiero que trabajemos estrictamente y sin regateos solo con scripts completos de ida y vuelta, es decir te los envio aunque pueda ser por partes y me los regresas completos y corregidos, y así, paso a paso.
+
+
+Retomemos mejor el caso, porque hay otro asunto que arreglar. te vuelvo a explicar el siguiente problema con un ejemplo para que puedas corregirlo. Si desde admin defino que la mesa 3 puede registrar 4 canciones y le activo al usuario tanto el registro por selección como el registro manual para tener una cola mixta de participantes. Si desde el usuario se realizan por ejemplo 3 participantes por via selección de canciones el flujo de mensajes al usuario es lógico y correcto, pero si el se registra un participante 4 por vía manual, entonces el mensaje que le aparece al usuario es incorrecto, porque le dice que esa mesa puede aun registrar otros tres participantes (lo cuál es incorrecto) pero si intenta el usuario registrar a otro participante para esa mesa, entonces el sistema le envía el mensaje que ya hay 4 participantes en la cola de esa mesa y no puede registrar ya a otro participante (lo cual es correcto). Es decir, lo que está mal es el flujo del mensaje cuando ingresa manual y omite que ya hay registros por via selección. Y de una vez el otro problema, también te lo explico con el mismo ejemplo, si la mesa 3 tiene asignados 4 lugares para canciones, si el usuario juan que se registra primero cuando Ingresa su canción por via selección el sistema le dice que él mismo puede registrar a otro participante con otro nombre porque todavía hay lugares disponibles y lo puede volver a hacer estando el registrado como juan, puede escribir que el otro va a ser Ricardo y el sistema le permite registrarlo pero únicamente por vía selección porque silo hace via manual, el sistema le dice que juan ya está registrado y no puede elegir otra canción. Lo mismo sucede si se registra primero para una canción manual y desde el mensaje que le da opción de registrar a otra persona y lo hace por selección, el sistema le dice que no puede porque ya esta regsitrado, refiriéndose a quien ingreso y no a quien está registrando.
+
+
+
+
+De nueva cuenta va la explicación,  cuando se hace el registro manual, si hay una secuencia lógica, ya pide el sistema al usuario que puede registrar cierto número de canciones según haya definido el administrador, aunque el mensaje le dice que puede en esa misma sesión registrar a otro participante de esa mesa, y aunque el mensaje le dice que debe ser manual (el mensaje debería decir que seleccione o registre manualmente otra canción, porque ahora sí, independientemente de que el usuario seleccione o registre manualmente la canción, el sistema ya está tomando en cuenta la canción registrada independientemente de como haya sido si por selección o por registro manual). El gran problema es que en esta versión que te voy a volver a mandar en dos partes eso no ocurre cuando inicia el usuario registrando una canción por selección, en ese caso el sistema no le da la continuidad de poder ingresar a otro participante para esa mesa cuando puede ser posible porque el administrador así lo haya decidido. Ahora va con ejemplos, si el administrador da de alta la mesa 3 y dice que se pueden registrar 4 personas, cuando el usuario (A) ingresa y registra una canción, el sistema le dice que puede registrar otras tres canciones manualmente (ese mensaje es incorrecto porque no debe limitar la forma en que ingresa la segunda canción para otro participante (B)) es decir, si el usuario (A) registra desde su misma sesión porque así le está dando la opción el sistema a un participante (B )con una canción pero ahora lo hace por selección y no por registro manual, el sistema sí está respondiendo correctamente y le dice después de aceptar el ingreso de la canción, que aún le quedan 2 lugares a esa mesa para otras personas y así esta funcionando bien el flujo. Pero esto no sucede si el por ejemplo el usuario (A) ingresa al sistema desde un inicio y registra su canción por selección, el sistema ahora ya no le dice que puede registrar otras 3 canciones, simplemente se corta el flujo de comunicación y solo registra la canción pero no hay la continuidad con mensajes como sí los hay cuando inicia registrando canciones de forma manual. Una observación, este flujo se corta También aunque se ingrese la canción primero de forma manual, si después se hace el registro de una canción por selección. te voy a enviar la primera parte de este main.js y después te envoi la segunda para que sobre ese que ya está haciendo lo que quiero, hagas las correcciones:   
+
+
+Ya casi casi, mira él único problema es que por ejemplo, después de ingresar el usuario (A) de la mesa 3 que puede registrar 4 participantes, al registrar la canción por selección, ya le dice el sistema que puede registrar otras 3 canciones, pero ya no le da la opción de que registre a un participante (B) sino que lo regresa a la sesión de usuario. En cambio si el usuario (A) ingresa y registra una canción via manual, entonces el sistema Tambien le recuerda que puede registrar otras tres canciones y le vuelve a desplegar otro mensaje (que es lo que no sucede en el primer caso) para que pueda en esa misma sesión registrar a otro participante (B) y aquí viene el problema de nuevo, porque si elige registrar por selección al usuario (B) se vuelve a cortar todo y lo regresa a su sesión, pero si registra la canción del participante (B) de forma manual, entonces el sistema le vuelve a dar, correctamente, la oportunidad de registrar un tercer participante (C)....o sea en conclusión cuando se registra por selección, el sistema no permite que se registre otro participante dentro de esa misma sesión. 
+
+
+
+
+
+Se necesita un dos botones que puedan aparecer en la pantalla de usuario cuando así lo defina el administrador, para que el usuario pueda También tener la opción de Mostrar/ocultar las colas de participantes tanto manual como la cola mixta de participantes y que se despliegue con un scroll vertical tal como se puede hacer exactamente con la cola de participantes por selección la cual es la única que se tiene así. Buscar También un diseño dinámico que permita que cuando se desplieguen las diferentes ventanas al activar mostrar/ocultar cualquier botón del usuario, no queden ocultos detrás los otros botones, sino que se pueda regresar a ellos para manipular a elección del usuario. Por otra parte Tambien hace falta en la pantalla del administrador el botón con la función de limpiar la cola mixta así como el botón para editar para cada participante como en las demás colas. Trabajemos igual, paso a paso y con scrpits completos corregidos que debes 
+devolver.
+
+git checkout main
+git pull origin main
+npm install
+npm start
+node server.js
+
+
+ya quedó en local, ahora pongamos el boton de cerrar sesión en la pantalla del usuario
+
+te envio index.html y me lo devuelves completo corregido, en partes te lo envoi
+
+
+
+Siempre que el usuario ingresa, cualquier cola de participante que haya definido el administrador que aparezcan, deben en el botón ocultas y que el usuario pueda desplegarlas con el botón de mostrar.
+
+Todas las colas que pueden aparecer en la pantalla del usuario deben tener un scroll horizontal en bloque que permita al usuario deslizar el bloque de las colas de participantes y ver todo el contenido.
+
+
+En la cola de participantes mixta en la pantalla del administrador debe tener Tambien el botón de editar como en las otras colas.
+
+En la cola de participantes mixta de la pantalla del editor la leyenda "CATÁLOGO" que define el origen del registro de la cancion por selección debe estar de color verde y la leyenda "MANUAL" que define el origen del registro de forma manual debe estar de color naranja.
+
+
+
+......
+
+
+Corregir en la pantalla de usuario que siempre que se inicie sesión que si está activado desde el administrador el botón de Permitir  "Buscar canción" , aparezca abierto en la pantalla para que sólo si quiere el usuario lo oculte con su respectivo botón de ocultar.
+
+
+
+
+Siempre que el usuario ingrese cualquier cola de participante que haya definido el administrador que aparezcan, deben estar ocultas y aparecer solo el botón de mostrar colas para que el usuario pueda desplegarlas con el botón de mostrar.
+
+Cuando inicie sesión el usuario y este activada la sección de cola de participantes mixta no deben aparecer las leyendas "CATÁLOGO" o "MANUAL" Solo los recuadros verdes o naranjas respectivamente. 
+
+
+
+En la pantalla del administrador si deben aparecer en la cola de participantes mixta la leyenda "CATÁLOGO" pero de color verde y la leyenda "MANUAL" de color naranja, respectivamente.
+
+En la pantalla del usuario que cuando está activado el registro de canciones de forma manual que los campos para registrar canción e interprete estén en una sola línea como los campos cuando se registra por selección de canciones.
+
+Cambiar a color verde el botón de Registrar canción manual en la pantalla del usuario.
+
+Al introducir texto para buscar canción por selección que se recorran los botones hacia arriba para que alcance a verse el catalogo de canciones que se despliega y no quede totalmente detrás del teclado virtual del smartphone, pero que el usuario pueda seguir escribiendo para ir delimitando la búsqueda.
+
+Cambiar el fondo resaltado en blanco para el participante que está en primer lugar en todas las colas por color verde claro y que También se aplique este cambio al primer lugar en las colas que aparecen en la pantalla del Administrador. 
+
+Agregar a a pantalla del administrador un botón para cerrar sesión y debe ser en color rojo.
+
+Corregir para que desde el primer intento que un usuario quiera registrar otra canción le salga el mensaje que no puede hacerlo porque ya esta registrado en la cola de participantes
+
+................................
+
+Corregir que Siempre que el usuario ingrese cualquier cola de participante que haya definido el administrador, deben estar ocultas y aparecer solo el botón de mostrar colas para que el usuario pueda desplegarlas con el botón de mostrar cuando él lo prefiera.
+
+En la pantalla del administrador sí deben aparecer en la cola de participantes mixta la leyenda "CATÁLOGO" de color verde y la leyenda "MANUAL" de color naranja, respectivamente, eso está bien, pero hay que quitar esas leyendas en la cola mixta que aparece en la pantalla del usuario.
+
+
+Corregir el botón cerrar sesión en la pantalla del usuario porque no está funcionando.
+
+hacer más estable el latigazo en la pantalla de usuario y que cuando suceda al refrescar quede la pantalla en el lugar que estaba.
+
+
+{{{{{{{{{{{
+
+Corregir que el botón de cerrar sesión del usuario, pregunte al usuario al hacer clic si esta seguro que quiere cerrar la sesión porque actualmente al hacer clic solo cierra la sesión sin corroborar.
+
+En la pantalla del administrador agregar un botón en cada participante de la cola mixta para que el administrador pueda seleccionar cambiar a verde o a naranja o viceversa, el recuadro del color que aparece en la cola mixta de participantes y que se pueda desde ahi cambiar el color de ese recuadro.
+
+Que el recuadro con los colores naranja o verde que aparece en la cola mixta de participantes, También aparezca en todas las demás colas y en todas las pantallas, la del usuario, la del administrador y en la Screen_public.
+
+Que en todas las colas pero exclusivamente en la pantalla del administrador se agregue la información de cuánto tiempo falta para que le toque el turno numero 1 a cada participante de acuerdo a un tiempo en minutos que defina el administrador con la creación de una opción para tal propósito.
+
+------------------------------------
+
+Cuando se define desde el administrador por ejemplo que la mesa 1 puede registrar 10 canciones, cuando se hacen los registros ya sea de forma manual o por selección hay un conflicto cuando se intenta registrar a un octavo participante de forma manual, el sistema emite un mensaje que advierte que cierto nombre de usuario ya está registrado y ya no permite registro de canciones manualmente, sin embargo el registro por selección de canciones fluye normal. Corregir este error.
+
+En la pantalla del usuario arreglar que se suavice el latigazo al refrescar en las ventanas de las colas de participantes y que la pantalla permanezca en el lugar que se estaba mostrando en el momento de refrescar.
+
+En la pantalla del usuario cambiar las leyendas de los siguientes botones que el administrador permite que aparezcan.
+1. Mostar/Ocultar "Buscar canción" por: Mostrar/Ocultar catálogo de canciones.  Asimismo la leyenda que aparece cuando se activa ese botón para registrar las canciones cambie de Buscar canción por: Búsqueda por catálogo de canciones
+2. Mostrar/Ocultar cola de participantes por: Mostrar/Ocultar cola de participantes (catálogo)
+3. Mostrar/Ocultar Registro manual por: Mostrar/Ocultar registro manual de canciones. Asimismo la leyenda que aparece cuando se activa ese botón para registrar las canciones cambie de Registro manual por: Registro manual de canciones
+4. Mostrar/Ocultar cola de participantes (carga manual) por: Mostrar/Ocultar cola de participantes (registro manual)
+5. Mostrar/Ocultar cola mixta de participantes por: Mostrar/Ocultar cola de participantes (catálogo + manual)
+6. Que el fondo del botón de Enviar sugerencia cambie a color verde.
+
+En el área de secciones visibles en la pantalla del administrador alinear visualmente las leyendas con las banderas y cambiar las leyendas de:
+1. Permitir sección "Buscar canción" en pantalla de usuario por: Permitir selección por catálogo,
+2. Permitir "Cola de participantes" en pantalla de usuario por: Permitir cola de selección por catálogo
+3. Permitir "Sugerir canción" en pantalla de usuario por: Permitir sugerir canción
+4. Permitir "Cola manual" (usuario escribe canción e intérprete) por: Permitir cola de registro manual
+5. Permitir "Registro manual" (formulario para escribir canción e intérprete) por: Permitir registro manual 
+6. Mostrar "Cola mixta" (mezcla de catálogo + manual) en pantalla de usuario por: Permitir cola mixta (Catálogo + manual) 
+
+En la pantalla del administrador cambiar la leyenda del botón "Cola de participantes" por la leyenda "Cola por catálogo" 
+
+Eliminar la sección en pantalla de administrador de: "Configuración cola manual y pantalla pública" porque su función ya ha sido sustituida por otras funciones.
+
+En la pantalla del Administrador, que el tamaño de la altura de las ventanas donde se despliegan las colas mixta y manual sea igual a la de la ventana donde se despliega la cola de participantes por catálogo.
+
+Activar en la pantalla del administrador el área de historial de canciones registrando la información de los participantes que han sido eliminados por el administrador y activar la función de todos los botones de esa area 
+-------------------------------------------------------------------------------
+Agrandar al doble de tamaño de altura las ventanas de las colas que se despliegan en la pantalla del administrador.
+
+Arreglar en la pantalla del Administrador para que los nombres de las banderas que se activan queden del lado izquierdo y los suiwtches de lado derecho alineados verticalmnente con un diseño más funcional.
+
+Agregar en la pantalla de Administrador la información de la cantidad de participantes en cada una de las colas, tal como se muestra en la pantalla pública
+
+Arreglar que las ventanas donde se despliegan las colas de participantes por registro manual de canciones y la mixta, tengan el mismo tamaño que se visualiza horizontalmente y de forma vertical  que la cola de participantes por catálogo.
+
+En la pantalla del usuario al activar el botón Mostrar/Ocultar cola de participantes (catálogo), que la leyenda que aparece al abrir se cambie de Cola de participantes por: Cola de participantes (selección por catálogo)
+
+En la pantalla del usuario al activar el botón Mostrar/Ocultar cola de participantes (registro manual), que la leyenda que aparece al abrir se cambie de Participantes (Carga manual) por: Cola de participantes (registro manual)
+
+En la pantalla del usuario al activar el botón Mostrar/Ocultar cola de participantes (catálogo + manual), que la leyenda que aparece al abrir se cambie de Cola de Cola mixta (General) por: Cola de participantes (catálogo + manual)
+
+-----------------------------------------------
+
+Arreglar que las ventanas donde se despliegan las colas de participantes por registro manual de canciones y la mixta, tengan el mismo tamaño que se visualiza horizontalmente y de forma vertical  que la cola de participantes por catálogo.
+
+Arreglar los botones de Mostrar/Ocultar colas en la pantalla del Administrador porque no están funcionando.
+
+lllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll
+
+Insertar en el espacio donde termina la ventana de cola de participantes de la pantalla pública y un poco arriba de la leyenda "CONTRASEÑA DEL DIA DE HOY" (podría recorrerse un poco más abajo), un espacio de una línea horizontal, para texto que pueda escribirse desde la pantalla del Administrador un mensaje al público o alguna frase de aliento. Parecido a la sección de Título de la aplicación Y diseñar para que funcionen los cambios desde la pantalla del Administrador
+
+corregir que en la pantalla del usuario, la sección búsqueda por catálogo de canciones no se oculte  automáticamente después de seleccionar una canción, sino hasta que el usuario decida ocultarla con el botón correspondiente.
+
+.......................................................................................
+
+El texto de mensaje que se proyecta en la pantalla pública desde el Administrador podría ser un poco mayor para que alcancen a visualizarlo mejor.
+
+En el flujo de mensajes que se da cuando el usuario interactúa con el sistema en el registro de canciones se enfatiza siempre que el registro de la canción puede ser por selección o manualmente. Quiero que todos los mensajes de ese estilo ya no se haga hincapié en que pueda ser por selección o de forma manual, simplemente que diga que puede agregar el número que según tenga permitido de canciones. Ya no es necesario enfatizarle al usuario la via de registro de sus canciones.
+
+Implementar un botón de control desde la pantalla del Administrador para activar o desactivar la presentación de los recuadros de color verde y naranja en todas las colas de participantes que se proyectan en la pantalla del usuario y en la pantalla pública. En la pantalla del Administrador siempre deben aparecer estos recuadros de color verde o naranja tal como está.
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Continua apareciendo al registrar canciones desde la pantalla del usuario mensajes como los siguientes: Registro exitoso. Tu mesa (13) puede registrar todavía 12 participante(s) más (sumando selección + manual), Registro exitoso. Tu mesa (13) puede registrar todavía 11 participante(s) más (sumando selección + manual). Quitarle a estos mensajes lo que dice (sumando selección + manual)
+
+
+El fondo del color del botón abrir registros sea de color verde
+
+
+
+¿Quieres cerrar/consolidar las 20 PRs abiertas?
+
+
+Para correr cambios hechos en el repositorio
+cd karaoke-app-web
+git fetch origin
+git checkout copilot/generate-index-html-and-main-js
+npm start
+
+
+
+Para ver los cambios en tu PC, ejecuta estos comandos en tu terminal (en la carpeta de tu proyecto):
+
+intento
+git fetch origin
+
+git checkout copilot/generate-index-html-and-main-js
+
+git pull origin copilot/generate-index-html-and-main-js
+
+Si ya estabas en esa rama, solo necesitas:
+
+intento
+git pull
+
+
+
+Estado actual:
+
+20 ramas distintas (copilot/... ) todas apuntando amain
+Muy probable que tengan conflictos entre sí. y con.main
+La PR más reciente (#20) es la que contiene el trabajo más actualizado
+Recomendación:
+
+Revisar la PR #20 (más reciente) — si tiene el código correcto, fusionarla
+Cerrar las otras 19 PRs como obsoletas (sin fusionar)
+Eliminar las ramas huérfanas para limpiar el repositorio
+¿Quieres que proceda a cerrar las 19 PRs obsoletas y dejar solo la #20 activa?
+
