@@ -39,6 +39,7 @@ async function fetchPublicInfo() {
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error(data.message || 'Error info pública');
     return {
+      userPassword: data.userPassword || '',
       appTitle: data.appTitle || 'Karaoke',
       qrImageFile: data.qrImageFile || 'qr.png',
       publicQueueDisplay: data.publicQueueDisplay || 'catalog'
@@ -141,7 +142,7 @@ function renderPublicInfo(info) {
 
   if (!info) {
     headerTitle.textContent = 'Turnos para el Karaoke';
-    passEl.textContent = 'Solicita al administrador';
+    passEl.textContent = '••••';
     qrEl.innerHTML = `
       <div class="footer-qr-placeholder">
         No se pudo cargar la información pública.
@@ -154,8 +155,8 @@ function renderPublicInfo(info) {
   headerTitle.textContent = `TURNOS  ${info.appTitle}`;
   document.title = `Pantalla ${info.appTitle}`;
 
-  // contraseña (oculta)
-  passEl.textContent = 'Solicita al administrador';
+  // contraseña
+  passEl.textContent = info.userPassword || '••••';
 
   // QR usando el nombre de archivo que envía el backend
   qrEl.innerHTML = '';

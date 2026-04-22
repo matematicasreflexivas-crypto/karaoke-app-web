@@ -252,6 +252,7 @@ function isUserPasswordValid(candidate) {
 app.get('/api/public-info', (req, res) => {
   res.json({
     ok: true,
+    userPassword: adminConfig.userPassword,
     qrImageFile: adminConfig.qrImageFile || null,
     appTitle: adminConfig.appTitle || 'Karaoke',
     isQueueOpen: adminConfig.isQueueOpen,
