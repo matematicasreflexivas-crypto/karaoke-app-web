@@ -17,5 +17,5 @@
   "publicQueueDisplay": "mixed",
   "minutesPerTurn": 5,
   "publicMessage": "Cantar es increíble!!!",
-  "showColorDots": false
+  "showColorDots": true
 }

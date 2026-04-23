@@ -1245,7 +1245,7 @@ app.post('/api/queue', (req, res) => {
       ok: false,
       message:
         `En la mesa ${mesaStr}, la persona "${userNameStr}" ya tiene una canción registrada ` +
-        '(ya sea por selección o registro manual). Debe ser otra persona distinta de esa mesa.'
+        'Debe ser otra persona distinta de esa mesa.'
     });
   }
 
@@ -1345,7 +1345,7 @@ app.post('/api/manual-queue', (req, res) => {
       ok: false,
       message:
         `En la mesa ${mesaStr}, la persona "${userNameStr}" ya tiene una canción registrada ` +
-        '(ya sea por selección o registro manual). Debe ser otra persona distinta de esa mesa.'
+        'Debe ser otra persona distinta de esa mesa.'
     });
   }
 

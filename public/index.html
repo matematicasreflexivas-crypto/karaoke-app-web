@@ -86,7 +86,7 @@
       color: #e5e7eb;
     }
 
-    input {
+    input, select {
       width: 100%;
       padding: 7px 9px;
       border-radius: 8px;
@@ -151,22 +151,22 @@
       color: #9ca3af;
     }
 
-.top-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 12px;
-  position: relative;
-  background: #050816;
-  z-index: 10;
-  padding-top: 4px;
-  padding-bottom: 4px;
-}
+    .top-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 12px;
+      position: relative;
+      background: #050816;
+      z-index: 10;
+      padding-top: 4px;
+      padding-bottom: 4px;
+    }
 
-.top-buttons button {
-  min-height: 40px;
-  flex-shrink: 0;
-}
+    .top-buttons button {
+      min-height: 40px;
+      flex-shrink: 0;
+    }
 
     .top-toggle-login {
       margin-bottom: 12px;
@@ -258,7 +258,6 @@
       min-height: 0;
     }
 
-    /* contenedor horizontal de colas */
     .queues-row-wrapper {
       display: flex;
       flex-direction: row;
@@ -280,7 +279,6 @@
       .container { width: 480px; }
     }
 
-    /* Toast de aviso al pulsar atrás */
     #back-toast {
       display: none;
       position: fixed;
@@ -296,6 +294,12 @@
       z-index: 9999;
       pointer-events: none;
       white-space: nowrap;
+    }
+
+    .hint {
+      font-size: 0.8rem;
+      color: #9ca3af;
+      margin-top: 2px;
     }
   </style>
 
@@ -343,10 +347,24 @@
           <label for="name">Tu nombre</label>
           <input id="name" type="text" placeholder="Ej. Ricardo" oninput="normalizeUserNameInput(this)" />
         </div>
+
+        <!-- Selector de mesa basado en /api/tables -->
         <div>
-          <label for="table">Mesa</label>
+          <label for="table-select">Mesa</label>
+          <select id="table-select">
+            <option value="">Selecciona tu mesa</option>
+          </select>
+          <p id="table-select-hint" class="hint" style="display:none;">
+            No hay mesas registradas. Pide al administrador que registre tu mesa.
+          </p>
+        </div>
+
+        <!-- Campo original de mesa (fallback / compatibilidad, opcional) -->
+        <div style="display:none;">
+          <label for="table">Mesa (texto)</label>
           <input id="table" type="text" placeholder="Ej. 5, VIP 1" />
         </div>
+
         <div>
           <label for="pass">Contraseña</label>
           <input id="pass" type="password" placeholder="Clave que te dio el bar" />
@@ -427,7 +445,6 @@
           <div id="songs"></div>
         </div>
 
-        <!-- Bloque de colas con scroll horizontal -->
         <div class="queues-row-wrapper">
           <div class="card queue-card" id="queue-card" style="display:none;">
             <h3>Cola de participantes (selección por catálogo)</h3>

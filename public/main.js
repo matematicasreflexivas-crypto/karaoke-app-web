@@ -9,7 +9,7 @@ let hasSuggestedWhileInQueue = false;
 window.currentSingerName = null;
 window.__showColorDots = true;
 
-// Estado de visibilidad de secciones (para mantenerlas ocultas si el usuario las oculta)
+// Estado de visibilidad de secciones
 let queueCardHidden = false;
 let searchCardHidden = false;
 let manualCardHidden = false;
@@ -17,7 +17,7 @@ let manualQueueCardHidden = false;
 let mixedQueueCardHidden = false;
 let suggestCardHidden = false;
 
-// Banderas para rastrear estado inicial
+// Banderas de estado
 let initialFeaturesApplied = false;
 let lastScrollPosition = 0;
 
@@ -90,7 +90,6 @@ async function preserveScrollAndReload(loadFn) {
   } catch (err) {
     console.error('Error en recarga de cola', err);
   }
-  // Restaurar después de que el DOM se actualice
   requestAnimationFrame(() => {
     if (scrollContainer) {
       scrollContainer.scrollTop = savedTop;
@@ -111,7 +110,7 @@ function smoothRefreshContainer(div, renderFn) {
 
 // ================== TIEMPO DE ESPERA EN COLA ==================
 
-const AVG_SONG_MINUTES = 3.5; // duración promedio estimada por canción
+const AVG_SONG_MINUTES = 3.5;
 
 function formatWaitTime(minutes) {
   if (minutes < 1) return '< 1 min';
@@ -190,7 +189,6 @@ async function loadPublicInfo() {
     const features = data.userFeatures || {};
     window.__lastUserFeatures = features;
 
-    // Solo aplicar features si es la primera vez
     if (!initialFeaturesApplied && !loggedUser) {
       applyUserFeatures(features);
       initialFeaturesApplied = true;
@@ -200,16 +198,92 @@ async function loadPublicInfo() {
   }
 }
 
+// ================== Cargar mesas para el usuario ==================
+
+let __lastTablesSerialized = '';
+
+async function loadTablesForUser() {
+  const select = document.getElementById('table-select');
+  const hint   = document.getElementById('table-select-hint');
+  if (!select) return;
+
+  try {
+    const res  = await fetch(`${API_BASE}/api/tables`, { cache: 'no-store' });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      console.error('Error cargando mesas:', data.message);
+      return;
+    }
+
+    const tables = data.tables || [];
+
+    const serialized = JSON.stringify(
+      tables.map(t => ({
+        tableNumber: String(t.tableNumber),
+        maxSongs: t.maxSongs ?? 1
+      }))
+    );
+    if (serialized === __lastTablesSerialized) {
+      return;
+    }
+    __lastTablesSerialized = serialized;
+
+    const prevValue = select.value;
+
+    select.innerHTML = '<option value="">Selecciona tu mesa</option>';
+
+    if (!tables.length) {
+      if (hint) hint.style.display = 'block';
+      select.disabled = true;
+      return;
+    }
+
+    if (hint) hint.style.display = 'none';
+    select.disabled = false;
+
+    tables.forEach(t => {
+      const opt = document.createElement('option');
+      const max = t.maxSongs != null ? t.maxSongs : 1;
+      opt.value = String(t.tableNumber);
+      opt.textContent = `Mesa ${t.tableNumber} (máx: ${max} canciones)`;
+      select.appendChild(opt);
+    });
+
+    if (prevValue && [...select.options].some(o => o.value === prevValue)) {
+      select.value = prevValue;
+    }
+  } catch (e) {
+    console.error('No se pudo conectar para cargar mesas', e);
+  }
+}
+
+// ================== INIT ==================
+
 document.addEventListener('DOMContentLoaded', () => {
   loadPublicInfo();
+  loadTablesForUser();
 });
+
+// Refresco en vivo de mesas permitidas (select de usuario)
+setInterval(() => {
+  loadTablesForUser();
+}, 10000); // cada 10 s
 
 // ================== LOGIN DE USUARIO ==================
 
 document.getElementById('btn-login').onclick = async () => {
-  let name  = document.getElementById('name').value.trim();
-  const table = document.getElementById('table').value.trim();
-  const pass  = document.getElementById('pass').value.trim();
+  let name = document.getElementById('name').value.trim();
+  const pass = document.getElementById('pass').value.trim();
+
+  const tableSelect = document.getElementById('table-select');
+  const tableInput  = document.getElementById('table');
+
+  let table = '';
+  if (tableSelect && tableSelect.value) {
+    table = tableSelect.value.trim();
+  } else if (tableInput && tableInput.value.trim()) {
+    table = tableInput.value.trim();
+  }
 
   if (!name || !table || !pass) {
     alert('Llena nombre, mesa y contraseña');
@@ -250,8 +324,6 @@ document.getElementById('btn-login').onclick = async () => {
   window.currentUserTable  = table.trim();
   window.currentSingerName = name.trim();
 
-  // Bloquear el botón "atrás" del smartphone: empujamos un estado al historial.
-  // El handler popstate lo re-empujará mientras la sesión esté activa.
   history.pushState({ karaoke: true }, '', location.href);
 
   alert('Ingresaste como ' + name);
@@ -307,16 +379,8 @@ document.getElementById('btn-login').onclick = async () => {
 
   if (btnToggleManualCard) {
     btnToggleManualCard.style.display = 'block';
-    // El texto y la visibilidad final los decide applyUserFeatures según manualRegister
   }
-  // Importante: ya NO forzamos aquí el manualCard a 'none';
-  // applyUserFeatures se encargará de abrirlo si manualRegister está activado.
-  // if (manualCard) {
-  //   manualCard.style.display = 'none';
-  // }
 
-  // Resetear banderas de visibilidad
-  // Las colas inician ocultas; el usuario las despliega con el botón "Mostrar"
   queueCardHidden = true;
   searchCardHidden = false;
   manualCardHidden = false;
@@ -445,12 +509,12 @@ async function performSearch() {
     btn.addEventListener('touchend', (e) => {
       const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
       const dx = Math.abs(e.changedTouches[0].clientX - touchStartX);
-      if (dy > 10 || dx > 10) return; // scroll, not a tap
+      if (dy > 10 || dx > 10) return;
       e.preventDefault();
       chooseSong(label);
     });
     btn.addEventListener('click', (e) => {
-      if (e.detail === 0) return; // synthetic click from touch already handled
+      if (e.detail === 0) return;
       chooseSong(label);
     });
 
@@ -621,12 +685,10 @@ if (btnLogout) {
 }
 
 function doLogout() {
-  // Detener intervalos de refresco
   if (queueInterval) { clearInterval(queueInterval); queueInterval = null; }
   if (manualQueueInterval) { clearInterval(manualQueueInterval); manualQueueInterval = null; }
   if (mixedQueueInterval) { clearInterval(mixedQueueInterval); mixedQueueInterval = null; }
 
-  // Limpiar estado
   loggedUser = null;
   window.currentUserName = null;
   window.currentUserTable = null;
@@ -634,7 +696,6 @@ function doLogout() {
   hasSuggestedWhileInQueue = false;
   initialFeaturesApplied = false;
 
-  // Resetear banderas
   queueCardHidden = false;
   searchCardHidden = false;
   manualCardHidden = false;
@@ -642,27 +703,24 @@ function doLogout() {
   mixedQueueCardHidden = false;
   suggestCardHidden = false;
 
-  // Ocultar contenido de usuario
   const userContent = document.getElementById('user-content');
   if (userContent) userContent.style.display = 'none';
 
-  // Mostrar login card
   const loginCard = document.getElementById('login-card');
   if (loginCard) loginCard.style.display = 'block';
 
-  // Ocultar botón de toggle login
   const toggleLoginBtn = document.getElementById('btn-toggle-login-card');
   if (toggleLoginBtn) toggleLoginBtn.style.display = 'none';
 
-  // Limpiar inputs
-  const nameInput = document.getElementById('name');
-  const tableInput = document.getElementById('table');
-  const passInput = document.getElementById('pass');
+  const nameInput   = document.getElementById('name');
+  const tableInput  = document.getElementById('table');
+  const passInput   = document.getElementById('pass');
+  const tableSelect = document.getElementById('table-select');
   if (nameInput) nameInput.value = '';
   if (tableInput) tableInput.value = '';
   if (passInput) passInput.value = '';
+  if (tableSelect) tableSelect.value = '';
 
-  // Limpiar resultados y colas
   const songsDiv = document.getElementById('songs');
   if (songsDiv) songsDiv.innerHTML = '';
   const queueDiv = document.getElementById('queue');
@@ -672,7 +730,6 @@ function doLogout() {
   const mixedQueueDiv = document.getElementById('mixed-queue-list');
   if (mixedQueueDiv) mixedQueueDiv.innerHTML = '';
 
-  // Ocultar filas de info de colas
   ['queue-info-row', 'manual-queue-info-row', 'mixed-queue-info-row'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
@@ -682,8 +739,7 @@ function doLogout() {
   if (resultsCard) resultsCard.style.display = 'none';
 }
 
-// Bloquear el botón "atrás" del smartphone mientras la sesión esté activa.
-// Se necesitan 4 pulsaciones consecutivas para salir.
+// Bloquear botón atrás
 let _backPressCount = 0;
 let _backPressTimer = null;
 
@@ -699,21 +755,22 @@ function _showBackToast(msg) {
 window.addEventListener('popstate', () => {
   if (!loggedUser) return;
 
-  // Siempre re-empujamos el estado para que el historial no avance
   history.pushState({ karaoke: true }, '', location.href);
 
   _backPressCount += 1;
 
-  // Reiniciar contador si el usuario tarda más de 3 s entre pulsaciones
   clearTimeout(_backPressTimer);
   _backPressTimer = setTimeout(() => { _backPressCount = 0; }, 3000);
 
   const remaining = 4 - _backPressCount;
   if (remaining <= 0) {
-    // 4ª pulsación: cerrar sesión directamente
     _backPressCount = 0;
     clearTimeout(_backPressTimer);
     doLogout();
+  } else {
+    _showBackToast(
+      `Pulsa atrás ${remaining} vez${remaining === 1 ? '' : 'es'} más para cerrar sesión.`
+    );
   }
 });
 
@@ -834,7 +891,6 @@ async function chooseSong(songLabel) {
     return;
   }
 
-  // Limpiar el nombre extra manual para evitar conflicto en siguientes registros manuales
   window.__extraManualSingerName = null;
 
   const resultsCard = getResultsCard();
@@ -904,61 +960,60 @@ async function loadQueue() {
   smoothRefreshContainer(div, () => {
     div.innerHTML = '';
 
-  data.queue.forEach((item, idx) => {
-    const p = document.createElement('p');
-    p.className = 'queue-item-line';
+    data.queue.forEach((item, idx) => {
+      const p = document.createElement('p');
+      p.className = 'queue-item-line';
 
-    if (idx === 0) {
-      p.classList.add('queue-item-is-current');
-    }
+      if (idx === 0) {
+        p.classList.add('queue-item-is-current');
+      }
 
-    const itemTable     = (item.tableNumber || '').trim().toLowerCase();
-    const itemNameRaw   = (item.userName || '').toString().trim();
-    const itemNameLower = removeAccents(itemNameRaw).toLowerCase();
+      const itemTable     = (item.tableNumber || '').trim().toLowerCase();
+      const itemNameRaw   = (item.userName || '').toString().trim();
+      const itemNameLower = removeAccents(itemNameRaw).toLowerCase();
 
-    const isCurrentUser =
-      currentName &&
-      currentTable &&
-      currentName === itemNameLower &&
-      currentTable === itemTable;
+      const isCurrentUser =
+        currentName &&
+        currentTable &&
+        currentName === itemNameLower &&
+        currentTable === itemTable;
 
-    if (isCurrentUser) {
-      isUserInQueue = true;
-    }
+      if (isCurrentUser) {
+        isUserInQueue = true;
+      }
 
-    // Recuadro de color (catálogo = verde)
-    p.appendChild(createColorDot(getItemColor(item, 'catalog')));
+      p.appendChild(createColorDot(getItemColor(item, 'catalog')));
 
-    const spanIndex = document.createElement('span');
-    spanIndex.textContent = `${idx + 1}. `;
-    p.appendChild(spanIndex);
+      const spanIndex = document.createElement('span');
+      spanIndex.textContent = `${idx + 1}. `;
+      p.appendChild(spanIndex);
 
-    const mesaLabelSpan = document.createElement('span');
-    mesaLabelSpan.textContent = 'Mesa ';
-    if (isCurrentUser) mesaLabelSpan.classList.add('queue-user-name-highlight');
-    p.appendChild(mesaLabelSpan);
+      const mesaLabelSpan = document.createElement('span');
+      mesaLabelSpan.textContent = 'Mesa ';
+      if (isCurrentUser) mesaLabelSpan.classList.add('queue-user-name-highlight');
+      p.appendChild(mesaLabelSpan);
 
-    const tableSpan = document.createElement('span');
-    tableSpan.textContent = item.tableNumber;
-    if (isCurrentUser) tableSpan.classList.add('queue-user-name-highlight');
-    p.appendChild(tableSpan);
+      const tableSpan = document.createElement('span');
+      tableSpan.textContent = item.tableNumber;
+      if (isCurrentUser) tableSpan.classList.add('queue-user-name-highlight');
+      p.appendChild(tableSpan);
 
-    const sep1 = document.createElement('span');
-    sep1.textContent = ' - ';
-    p.appendChild(sep1);
+      const sep1 = document.createElement('span');
+      sep1.textContent = ' - ';
+      p.appendChild(sep1);
 
-    const nameSpan = document.createElement('span');
-    nameSpan.textContent = toUpperNoAccents(itemNameRaw);
-    if (isCurrentUser) nameSpan.classList.add('queue-user-name-highlight');
-    p.appendChild(nameSpan);
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = toUpperNoAccents(itemNameRaw);
+      if (isCurrentUser) nameSpan.classList.add('queue-user-name-highlight');
+      p.appendChild(nameSpan);
 
-    const spanRight = document.createElement('span');
-    spanRight.textContent = ` - ${item.songTitle}`;
-    p.appendChild(spanRight);
+      const spanRight = document.createElement('span');
+      spanRight.textContent = ` - ${item.songTitle}`;
+      p.appendChild(spanRight);
 
-    div.appendChild(p);
+      div.appendChild(p);
+    });
   });
-  }); // end smoothRefreshContainer
 
   updateQueueInfoRow('queue-info-row', data.queue.length);
 
@@ -1002,72 +1057,71 @@ async function loadManualQueue() {
   smoothRefreshContainer(div, () => {
     div.innerHTML = '';
 
-  data.queue.forEach((item, idx) => {
-    const p = document.createElement('p');
-    p.className = 'queue-item-line';
+    data.queue.forEach((item, idx) => {
+      const p = document.createElement('p');
+      p.className = 'queue-item-line';
 
-    if (idx === 0) {
-      p.classList.add('queue-item-is-current');
-    }
+      if (idx === 0) {
+        p.classList.add('queue-item-is-current');
+      }
 
-    const itemTable     = (item.tableNumber || '').trim().toLowerCase();
-    const itemNameRaw   = (item.userName || '').toString().trim();
-    const itemNameLower = removeAccents(itemNameRaw).toLowerCase();
+      const itemTable     = (item.tableNumber || '').trim().toLowerCase();
+      const itemNameRaw   = (item.userName || '').toString().trim();
+      const itemNameLower = removeAccents(itemNameRaw).toLowerCase();
 
-    const isCurrentUser =
-      currentName &&
-      currentTable &&
-      currentName === itemNameLower &&
-      currentTable === itemTable;
+      const isCurrentUser =
+        currentName &&
+        currentTable &&
+        currentName === itemNameLower &&
+        currentTable === itemTable;
 
-    // Recuadro de color (manual = naranja)
-    p.appendChild(createColorDot(getItemColor(item, 'manual')));
+      p.appendChild(createColorDot(getItemColor(item, 'manual')));
 
-    const spanIndex = document.createElement('span');
-    spanIndex.textContent = `${idx + 1}. `;
-    p.appendChild(spanIndex);
+      const spanIndex = document.createElement('span');
+      spanIndex.textContent = `${idx + 1}. `;
+      p.appendChild(spanIndex);
 
-    const mesaLabelSpan = document.createElement('span');
-    mesaLabelSpan.textContent = 'Mesa ';
-    if (isCurrentUser) mesaLabelSpan.classList.add('queue-user-name-highlight');
-    p.appendChild(mesaLabelSpan);
+      const mesaLabelSpan = document.createElement('span');
+      mesaLabelSpan.textContent = 'Mesa ';
+      if (isCurrentUser) mesaLabelSpan.classList.add('queue-user-name-highlight');
+      p.appendChild(mesaLabelSpan);
 
-    const tableSpan = document.createElement('span');
-    tableSpan.textContent = item.tableNumber;
-    if (isCurrentUser) tableSpan.classList.add('queue-user-name-highlight');
-    p.appendChild(tableSpan);
+      const tableSpan = document.createElement('span');
+      tableSpan.textContent = item.tableNumber;
+      if (isCurrentUser) tableSpan.classList.add('queue-user-name-highlight');
+      p.appendChild(tableSpan);
 
-    const sep1 = document.createElement('span');
-    sep1.textContent = ' - ';
-    p.appendChild(sep1);
+      const sep1 = document.createElement('span');
+      sep1.textContent = ' - ';
+      p.appendChild(sep1);
 
-    const nameSpan = document.createElement('span');
-    nameSpan.textContent = toUpperNoAccents(itemNameRaw);
-    if (isCurrentUser) nameSpan.classList.add('queue-user-name-highlight');
-    p.appendChild(nameSpan);
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = toUpperNoAccents(itemNameRaw);
+      if (isCurrentUser) nameSpan.classList.add('queue-user-name-highlight');
+      p.appendChild(nameSpan);
 
-    const sep2 = document.createElement('span');
-    sep2.textContent = ' - ';
-    p.appendChild(sep2);
+      const sep2 = document.createElement('span');
+      sep2.textContent = ' - ';
+      p.appendChild(sep2);
 
-    const songSpan = document.createElement('span');
+      const songSpan = document.createElement('span');
 
-    const titleText = toUpperNoAccents(
-      (item.manualSongTitle || item.songTitle || '').toString()
-    );
-    const artistText = toUpperNoAccents(
-      (item.manualSongArtist || item.songArtist || '').toString()
-    );
+      const titleText = toUpperNoAccents(
+        (item.manualSongTitle || item.songTitle || '').toString()
+      );
+      const artistText = toUpperNoAccents(
+        (item.manualSongArtist || item.songArtist || '').toString()
+      );
 
-    songSpan.textContent = artistText
-      ? `${titleText} _ ${artistText}`
-      : `${titleText}`;
+      songSpan.textContent = artistText
+        ? `${titleText} _ ${artistText}`
+        : `${titleText}`;
 
-    p.appendChild(songSpan);
+      p.appendChild(songSpan);
 
-    div.appendChild(p);
+      div.appendChild(p);
+    });
   });
-  }); // end smoothRefreshContainer
 
   updateQueueInfoRow('manual-queue-info-row', data.queue.length);
 }
@@ -1118,75 +1172,74 @@ async function loadMixedQueue() {
 
     container.innerHTML = '';
 
-  mixed.forEach((item, idx) => {
-    const row = document.createElement('p');
-    row.className = 'queue-item-line';
+    mixed.forEach((item, idx) => {
+      const row = document.createElement('p');
+      row.className = 'queue-item-line';
 
-    if (idx === 0) {
-      row.classList.add('queue-item-is-current');
-    }
+      if (idx === 0) {
+        row.classList.add('queue-item-is-current');
+      }
 
-    const itemTable   = (item.tableNumber || '').toString().trim().toLowerCase();
-    const itemNameRaw = (item.userName || '').toString().trim();
-    const itemNameNorm = removeAccents(itemNameRaw).toLowerCase();
+      const itemTable   = (item.tableNumber || '').toString().trim().toLowerCase();
+      const itemNameRaw = (item.userName || '').toString().trim();
+      const itemNameNorm = removeAccents(itemNameRaw).toLowerCase();
 
-    const isCurrentUser =
-      currentName &&
-      currentTable &&
-      currentName === itemNameNorm &&
-      currentTable === itemTable;
+      const isCurrentUser =
+        currentName &&
+        currentTable &&
+        currentName === itemNameNorm &&
+        currentTable === itemTable;
 
-    if (item.source === 'catalog') {
-      row.classList.add('mixed-from-catalog');
-    } else if (item.source === 'manual') {
-      row.classList.add('mixed-from-manual');
-    }
+      if (item.source === 'catalog') {
+        row.classList.add('mixed-from-catalog');
+      } else if (item.source === 'manual') {
+        row.classList.add('mixed-from-manual');
+      }
 
-    // Recuadro de color (respeta highlightColor o usa fuente como default)
-    row.appendChild(createColorDot(getItemColor(item, item.source || 'catalog')));
+      row.appendChild(createColorDot(getItemColor(item, item.source || 'catalog')));
 
-    const spanIndex = document.createElement('span');
-    spanIndex.textContent = `${idx + 1}. `;
-    row.appendChild(spanIndex);
+      const spanIndex = document.createElement('span');
+      spanIndex.textContent = `${idx + 1}. `;
+      row.appendChild(spanIndex);
 
-    const mesaLabelSpan = document.createElement('span');
-    mesaLabelSpan.textContent = 'Mesa ';
-    if (isCurrentUser) mesaLabelSpan.classList.add('queue-user-name-highlight');
-    row.appendChild(mesaLabelSpan);
+      const mesaLabelSpan = document.createElement('span');
+      mesaLabelSpan.textContent = 'Mesa ';
+      if (isCurrentUser) mesaLabelSpan.classList.add('queue-user-name-highlight');
+      row.appendChild(mesaLabelSpan);
 
-    const tableSpan = document.createElement('span');
-    tableSpan.textContent = item.tableNumber;
-    if (isCurrentUser) tableSpan.classList.add('queue-user-name-highlight');
-    row.appendChild(tableSpan);
+      const tableSpan = document.createElement('span');
+      tableSpan.textContent = item.tableNumber;
+      if (isCurrentUser) tableSpan.classList.add('queue-user-name-highlight');
+      row.appendChild(tableSpan);
 
-    const sep1 = document.createElement('span');
-    sep1.textContent = ' - ';
-    row.appendChild(sep1);
+      const sep1 = document.createElement('span');
+      sep1.textContent = ' - ';
+      row.appendChild(sep1);
 
-    const nameSpan = document.createElement('span');
-    nameSpan.textContent = toUpperNoAccents(itemNameRaw);
-    if (isCurrentUser) nameSpan.classList.add('queue-user-name-highlight');
-    row.appendChild(nameSpan);
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = toUpperNoAccents(itemNameRaw);
+      if (isCurrentUser) nameSpan.classList.add('queue-user-name-highlight');
+      row.appendChild(nameSpan);
 
-    const sep2 = document.createElement('span');
-    sep2.textContent = ' - ';
-    row.appendChild(sep2);
+      const sep2 = document.createElement('span');
+      sep2.textContent = ' - ';
+      row.appendChild(sep2);
 
-    const songSpan = document.createElement('span');
-    const titleText  = toUpperNoAccents(
-      (item.displaySongTitle || item.songTitle || '').toString()
-    );
-    const artistText = toUpperNoAccents(
-      (item.displaySongArtist || item.artist || '').toString()
-    );
-    songSpan.textContent = artistText
-      ? `${titleText} _ ${artistText}`
-      : `${titleText}`;
-    row.appendChild(songSpan);
+      const songSpan = document.createElement('span');
+      const titleText  = toUpperNoAccents(
+        (item.displaySongTitle || item.songTitle || '').toString()
+      );
+      const artistText = toUpperNoAccents(
+        (item.displaySongArtist || item.artist || '').toString()
+      );
+      songSpan.textContent = artistText
+        ? `${titleText} _ ${artistText}`
+        : `${titleText}`;
+      row.appendChild(songSpan);
 
-    container.appendChild(row);
+      container.appendChild(row);
+    });
   });
-  }); // end smoothRefreshContainer
 
   updateQueueInfoRow('mixed-queue-info-row', mixed.length);
 
@@ -1670,7 +1723,7 @@ function applyUserFeatures(features) {
     }
   }
 
-  // Registro manual (formulario)
+  // Registro manual
   if (!manualRegisterEnabled) {
     if (manualCard) manualCard.style.display = 'none';
     if (btnToggleManualCard) {
@@ -1680,7 +1733,6 @@ function applyUserFeatures(features) {
     manualCardHidden = true;
   } else {
     if (manualCard && loggedUser) {
-      // Siempre abierto si el feature está activo
       manualCard.style.display = 'block';
     }
     if (btnToggleManualCard) {
