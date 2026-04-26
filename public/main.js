@@ -273,6 +273,21 @@ async function loadTablesForUser() {
 document.addEventListener('DOMContentLoaded', () => {
   loadPublicInfo();
   loadTablesForUser();
+
+  // Desplazar el botón de login hacia arriba cuando se abre el teclado
+  ['name', 'table-select', 'table', 'pass'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('focus', () => {
+        setTimeout(() => {
+          const btn = document.getElementById('btn-login');
+          if (btn) {
+            btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 350); // Dar tiempo al teclado virtual para abrirse
+      });
+    }
+  });
 });
 
 // Refresco en vivo de mesas permitidas (select de usuario)
