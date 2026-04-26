@@ -1300,6 +1300,13 @@ app.get('/api/manual-queue', (req, res) => {
 });
 
 app.post('/api/manual-queue', (req, res) => {
+  if (!adminConfig.isQueueOpen) {
+    return res.status(403).json({
+      ok: false,
+      message: 'El horario para ingresar canciones ha concluido'
+    });
+  }
+
   const {
     userName,
     tableNumber,
