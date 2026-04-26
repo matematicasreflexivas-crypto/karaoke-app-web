@@ -189,6 +189,9 @@ document.getElementById('btn-login').onclick = async () => {
     toggleLoginBtn.textContent = 'Mostrar datos de registro';
   }
 
+  const btnLogoutEl = document.getElementById('btn-logout');
+  if (btnLogoutEl) btnLogoutEl.style.display = 'block';
+
   if (searchCard) searchCard.style.display = 'block';
   if (btnToggleSearchCard) {
     btnToggleSearchCard.style.display = 'block';
@@ -245,6 +248,58 @@ document.getElementById('btn-login').onclick = async () => {
 
   startAutoRefreshQueues(window.__lastUserFeatures || {});
 };
+
+// ================== CERRAR SESIÓN ==================
+
+const btnLogout = document.getElementById('btn-logout');
+if (btnLogout) {
+  btnLogout.onclick = () => {
+    if (!confirm('¿Cerrar sesión?')) return;
+
+    // Detener todos los intervalos de refresco
+    if (queueInterval)       { clearInterval(queueInterval);       queueInterval       = null; }
+    if (manualQueueInterval) { clearInterval(manualQueueInterval); manualQueueInterval = null; }
+    if (mixedQueueInterval)  { clearInterval(mixedQueueInterval);  mixedQueueInterval  = null; }
+
+    // Limpiar estado de sesión
+    loggedUser                    = null;
+    window.currentUserName        = null;
+    window.currentUserTable       = null;
+    window.currentSingerName      = null;
+    window.__lastUserFeatures     = null;
+    window.__extraManualSingerName = null;
+    hasSuggestedWhileInQueue      = false;
+
+    // Limpiar contenidos de las colas
+    const queueDiv     = document.getElementById('queue');
+    const manualDiv    = document.getElementById('manual-queue');
+    const mixedDiv     = document.getElementById('mixed-queue-list');
+    const songsDiv     = document.getElementById('songs');
+    if (queueDiv)  queueDiv.innerHTML  = '';
+    if (manualDiv) manualDiv.innerHTML = '';
+    if (mixedDiv)  mixedDiv.innerHTML  = '';
+    if (songsDiv)  songsDiv.innerHTML  = '';
+
+    // Restablecer campos del formulario de login
+    const nameInput  = document.getElementById('name');
+    const tableInput = document.getElementById('table');
+    const passInput  = document.getElementById('pass');
+    if (nameInput)  nameInput.value  = '';
+    if (tableInput) tableInput.value = '';
+    if (passInput)  passInput.value  = '';
+
+    // Mostrar login, ocultar contenido de usuario
+    const loginCard   = document.getElementById('login-card');
+    const userContent = document.getElementById('user-content');
+    if (loginCard)   loginCard.style.display   = 'block';
+    if (userContent) userContent.style.display = 'none';
+
+    // Ocultar el botón de toggle de login y el propio botón de logout
+    const toggleLoginBtn = document.getElementById('btn-toggle-login-card');
+    if (toggleLoginBtn) toggleLoginBtn.style.display = 'none';
+    if (btnLogout) btnLogout.style.display = 'none';
+  };
+}
 
 // ================== TOGGLE DE FICHA DE REGISTRO ==================
 
