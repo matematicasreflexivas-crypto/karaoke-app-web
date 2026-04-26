@@ -137,6 +137,7 @@ let adminConfig = {
   adminPassword: '1234',
   userPassword: '1234',
   qrImageFile: 'qr-dia.png',
+  logoImageFile: '',
   appTitle: 'Karaoke',
   isQueueOpen: true,
   userFeatures: {
@@ -161,6 +162,7 @@ try {
   adminConfig.adminPassword = parsed.adminPassword || '1234';
   adminConfig.userPassword  = parsed.userPassword  || '1234';
   adminConfig.qrImageFile   = parsed.qrImageFile   || 'qr-dia.png';
+  adminConfig.logoImageFile = parsed.logoImageFile || '';
   adminConfig.appTitle      = parsed.appTitle      || 'Karaoke';
   adminConfig.isQueueOpen =
     typeof parsed.isQueueOpen === 'boolean' ? parsed.isQueueOpen : true;
@@ -217,6 +219,7 @@ app.get('/api/public-info', (req, res) => {
     ok: true,
     userPassword: adminConfig.userPassword,
     qrImageFile: adminConfig.qrImageFile || null,
+    logoImageFile: adminConfig.logoImageFile || null,
     appTitle: adminConfig.appTitle || 'Karaoke',
     isQueueOpen: adminConfig.isQueueOpen,
     userFeatures: {
@@ -291,6 +294,37 @@ app.post('/api/admin/upload-qr', uploadQr.single('qr'), (req, res) => {
     return res
       .status(500)
       .json({ ok: false, message: 'Error actualizando el QR' });
+  }
+});
+
+// ===== subida directa de imagen de LOGO =====
+const logoFolder = path.join(__dirname, 'public', 'logo');
+if (!fs.existsSync(logoFolder)) {
+  fs.mkdirSync(logoFolder, { recursive: true });
+}
+
+const logoStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, logoFolder);
+  },
+  filename: (req, file, cb) => {
+    cb(null, 'logo.png');
+  }
+});
+
+const uploadLogo = multer({ storage: logoStorage });
+
+app.post('/api/admin/upload-logo', uploadLogo.single('logo'), (req, res) => {
+  try {
+    adminConfig.logoImageFile = 'logo.png';
+    saveAdminConfig();
+
+    return res.json({ ok: true, message: 'Logo actualizado correctamente' });
+  } catch (e) {
+    console.error('Error actualizando Logo', e);
+    return res
+      .status(500)
+      .json({ ok: false, message: 'Error actualizando el Logo' });
   }
 });
 

@@ -784,6 +784,41 @@
         </div>
       </div>
 
+      <!-- Actualizar Logo de pantalla pública y usuario -->
+      <div class="card">
+        <h2>Actualizar Logo de la aplicación</h2>
+        <form id="form-upload-logo" class="form-group">
+          <div class="file-input-wrapper">
+            <label for="logo-file">Imagen del Logo (.png, .jpg, etc.)</label>
+            <input
+              type="file"
+              id="logo-file"
+              name="logo"
+              accept="image/*"
+            />
+            <p class="hint">
+              Esta imagen se mostrará en la parte superior de la pantalla del usuario y en el pie de la pantalla pública.
+            </p>
+          </div>
+
+          <button type="submit" class="btn-secondary">Subir / Actualizar Logo</button>
+        </form>
+
+        <h3 style="margin-top:12px;">Logo actual</h3>
+        <div style="margin-top:8px;">
+          <img
+            id="current-logo-image"
+            src="/logo/logo.png"
+            alt="Logo actual"
+            style="max-height:80px; max-width:200px; object-fit:contain; border-radius:8px; border:1px solid #4b5563;"
+            onerror="this.style.display='none';"
+          />
+          <p class="hint">
+            Si no se muestra imagen, aún no se ha subido ningún logo o hubo un problema de carga.
+          </p>
+        </div>
+      </div>
+
       <!-- Tiempo estimado por turno -->
       <div class="card">
         <h2>Tiempo estimado por turno</h2>

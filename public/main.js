@@ -175,6 +175,17 @@ async function loadPublicInfo() {
     const h1 = document.querySelector('h1');
     if (h1) h1.textContent = title;
 
+    const logoContainer = document.getElementById('user-logo-container');
+    const logoImg = document.getElementById('user-logo-img');
+    if (logoContainer && logoImg) {
+      if (data.logoImageFile) {
+        logoImg.src = `/logo/${data.logoImageFile}?t=` + Date.now();
+        logoContainer.style.display = 'block';
+      } else {
+        logoContainer.style.display = 'none';
+      }
+    }
+
     if (
       typeof data.manualMaxSongsPerTable === 'number' &&
       data.manualMaxSongsPerTable > 0

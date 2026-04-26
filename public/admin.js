@@ -2447,4 +2447,43 @@ document.addEventListener('DOMContentLoaded', () => {
   setupHistoryButtons();
   setupSuggestionsSection();
   setupPublicQueueDisplayButton();
+
+  const logoForm = document.getElementById('form-upload-logo');
+  if (logoForm) {
+    logoForm.onsubmit = async (e) => {
+      e.preventDefault();
+      if (!adminLogged) {
+        alert('Primero inicia sesión como admin');
+        return;
+      }
+      const fileInput = document.getElementById('logo-file');
+      if (!fileInput.files.length) {
+        alert('Selecciona una imagen para el logo');
+        return;
+      }
+      const formData = new FormData();
+      formData.append('logo', fileInput.files[0]);
+
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/upload-logo`, {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          alert(data.message || 'Error al subir el Logo');
+          return;
+        }
+        alert('Logo actualizado correctamente.');
+        const img = document.getElementById('current-logo-image');
+        if (img) {
+          img.src = '/logo/logo.png?t=' + Date.now();
+          img.style.display = 'block';
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Error al subir el logo');
+      }
+    };
+  }
 });

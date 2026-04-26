@@ -41,6 +41,7 @@ async function fetchPublicInfo() {
     return {
       userPassword: data.userPassword || '',
       appTitle: data.appTitle || 'Karaoke',
+      logoImageFile: data.logoImageFile || '',
       qrImageFile: data.qrImageFile || 'qr.png',
       publicQueueDisplay: data.publicQueueDisplay || 'catalog',
       publicMessage: data.publicMessage || '',
@@ -182,6 +183,18 @@ function renderPublicInfo(info) {
   // título dinámico (nombre del bar)
   headerTitle.textContent = `TURNOS ${info.appTitle}`;
   document.title = `Pantalla ${info.appTitle}`;
+
+  // logo
+  const logoContainer = document.getElementById('public-logo-container');
+  const logoImg = document.getElementById('public-logo-img');
+  if (logoContainer && logoImg) {
+    if (info.logoImageFile) {
+      logoImg.src = `/logo/${info.logoImageFile}?ts=${Date.now()}`;
+      logoContainer.style.display = 'flex';
+    } else {
+      logoContainer.style.display = 'none';
+    }
+  }
 
   // mensaje al público
   if (msgBar && msgText) {

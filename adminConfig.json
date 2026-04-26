@@ -3,13 +3,13 @@
   "userPassword": "usuario",
   "qrImageFile": "qr.png",
   "appTitle": "AQUÍ TODOS CANTAN",
-  "isQueueOpen": true,
+  "isQueueOpen": false,
   "userFeatures": {
     "search": true,
     "queue": true,
     "suggestion": false,
     "manualQueue": false,
-    "manualRegister": false,
+    "manualRegister": true,
     "mixedQueue": false
   },
   "manualMaxSongsPerTable": 1000,
