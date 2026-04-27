@@ -1573,7 +1573,7 @@ async function loadTablesAdmin() {
     const span = document.createElement('span');
     const maxSongs = t.maxSongs != null ? t.maxSongs : 1;
     const maxSongsPerUser = t.maxSongsPerUser != null ? t.maxSongsPerUser : 1;
-    span.textContent = `Mesa: ${t.tableNumber} (máx: ${maxSongs} mesa, ${maxSongsPerUser} persona)`;
+    span.innerHTML = `Mesa: <span style="background-color: white; color: black; padding: 2px 6px; border-radius: 4px; font-weight: bold; margin-right: 4px;">${t.tableNumber}</span> (máx: ${maxSongs} mesa, ${maxSongsPerUser} persona)`;
     row.appendChild(span);
 
     const inputMax = document.createElement('input');
@@ -1585,8 +1585,17 @@ async function loadTablesAdmin() {
     inputMax.style.marginLeft = '8px';
     row.appendChild(inputMax);
 
+    const inputMaxUser = document.createElement('input');
+    inputMaxUser.type  = 'number';
+    inputMaxUser.min   = '1';
+    inputMaxUser.step  = '1';
+    inputMaxUser.value = maxSongsPerUser;
+    inputMaxUser.style.width      = '70px';
+    inputMaxUser.style.marginLeft = '8px';
+    row.appendChild(inputMaxUser);
+
     const btnSaveMax = document.createElement('button');
-    btnSaveMax.textContent = 'Guardar límite';
+    btnSaveMax.textContent = 'Guardar límites';
     btnSaveMax.className   = 'btn-secondary btn-queue-admin';
     btnSaveMax.style.marginLeft = '6px';
     btnSaveMax.onclick = async () => {
@@ -1599,22 +1608,27 @@ async function loadTablesAdmin() {
         alert('El número mínimo de canciones por mesa es 1');
         return;
       }
+      const valUser = parseInt(inputMaxUser.value, 10);
+      if (Number.isNaN(valUser) || valUser < 1) {
+        alert('El número mínimo de canciones por persona es 1');
+        return;
+      }
       try {
         const resPut = await fetch(`${API_BASE}/api/tables/${t.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ maxSongs: val })
+          body: JSON.stringify({ maxSongs: val, maxSongsPerUser: valUser })
         });
         const dataPut = await resPut.json();
         if (!resPut.ok || !dataPut.ok) {
           alert(dataPut.message || 'No se pudo actualizar el límite de canciones');
           return;
         }
-        alert('Límite actualizado para la mesa ' + t.tableNumber);
+        alert('Límites actualizados para la mesa ' + t.tableNumber);
         loadTablesAdmin();
       } catch (e) {
         console.error(e);
-        alert('No se pudo conectar para actualizar el límite');
+        alert('No se pudo conectar para actualizar los límites');
       }
     };
     row.appendChild(btnSaveMax);

@@ -239,18 +239,42 @@ async function loadTablesForUser() {
     }
     __lastTablesSerialized = serialized;
 
+    const trigger = document.getElementById('custom-table-select-trigger');
+    const optionsContainer = document.getElementById('custom-table-options');
+
     const prevValue = select.value;
 
     select.innerHTML = '<option value="">Selecciona tu mesa</option>';
+    if (optionsContainer) optionsContainer.innerHTML = '';
 
     if (!tables.length) {
       if (hint) hint.style.display = 'block';
       select.disabled = true;
+      if (trigger) {
+        trigger.textContent = 'No hay mesas';
+        trigger.style.opacity = '0.5';
+        trigger.style.pointerEvents = 'none';
+      }
       return;
     }
 
     if (hint) hint.style.display = 'none';
     select.disabled = false;
+    if (trigger) {
+      trigger.style.opacity = '1';
+      trigger.style.pointerEvents = 'auto';
+    }
+
+    const defOptDiv = document.createElement('div');
+    defOptDiv.className = 'custom-option';
+    defOptDiv.textContent = 'Selecciona tu mesa';
+    defOptDiv.onclick = (e) => {
+      e.stopPropagation();
+      select.value = "";
+      if (trigger) trigger.innerHTML = 'Selecciona tu mesa';
+      document.getElementById('custom-table-select-wrapper').classList.remove('open');
+    };
+    if (optionsContainer) optionsContainer.appendChild(defOptDiv);
 
     tables.forEach(t => {
       const opt = document.createElement('option');
@@ -258,10 +282,28 @@ async function loadTablesForUser() {
       opt.value = String(t.tableNumber);
       opt.textContent = `Mesa ${t.tableNumber} (máx: ${max} canciones)`;
       select.appendChild(opt);
+
+      const optDiv = document.createElement('div');
+      optDiv.className = 'custom-option';
+      optDiv.innerHTML = `Mesa <span class="table-name-highlight">${t.tableNumber}</span> (máx: ${max} canciones)`;
+      optDiv.onclick = (e) => {
+        e.stopPropagation();
+        select.value = String(t.tableNumber);
+        if (trigger) trigger.innerHTML = optDiv.innerHTML;
+        document.getElementById('custom-table-select-wrapper').classList.remove('open');
+      };
+      if (optionsContainer) optionsContainer.appendChild(optDiv);
     });
 
     if (prevValue && [...select.options].some(o => o.value === prevValue)) {
       select.value = prevValue;
+      const matchingTable = tables.find(t => String(t.tableNumber) === prevValue);
+      if (matchingTable && trigger) {
+        const max = matchingTable.maxSongs != null ? matchingTable.maxSongs : 1;
+        trigger.innerHTML = `Mesa <span class="table-name-highlight">${matchingTable.tableNumber}</span> (máx: ${max} canciones)`;
+      }
+    } else {
+      if (trigger) trigger.innerHTML = 'Selecciona tu mesa';
     }
   } catch (e) {
     console.error('No se pudo conectar para cargar mesas', e);
@@ -274,8 +316,22 @@ document.addEventListener('DOMContentLoaded', () => {
   loadPublicInfo();
   loadTablesForUser();
 
+  const customSelectWrapper = document.getElementById('custom-table-select-wrapper');
+  const customSelectTrigger = document.getElementById('custom-table-select-trigger');
+  if (customSelectTrigger && customSelectWrapper) {
+    customSelectTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      customSelectWrapper.classList.toggle('open');
+    });
+    document.addEventListener('click', (e) => {
+      if (!customSelectWrapper.contains(e.target)) {
+        customSelectWrapper.classList.remove('open');
+      }
+    });
+  }
+
   // Desplazar el botón de login hacia arriba cuando se abre el teclado
-  ['name', 'table-select', 'table', 'pass'].forEach(id => {
+  ['name', 'table-select', 'custom-table-select-trigger', 'table', 'pass'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener('focus', () => {
@@ -742,10 +798,14 @@ function doLogout() {
   const tableInput  = document.getElementById('table');
   const passInput   = document.getElementById('pass');
   const tableSelect = document.getElementById('table-select');
+  const customSelectTrigger = document.getElementById('custom-table-select-trigger');
   if (nameInput) nameInput.value = '';
   if (tableInput) tableInput.value = '';
   if (passInput) passInput.value = '';
-  if (tableSelect) tableSelect.value = '';
+  if (tableSelect) {
+    tableSelect.value = '';
+    if (customSelectTrigger) customSelectTrigger.innerHTML = 'Selecciona tu mesa';
+  }
 
   const songsDiv = document.getElementById('songs');
   if (songsDiv) songsDiv.innerHTML = '';
@@ -1534,7 +1594,7 @@ async function preguntarOtraPersonaParaMesa(maxSongs) {
     if (nameExists) {
       alert(
         `En la mesa ${loggedUser.table}, la persona "${newName}" ya tiene canción (es) registrada(s). ` +
-          'Si no ha rebasado su límite permitido podrá seguir registrando .'
+          'Si no ha rebasado su límite permitido puede seguir registrando .'
       );
       return;
     }
@@ -1620,7 +1680,7 @@ async function preguntarOtraPersonaParaMesaManual(maxSongs) {
     if (nameExists) {
       alert(
         `En la mesa ${loggedUser.table}, la persona "${newName}" ya tiene canción (es) registrada(s). ` +
-          'Si no ha rebasado su límite permitido podrá seguir registrando .'
+          'Si no ha rebasado su límite permitido puede seguir registrando .'
       );
       return;
     }

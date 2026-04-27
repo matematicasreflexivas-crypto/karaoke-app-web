@@ -335,9 +335,24 @@ function readTablesFromDb() {
   const stmt = db.prepare(`
     SELECT id, tableNumber, maxSongs, maxSongsPerUser
     FROM tables
-    ORDER BY id ASC
   `);
-  return stmt.all();
+  let tables = stmt.all();
+
+  tables.sort((a, b) => {
+    const numA = parseInt(a.tableNumber, 10);
+    const numB = parseInt(b.tableNumber, 10);
+    
+    const isNumA = !isNaN(numA) && numA.toString() === a.tableNumber.trim();
+    const isNumB = !isNaN(numB) && numB.toString() === b.tableNumber.trim();
+
+    if (isNumA && isNumB) return numA - numB;
+    if (isNumA && !isNumB) return -1;
+    if (!isNumA && isNumB) return 1;
+    
+    return a.tableNumber.localeCompare(b.tableNumber);
+  });
+
+  return tables;
 }
 
 function insertTable(tableNumber, maxSongs, maxSongsPerUser) {
@@ -349,13 +364,13 @@ function insertTable(tableNumber, maxSongs, maxSongsPerUser) {
   return info.lastInsertRowid;
 }
 
-function updateTableMaxSongs(id, maxSongs) {
+function updateTableLimits(id, maxSongs, maxSongsPerUser) {
   const stmt = db.prepare(`
     UPDATE tables
-    SET maxSongs = ?
+    SET maxSongs = ?, maxSongsPerUser = ?
     WHERE id = ?
   `);
-  return stmt.run(maxSongs, id);
+  return stmt.run(maxSongs, maxSongsPerUser, id);
 }
 
 function deleteTable(id) {
@@ -413,15 +428,15 @@ app.post('/api/tables', (req, res) => {
   res.json({ ok: true, id });
 });
 
-// actualizar solo el maxSongs de una mesa
+// actualizar maxSongs y maxSongsPerUser de una mesa
 app.put('/api/tables/:id', (req, res) => {
   const id = Number(req.params.id);
-  const { maxSongs } = req.body;
+  const { maxSongs, maxSongsPerUser } = req.body;
 
-  if (!maxSongs && maxSongs !== 0) {
+  if (maxSongs == null && maxSongsPerUser == null) {
     return res
       .status(400)
-      .json({ ok: false, message: 'Falta maxSongs' });
+      .json({ ok: false, message: 'Faltan límites' });
   }
 
   let maxSongsInt = parseInt(maxSongs, 10);
@@ -429,7 +444,12 @@ app.put('/api/tables/:id', (req, res) => {
     maxSongsInt = 1;
   }
 
-  updateTableMaxSongs(id, maxSongsInt);
+  let maxSongsPerUserInt = parseInt(maxSongsPerUser, 10);
+  if (Number.isNaN(maxSongsPerUserInt) || maxSongsPerUserInt < 1) {
+    maxSongsPerUserInt = 1;
+  }
+
+  updateTableLimits(id, maxSongsInt, maxSongsPerUserInt);
   res.json({ ok: true });
 });
 
