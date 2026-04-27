@@ -10,7 +10,7 @@
     "queue": false,
     "suggestion": false,
     "manualQueue": false,
-    "manualRegister": true,
+    "manualRegister": false,
     "mixedQueue": true
   },
   "manualMaxSongsPerTable": 1000,

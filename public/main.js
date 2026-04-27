@@ -673,11 +673,11 @@ if (btnToggleMixedQueueCard2) {
     if (visible) {
       mixedQueueCard.style.display = 'none';
       mixedQueueCardHidden = true;
-      btnToggleMixedQueueCard2.textContent = 'Mostrar cola de participantes (catálogo + manual)';
+      btnToggleMixedQueueCard2.textContent = 'Mostrar cola de participantes';
     } else {
       mixedQueueCard.style.display = 'block';
       mixedQueueCardHidden = false;
-      btnToggleMixedQueueCard2.textContent = 'Ocultar cola de participantes (catálogo + manual)';
+      btnToggleMixedQueueCard2.textContent = 'Ocultar cola de participantes';
     }
   };
 }
