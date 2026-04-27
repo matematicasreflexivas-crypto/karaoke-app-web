@@ -2,20 +2,21 @@
   "adminPassword": "1234",
   "userPassword": "usuario",
   "qrImageFile": "qr.png",
+  "logoImageFile": "logo.png",
   "appTitle": "AQUÍ TODOS CANTAN",
-  "isQueueOpen": false,
+  "isQueueOpen": true,
   "userFeatures": {
     "search": true,
-    "queue": true,
+    "queue": false,
     "suggestion": false,
     "manualQueue": false,
     "manualRegister": true,
-    "mixedQueue": false
+    "mixedQueue": true
   },
   "manualMaxSongsPerTable": 1000,
   "publicQueueMode": "catalog",
   "publicQueueDisplay": "mixed",
   "minutesPerTurn": 5,
   "publicMessage": "Cantar es increíble!!!",
-  "showColorDots": true
+  "showColorDots": false
 }

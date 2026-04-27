@@ -1533,8 +1533,8 @@ async function preguntarOtraPersonaParaMesa(maxSongs) {
     );
     if (nameExists) {
       alert(
-        `En la mesa ${loggedUser.table}, la persona "${newName}" ya tiene una canción registrada. ` +
-          'Debe ser otra persona distinta de esa mesa.'
+        `En la mesa ${loggedUser.table}, la persona "${newName}" ya tiene canción (es) registrada(s). ` +
+          'Si no ha rebasado su límite permitido podrá seguir registrando .'
       );
       return;
     }
@@ -1619,8 +1619,8 @@ async function preguntarOtraPersonaParaMesaManual(maxSongs) {
     );
     if (nameExists) {
       alert(
-        `En la mesa ${loggedUser.table}, la persona "${newName}" ya tiene una canción registrada. ` +
-          'Debe ser otra persona distinta de esa mesa.'
+        `En la mesa ${loggedUser.table}, la persona "${newName}" ya tiene canción (es) registrada(s). ` +
+          'Si no ha rebasado su límite permitido podrá seguir registrando .'
       );
       return;
     }
@@ -1806,8 +1806,8 @@ function applyUserFeatures(features) {
       btnToggleMixedQueueCard.dataset.disabled = 'false';
       btnToggleMixedQueueCard.style.display = loggedUser ? 'block' : 'none';
       btnToggleMixedQueueCard.textContent = mixedQueueCardHidden
-        ? 'Mostrar cola de participantes (catálogo + manual)'
-        : 'Ocultar cola de participantes (catálogo + manual)';
+        ? 'Mostrar cola de participantes '
+        : 'Ocultar cola de participantes ';
     }
   }
 

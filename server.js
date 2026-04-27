@@ -26,7 +26,8 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS tables (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     tableNumber TEXT NOT NULL UNIQUE,
-    maxSongs INTEGER DEFAULT 1
+    maxSongs INTEGER DEFAULT 1,
+    maxSongsPerUser INTEGER DEFAULT 1
   );
 `);
 
@@ -79,6 +80,7 @@ db.exec(`
 // Migraciones: agregar columna highlightColor si no existe
 try { db.exec(`ALTER TABLE queue ADD COLUMN highlightColor TEXT`); } catch (e) { /* ya existe */ }
 try { db.exec(`ALTER TABLE manual_queue ADD COLUMN highlightColor TEXT`); } catch (e) { /* ya existe */ }
+try { db.exec(`ALTER TABLE tables ADD COLUMN maxSongsPerUser INTEGER DEFAULT 1`); } catch (e) { /* ya existe */ }
 
 // Migraciones: agregar columnas de posición en las 3 colas
 try { db.exec(`ALTER TABLE history ADD COLUMN catalogPosition INTEGER`); } catch (e) { /* ya existe */ }
@@ -331,19 +333,19 @@ app.post('/api/admin/upload-logo', uploadLogo.single('logo'), (req, res) => {
 // ========== MESAS (SQLite) ==========
 function readTablesFromDb() {
   const stmt = db.prepare(`
-    SELECT id, tableNumber, maxSongs
+    SELECT id, tableNumber, maxSongs, maxSongsPerUser
     FROM tables
     ORDER BY id ASC
   `);
   return stmt.all();
 }
 
-function insertTable(tableNumber, maxSongs) {
+function insertTable(tableNumber, maxSongs, maxSongsPerUser) {
   const stmt = db.prepare(`
-    INSERT INTO tables (tableNumber, maxSongs)
-    VALUES (?, ?)
+    INSERT INTO tables (tableNumber, maxSongs, maxSongsPerUser)
+    VALUES (?, ?, ?)
   `);
-  const info = stmt.run(tableNumber, maxSongs);
+  const info = stmt.run(tableNumber, maxSongs, maxSongsPerUser);
   return info.lastInsertRowid;
 }
 
@@ -375,7 +377,7 @@ app.get('/api/tables', (req, res) => {
 });
 
 app.post('/api/tables', (req, res) => {
-  const { tableNumber, maxSongs } = req.body;
+  const { tableNumber, maxSongs, maxSongsPerUser } = req.body;
   if (!tableNumber) {
     return res
       .status(400)
@@ -402,7 +404,12 @@ app.post('/api/tables', (req, res) => {
     maxSongsInt = 1;
   }
 
-  const id = insertTable(mesaOriginal, maxSongsInt);
+  let maxSongsPerUserInt = parseInt(maxSongsPerUser, 10);
+  if (Number.isNaN(maxSongsPerUserInt) || maxSongsPerUserInt < 1) {
+    maxSongsPerUserInt = 1;
+  }
+
+  const id = insertTable(mesaOriginal, maxSongsInt, maxSongsPerUserInt);
   res.json({ ok: true, id });
 });
 
@@ -798,7 +805,7 @@ app.post('/api/user/login', (req, res) => {
   if (!isTableAllowed(table)) {
     return res.status(400).json({
       ok: false,
-      message: `La mesa ${table} no está registrada. Pide al administrador que la dé de alta.`
+      message: `La mesa ${table} no está registrada.`
     });
   }
 
@@ -1095,26 +1102,24 @@ function getTotalActiveForTable(tableNumber) {
   return q1.length + q2.length;
 }
 
-// verificar si un userName ya existe en cualquiera de las dos colas para esa mesa
-function userExistsInAnyQueue(tableNumber, userName) {
+// Obtener cantidad de veces que un userName está en las colas para esa mesa
+function getUserActiveSongsCount(tableNumber, userName) {
   const mesaNorm = normalizeText(String(tableNumber).trim());
   const nameNorm = normalizeText(String(userName).trim());
 
-  const q1 = readQueueFromDb().some(
+  const q1 = readQueueFromDb().filter(
     item =>
       normalizeText(String(item.tableNumber).trim()) === mesaNorm &&
       normalizeText(String(item.userName).trim()) === nameNorm
   );
 
-  if (q1) return true;
-
-  const q2 = readManualQueueFromDb().some(
+  const q2 = readManualQueueFromDb().filter(
     item =>
       normalizeText(String(item.tableNumber).trim()) === mesaNorm &&
       normalizeText(String(item.userName).trim()) === nameNorm
   );
 
-  return q2;
+  return q1.length + q2.length;
 }
 
 // ====== ENDPOINTS DELETE PARA COLA CATÁLOGO ======
@@ -1250,7 +1255,7 @@ app.post('/api/queue', (req, res) => {
   if (!isTableAllowed(tableNumber)) {
     return res.status(400).json({
       ok: false,
-      message: `La mesa ${tableNumber} no está registrada. Pide al administrador que la dé de alta.`
+      message: `La mesa ${tableNumber} no está registrada.`
     });
   }
 
@@ -1259,6 +1264,7 @@ app.post('/api/queue', (req, res) => {
 
   const mesaConfig = getTableConfig(mesaStr);
   const maxSongs = mesaConfig && mesaConfig.maxSongs ? mesaConfig.maxSongs : 1;
+  const maxSongsPerUser = mesaConfig && mesaConfig.maxSongsPerUser ? mesaConfig.maxSongsPerUser : 1;
 
   // total combinado catálogo + manual (antes de insertar)
   const totalForTable = getTotalActiveForTable(mesaStr);
@@ -1269,17 +1275,24 @@ app.post('/api/queue', (req, res) => {
       message:
         `Tu mesa (${mesaStr}) ya tiene ${maxSongs} participante(s) registrados (sumando registro por selección y registro manual).\n\n` +
         'Primero deben cantar todas las personas de tu mesa que ya están en la cola ' +
-        'y el administrador debe eliminarlas de la lista antes de poder registrar nuevas canciones.'
+        ''
     });
   }
 
-  // unicidad de persona por mesa en ambas colas
-  if (userExistsInAnyQueue(mesaStr, userNameStr)) {
+  // límite de persona por mesa
+  const userSongsCount = getUserActiveSongsCount(mesaStr, userNameStr);
+  if (userSongsCount >= maxSongsPerUser) {
+    const remainingTableSongs = maxSongs - totalForTable;
+    let extraMsg = '';
+    if (remainingTableSongs > 0) {
+      extraMsg = ` Sin embargo, todavía hay espacio para que otras ${remainingTableSongs} persona(s) de la mesa registren canciones.`;
+    }
+    
     return res.status(400).json({
       ok: false,
       message:
-        `En la mesa ${mesaStr}, la persona "${userNameStr}" ya tiene una canción registrada ` +
-        'Debe ser otra persona distinta de esa mesa.'
+        `En la mesa ${mesaStr},  ("${userNameStr}") ya ha alcanzado el límite personal de ${maxSongsPerUser} canción(es) en cola.` +
+        extraMsg
     });
   }
 
@@ -1356,7 +1369,7 @@ app.post('/api/manual-queue', (req, res) => {
   if (!isTableAllowed(tableNumber)) {
     return res.status(400).json({
       ok: false,
-      message: `La mesa ${tableNumber} no está registrada. Pide al administrador que la dé de alta.`
+      message: `La mesa ${tableNumber} no está registrada.`
     });
   }
 
@@ -1366,6 +1379,7 @@ app.post('/api/manual-queue', (req, res) => {
 
   const mesaConfig = getTableConfig(mesaStr);
   const maxSongs = mesaConfig && mesaConfig.maxSongs ? mesaConfig.maxSongs : 1;
+  const maxSongsPerUser = mesaConfig && mesaConfig.maxSongsPerUser ? mesaConfig.maxSongsPerUser : 1;
 
   // total combinado catálogo + manual (antes de insertar)
   const totalForTable = getTotalActiveForTable(mesaStr);
@@ -1376,17 +1390,24 @@ app.post('/api/manual-queue', (req, res) => {
       message:
         `Tu mesa (${mesaStr}) ya tiene ${maxSongs} participante(s) registrados (sumando registro por selección y registro manual).\n\n` +
         'Primero deben cantar todas las personas de tu mesa que ya están en la cola ' +
-        'y el administrador debe eliminarlas de la lista antes de poder registrar nuevas canciones.'
+        ''
     });
   }
 
-  // unicidad de persona por mesa en ambas colas
-  if (userExistsInAnyQueue(mesaStr, userNameStr)) {
+  // límite de persona por mesa
+  const userSongsCount = getUserActiveSongsCount(mesaStr, userNameStr);
+  if (userSongsCount >= maxSongsPerUser) {
+    const remainingTableSongs = maxSongs - totalForTable;
+    let extraMsg = '';
+    if (remainingTableSongs > 0) {
+      extraMsg = ` Sin embargo, todavía hay espacio para que otras ${remainingTableSongs} persona(s) de la mesa registren canciones.`;
+    }
+    
     return res.status(400).json({
       ok: false,
       message:
-        `En la mesa ${mesaStr}, la persona "${userNameStr}" ya tiene una canción registrada ` +
-        'Debe ser otra persona distinta de esa mesa.'
+        `En la mesa ${mesaStr},  ("${userNameStr}") ya ha alcanzado el límite personal de ${maxSongsPerUser} canción(es) en cola.` +
+        extraMsg
     });
   }
 

@@ -1572,7 +1572,8 @@ async function loadTablesAdmin() {
 
     const span = document.createElement('span');
     const maxSongs = t.maxSongs != null ? t.maxSongs : 1;
-    span.textContent = `Mesa: ${t.tableNumber} (máx: ${maxSongs} canciones)`;
+    const maxSongsPerUser = t.maxSongsPerUser != null ? t.maxSongsPerUser : 1;
+    span.textContent = `Mesa: ${t.tableNumber} (máx: ${maxSongs} mesa, ${maxSongsPerUser} persona)`;
     row.appendChild(span);
 
     const inputMax = document.createElement('input');
@@ -1682,12 +1683,25 @@ function setupAddTableButton() {
       }
     }
 
+    const inputMaxUser = document.getElementById('new-table-max-songs-user');
+    let maxSongsPerUserVal = 1;
+    if (inputMaxUser) {
+      const parsedUser = parseInt(inputMaxUser.value, 10);
+      if (!Number.isNaN(parsedUser) && parsedUser > 0) {
+        maxSongsPerUserVal = parsedUser;
+      }
+    }
+
     let res, data;
     try {
       res = await fetch(`${API_BASE}/api/tables`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tableNumber: value, maxSongs: maxSongsVal })
+        body: JSON.stringify({ 
+          tableNumber: value, 
+          maxSongs: maxSongsVal, 
+          maxSongsPerUser: maxSongsPerUserVal 
+        })
       });
       data = await res.json();
     } catch (e) {
@@ -1703,6 +1717,7 @@ function setupAddTableButton() {
 
     input.value = '';
     if (inputMax) inputMax.value = '';
+    if (inputMaxUser) inputMaxUser.value = '';
     loadTablesAdmin();
   };
 }
