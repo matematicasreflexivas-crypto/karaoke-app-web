@@ -1273,8 +1273,8 @@ app.post('/api/queue', (req, res) => {
     return res.status(400).json({
       ok: false,
       message:
-        `Tu mesa (${mesaStr}) ya tiene ${maxSongs} participante(s) registrados (sumando registro por selección y registro manual).\n\n` +
-        'Primero deben cantar todas las personas de tu mesa que ya están en la cola ' +
+        `Tu mesa (${mesaStr}) ya tiene ${maxSongs} participante(s) registrados.\n\n` +
+        'Primero deben cantar todas las personas de tu mesa que ya están en la cola. ' +
         ''
     });
   }
@@ -1388,8 +1388,8 @@ app.post('/api/manual-queue', (req, res) => {
     return res.status(400).json({
       ok: false,
       message:
-        `Tu mesa (${mesaStr}) ya tiene ${maxSongs} participante(s) registrados (sumando registro por selección y registro manual).\n\n` +
-        'Primero deben cantar todas las personas de tu mesa que ya están en la cola ' +
+        `Tu mesa (${mesaStr}) ya tiene ${maxSongs} participante(s) registrados.\n\n` +
+        'Primero deben cantar todas las personas de tu mesa que ya están en la cola. ' +
         ''
     });
   }
