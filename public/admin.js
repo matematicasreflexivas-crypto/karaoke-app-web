@@ -12,6 +12,8 @@ let historyHidden          = true;
 let suggestionsHidden      = true;
 let tablesHidden           = false;
 let inicioHidden           = false;
+let activeUsersHidden      = true;
+let loginHistoryHidden     = true;
 
 // Intervalos de refresco
 let queueAdminInterval       = null;
@@ -19,6 +21,8 @@ let manualQueueAdminInterval = null;
 let mixedQueueAdminInterval  = null;
 let historyInterval          = null;
 let suggestionsInterval      = null;
+let activeUsersInterval      = null;
+let loginHistoryInterval     = null;
 
 // Utilidad: quitar acentos y convertir a mayúsculas
 function toUpperNoAccents(text) {
@@ -103,7 +107,7 @@ function formatWaitTime(idx) {
 document.getElementById('btn-admin-login').onclick = async () => {
   const pass = document.getElementById('admin-pass').value.trim();
   if (!pass) {
-    alert('Escribe la contraseña');
+    await customAlert('Escribe la contraseña');
     return;
   }
 
@@ -117,12 +121,12 @@ document.getElementById('btn-admin-login').onclick = async () => {
     data = await res.json();
   } catch (e) {
     console.error(e);
-    alert('No se pudo conectar para iniciar sesión');
+    await customAlert('No se pudo conectar para iniciar sesión');
     return;
   }
 
   if (!res.ok || !data.ok) {
-    alert(data.message || 'Contraseña incorrecta');
+    await customAlert(data.message || 'Contraseña incorrecta');
     return;
   }
 
@@ -192,9 +196,9 @@ document.getElementById('btn-admin-login').onclick = async () => {
   // Inicializar botón de cerrar sesión admin (HTML: btn-admin-logout)
   const btnAdminLogout = document.getElementById('btn-admin-logout');
   if (btnAdminLogout) {
-    btnAdminLogout.onclick = () => {
+    btnAdminLogout.onclick = async () => {
       if (!adminLogged) return;
-      const ok = confirm('¿Seguro que quieres cerrar sesión de administrador?');
+      const ok = await customConfirm('¿Seguro que quieres cerrar sesión de administrador?');
       if (!ok) return;
       _doAdminLogout();
     };
@@ -266,14 +270,14 @@ window.addEventListener('popstate', () => {
 // Limpiar toda la cola normal (catálogo)
 document.getElementById('btn-clear-all').onclick = async () => {
   if (!adminLogged) return;
-  const ok = confirm('¿Seguro que quieres eliminar todos los registros de la cola catálogo?');
+  const ok = await customConfirm('¿Seguro que quieres eliminar todos los registros de la cola catálogo?');
   if (!ok) return;
 
   try {
     await fetch(`${API_BASE}/api/queue`, { method: 'DELETE' });
   } catch (e) {
     console.error(e);
-    alert('No se pudo limpiar la cola catálogo');
+    await customAlert('No se pudo limpiar la cola catálogo');
     return;
   }
   loadQueueAdmin();
@@ -284,13 +288,13 @@ document.getElementById('btn-clear-all').onclick = async () => {
 document.getElementById('form-upload').onsubmit = async (e) => {
   e.preventDefault();
   if (!adminLogged) {
-    alert('Primero inicia sesión como admin');
+    await customAlert('Primero inicia sesión como admin');
     return;
   }
 
   const fileInput = document.getElementById('excel-file');
   if (!fileInput.files.length) {
-    alert('Selecciona un archivo Excel');
+    await customAlert('Selecciona un archivo Excel');
     return;
   }
 
@@ -305,7 +309,7 @@ document.getElementById('form-upload').onsubmit = async (e) => {
     });
   } catch (e) {
     console.error(e);
-    alert('No se pudo subir el Excel');
+    await customAlert('No se pudo subir el Excel');
     return;
   }
 
@@ -315,16 +319,16 @@ document.getElementById('form-upload').onsubmit = async (e) => {
   try {
     data = JSON.parse(text);
   } catch (e2) {
-    alert('El servidor no respondió JSON. Respuesta: ' + text);
+    await customAlert('El servidor no respondió JSON. Respuesta: ' + text);
     return;
   }
 
   if (!res.ok || !data.ok) {
-    alert(data.message || 'Error al subir Excel');
+    await customAlert(data.message || 'Error al subir Excel');
     return;
   }
 
-  alert('Excel cargado (' + data.count + ' canciones).');
+  await customAlert('Excel cargado (' + data.count + ' canciones).');
 };
 
 // ========== COLA ADMIN: CATÁLOGO ==========
@@ -415,7 +419,7 @@ async function loadQueueAdmin() {
       btnDel.textContent = 'Eliminar';
       btnDel.className   = 'btn-danger btn-queue-admin';
       btnDel.onclick = async () => {
-        const ok = confirm('¿Marcar esta canción como atendida y quitarla de la cola?');
+        const ok = await customConfirm('¿Marcar esta canción como atendida y quitarla de la cola?');
         if (!ok) return;
 
         let resDel, dataDel;
@@ -423,12 +427,12 @@ async function loadQueueAdmin() {
           resDel  = await fetch(`${API_BASE}/api/queue/${item.id}`, { method: 'DELETE' });
           dataDel = await resDel.json();
         } catch (e) {
-          alert('No se pudo conectar para eliminar de la cola');
+          await customAlert('No se pudo conectar para eliminar de la cola');
           return;
         }
 
         if (!resDel.ok || !dataDel.ok) {
-          alert(dataDel.message || 'No se pudo eliminar la canción');
+          await customAlert(dataDel.message || 'No se pudo eliminar la canción');
           return;
         }
 
@@ -447,7 +451,7 @@ async function loadQueueAdmin() {
       btnEdit.textContent = 'Editar';
       btnEdit.className   = 'btn-secondary btn-queue-admin';
       btnEdit.onclick = async () => {
-        const nuevoTitulo = prompt(
+        const nuevoTitulo = await customPrompt(
           'Escribe el nuevo título de la canción:',
           item.songTitle
         );
@@ -455,7 +459,7 @@ async function loadQueueAdmin() {
 
         const limpio = nuevoTitulo.trim();
         if (!limpio) {
-          alert('El título no puede quedar vacío');
+          await customAlert('El título no puede quedar vacío');
           return;
         }
 
@@ -468,12 +472,12 @@ async function loadQueueAdmin() {
           });
           dataEdit = await resEdit.json();
         } catch (e) {
-          alert('No se pudo conectar para editar la canción');
+          await customAlert('No se pudo conectar para editar la canción');
           return;
         }
 
         if (!resEdit.ok || !dataEdit.ok) {
-          alert(dataEdit.message || 'No se pudo actualizar la canción');
+          await customAlert(dataEdit.message || 'No se pudo actualizar la canción');
           return;
         }
 
@@ -577,7 +581,7 @@ async function loadManualQueueAdmin() {
       btnDel.textContent = 'Eliminar';
       btnDel.className   = 'btn-danger btn-queue-admin';
       btnDel.onclick = async () => {
-        const ok = confirm('¿Quitar este registro de la cola manual?');
+        const ok = await customConfirm('¿Quitar este registro de la cola manual?');
         if (!ok) return;
 
         let resDel, dataDel;
@@ -585,12 +589,12 @@ async function loadManualQueueAdmin() {
           resDel  = await fetch(`${API_BASE}/api/manual-queue/${item.id}`, { method: 'DELETE' });
           dataDel = await resDel.json();
         } catch (e) {
-          alert('Error al eliminar de la cola manual');
+          await customAlert('Error al eliminar de la cola manual');
           return;
         }
 
         if (!resDel.ok || !dataDel.ok) {
-          alert(dataDel.message || 'No se pudo eliminar de la cola manual');
+          await customAlert(dataDel.message || 'No se pudo eliminar de la cola manual');
           return;
         }
 
@@ -609,7 +613,7 @@ async function loadManualQueueAdmin() {
       btnEdit.textContent = 'Editar';
       btnEdit.className   = 'btn-secondary btn-queue-admin';
       btnEdit.onclick = async () => {
-        const nuevoTitulo = prompt(
+        const nuevoTitulo = await customPrompt(
           'Escribe el nuevo título de la canción (manual):',
           item.manualSongTitle || item.songTitle || ''
         );
@@ -617,11 +621,11 @@ async function loadManualQueueAdmin() {
 
         const limpioTitulo = nuevoTitulo.trim();
         if (!limpioTitulo) {
-          alert('El título no puede quedar vacío');
+          await customAlert('El título no puede quedar vacío');
           return;
         }
 
-        const nuevoArtista = prompt(
+        const nuevoArtista = await customPrompt(
           'Escribe el nuevo intérprete (manual):',
           item.manualSongArtist || item.artist || ''
         );
@@ -629,7 +633,7 @@ async function loadManualQueueAdmin() {
 
         const limpioArtista = nuevoArtista.trim();
         if (!limpioArtista) {
-          alert('El intérprete no puede quedar vacío');
+          await customAlert('El intérprete no puede quedar vacío');
           return;
         }
 
@@ -645,12 +649,12 @@ async function loadManualQueueAdmin() {
           });
           dataEdit = await resEdit.json();
         } catch (e) {
-          alert('Error al editar la cola manual');
+          await customAlert('Error al editar la cola manual');
           return;
         }
 
         if (!resEdit.ok || !dataEdit.ok) {
-          alert(dataEdit.message || 'No se pudo actualizar la cola manual');
+          await customAlert(dataEdit.message || 'No se pudo actualizar la cola manual');
           return;
         }
 
@@ -797,7 +801,7 @@ async function loadMixedQueueAdmin() {
           });
           const dataColor = await resColor.json();
           if (!resColor.ok || !dataColor.ok) {
-            alert(dataColor.message || 'No se pudo cambiar el color');
+            await customAlert(dataColor.message || 'No se pudo cambiar el color');
             return;
           }
           loadMixedQueueAdmin();
@@ -805,7 +809,7 @@ async function loadMixedQueueAdmin() {
           loadManualQueueAdmin();
         } catch (e) {
           console.error(e);
-          alert('Error al cambiar el color');
+          await customAlert('Error al cambiar el color');
         }
       };
       actions.appendChild(btnToggleColor);
@@ -814,7 +818,7 @@ async function loadMixedQueueAdmin() {
       btnDel.textContent = 'Eliminar';
       btnDel.className   = 'btn-danger btn-queue-admin';
       btnDel.onclick = async () => {
-        const ok = confirm('¿Quitar este registro de la cola mixta?');
+        const ok = await customConfirm('¿Quitar este registro de la cola mixta?');
         if (!ok) return;
 
         const isManual = item.source === 'manual';
@@ -828,12 +832,12 @@ async function loadMixedQueueAdmin() {
           try {
             dataDel = await resDel.json();
           } catch (e) {
-            alert('Respuesta inválida del servidor al eliminar de la cola mixta');
+            await customAlert('Respuesta inválida del servidor al eliminar de la cola mixta');
             return;
           }
 
           if (!resDel.ok || !dataDel.ok) {
-            alert(dataDel.message || 'No se pudo eliminar de la cola mixta');
+            await customAlert(dataDel.message || 'No se pudo eliminar de la cola mixta');
             return;
           }
 
@@ -842,7 +846,7 @@ async function loadMixedQueueAdmin() {
           loadManualQueueAdmin();
         } catch (e) {
           console.error(e);
-          alert('Error al eliminar de la cola mixta');
+          await customAlert('Error al eliminar de la cola mixta');
         }
       };
       actions.appendChild(btnDel);
@@ -854,7 +858,7 @@ async function loadMixedQueueAdmin() {
         const isManual = item.source === 'manual';
 
         if (isManual) {
-          const nuevoTitulo = prompt(
+          const nuevoTitulo = await customPrompt(
             'Escribe el nuevo título de la canción:',
             item.displaySongTitle || item.songTitle || ''
           );
@@ -862,11 +866,11 @@ async function loadMixedQueueAdmin() {
 
           const limpioTitulo = nuevoTitulo.trim();
           if (!limpioTitulo) {
-            alert('El título no puede quedar vacío');
+            await customAlert('El título no puede quedar vacío');
             return;
           }
 
-          const nuevoArtista = prompt(
+          const nuevoArtista = await customPrompt(
             'Escribe el nuevo intérprete:',
             item.displaySongArtist || item.artist || ''
           );
@@ -874,7 +878,7 @@ async function loadMixedQueueAdmin() {
 
           const limpioArtista = nuevoArtista.trim();
           if (!limpioArtista) {
-            alert('El intérprete no puede quedar vacío');
+            await customAlert('El intérprete no puede quedar vacío');
             return;
           }
 
@@ -890,16 +894,16 @@ async function loadMixedQueueAdmin() {
             });
             dataEdit = await resEdit.json();
           } catch (e) {
-            alert('Error al editar la canción manual');
+            await customAlert('Error al editar la canción manual');
             return;
           }
 
           if (!resEdit.ok || !dataEdit.ok) {
-            alert(dataEdit.message || 'No se pudo actualizar la canción manual');
+            await customAlert(dataEdit.message || 'No se pudo actualizar la canción manual');
             return;
           }
         } else {
-          const nuevoTitulo = prompt(
+          const nuevoTitulo = await customPrompt(
             'Escribe el nuevo título de la canción:',
             item.displaySongTitle || item.songTitle || ''
           );
@@ -907,7 +911,7 @@ async function loadMixedQueueAdmin() {
 
           const limpio = nuevoTitulo.trim();
           if (!limpio) {
-            alert('El título no puede quedar vacío');
+            await customAlert('El título no puede quedar vacío');
             return;
           }
 
@@ -920,12 +924,12 @@ async function loadMixedQueueAdmin() {
             });
             dataEdit = await resEdit.json();
           } catch (e) {
-            alert('Error al editar la canción');
+            await customAlert('Error al editar la canción');
             return;
           }
 
           if (!resEdit.ok || !dataEdit.ok) {
-            alert(dataEdit.message || 'No se pudo actualizar la canción');
+            await customAlert(dataEdit.message || 'No se pudo actualizar la canción');
             return;
           }
         }
@@ -950,11 +954,11 @@ function setupClearMixedQueueButton() {
 
   btnClearMixed.onclick = async () => {
     if (!adminLogged) {
-      alert('Primero inicia sesión como admin');
+      await customAlert('Primero inicia sesión como admin');
       return;
     }
 
-    const ok = confirm('¿Seguro que quieres eliminar TODOS los registros de la cola mixta (catálogo + manual)?');
+    const ok = await customConfirm('¿Seguro que quieres eliminar TODOS los registros de la cola mixta (catálogo + manual)?');
     if (!ok) return;
 
     try {
@@ -966,12 +970,12 @@ function setupClearMixedQueueButton() {
       try {
         data = await res.json();
       } catch (e) {
-        alert('Respuesta inválida del servidor al limpiar cola mixta');
+        await customAlert('Respuesta inválida del servidor al limpiar cola mixta');
         return;
       }
 
       if (!res.ok || !data.ok) {
-        alert(data.message || 'No se pudo limpiar la cola mixta');
+        await customAlert(data.message || 'No se pudo limpiar la cola mixta');
         return;
       }
 
@@ -980,7 +984,7 @@ function setupClearMixedQueueButton() {
       loadManualQueueAdmin();
     } catch (e) {
       console.error(e);
-      alert('No se pudo conectar para limpiar la cola mixta');
+      await customAlert('No se pudo conectar para limpiar la cola mixta');
     }
   };
 }
@@ -1114,7 +1118,7 @@ async function loadHistoryAdmin(fromDateStr, toDateStr) {
 // Descargar CSV de historial
 async function exportHistoryCsv() {
   if (!adminLogged) {
-    alert('Primero inicia sesión como admin');
+    await customAlert('Primero inicia sesión como admin');
     return;
   }
 
@@ -1122,7 +1126,7 @@ async function exportHistoryCsv() {
     const res = await fetch(`${API_BASE}/api/history/export`);
     if (!res.ok) {
       const text = await res.text();
-      alert('No se pudo exportar el historial: ' + text);
+      await customAlert('No se pudo exportar el historial: ' + text);
       return;
     }
 
@@ -1138,7 +1142,7 @@ async function exportHistoryCsv() {
     window.URL.revokeObjectURL(url);
   } catch (e) {
     console.error(e);
-    alert('Error al descargar el CSV de historial');
+    await customAlert('Error al descargar el CSV de historial');
   }
 }
 
@@ -1159,7 +1163,7 @@ function setupHistoryButtons() {
 
     btnShowHistory.onclick = async () => {
       if (!adminLogged) {
-        alert('Primero inicia sesión como admin');
+        await customAlert('Primero inicia sesión como admin');
         return;
       }
 
@@ -1185,7 +1189,7 @@ function setupHistoryButtons() {
   if (btnApplyFilter && historyContainer) {
     btnApplyFilter.onclick = async () => {
       if (!adminLogged) {
-        alert('Primero inicia sesión como admin');
+        await customAlert('Primero inicia sesión como admin');
         return;
       }
       const fromDateStr = inputFrom ? inputFrom.value : '';
@@ -1202,9 +1206,9 @@ function setupHistoryButtons() {
   }
 
   if (btnExportHistory) {
-    btnExportHistory.onclick = () => {
+    btnExportHistory.onclick = async () => {
       if (!adminLogged) {
-        alert('Primero inicia sesión como admin');
+        await customAlert('Primero inicia sesión como admin');
         return;
       }
       exportHistoryCsv();
@@ -1214,11 +1218,11 @@ function setupHistoryButtons() {
   if (btnClearHistory && historyContainer) {
     btnClearHistory.onclick = async () => {
       if (!adminLogged) {
-        alert('Primero inicia sesión como admin');
+        await customAlert('Primero inicia sesión como admin');
         return;
       }
 
-      const ok = confirm('¿Seguro que quieres eliminar TODO el historial de canciones?');
+      const ok = await customConfirm('¿Seguro que quieres eliminar TODO el historial de canciones?');
       if (!ok) return;
 
       try {
@@ -1230,19 +1234,19 @@ function setupHistoryButtons() {
         try {
           data = await res.json();
         } catch (e) {
-          alert('Respuesta inválida del servidor al limpiar historial');
+          await customAlert('Respuesta inválida del servidor al limpiar historial');
           return;
         }
 
         if (!res.ok || !data.ok) {
-          alert(data.message || 'No se pudo limpiar el historial');
+          await customAlert(data.message || 'No se pudo limpiar el historial');
           return;
         }
 
         historyContainer.innerHTML = 'Aún no hay historial.';
       } catch (e) {
         console.error(e);
-        alert('No se pudo conectar para limpiar el historial');
+        await customAlert('No se pudo conectar para limpiar el historial');
       }
     };
   }
@@ -1312,7 +1316,7 @@ async function loadSongSuggestions() {
     btnDelete.textContent = 'Eliminar sugerencia';
     btnDelete.className   = 'btn-danger btn-queue-admin';
     btnDelete.onclick = async () => {
-      const ok = confirm('¿Seguro que deseas eliminar esta sugerencia?');
+      const ok = await customConfirm('¿Seguro que deseas eliminar esta sugerencia?');
       if (!ok) return;
 
       try {
@@ -1321,13 +1325,13 @@ async function loadSongSuggestions() {
         });
         const dataDel = await resDel.json();
         if (!resDel.ok || !dataDel.ok) {
-          alert(dataDel.message || 'No se pudo eliminar la sugerencia.');
+          await customAlert(dataDel.message || 'No se pudo eliminar la sugerencia.');
           return;
         }
         await loadSongSuggestions();
       } catch (e) {
         console.error(e);
-        alert('Error eliminando la sugerencia.');
+        await customAlert('Error eliminando la sugerencia.');
       }
     };
 
@@ -1353,9 +1357,9 @@ function setupSuggestionsSection() {
   }
 
   if (btnToggleSuggestionsCard && suggestionsList) {
-    btnToggleSuggestionsCard.onclick = () => {
+    btnToggleSuggestionsCard.onclick = async () => {
       if (!adminLogged) {
-        alert('Primero inicia sesión como admin');
+        await customAlert('Primero inicia sesión como admin');
         return;
       }
       const isHidden = suggestionsHidden;
@@ -1374,14 +1378,14 @@ function setupSuggestionsSection() {
   if (btnExportSuggestions) {
     btnExportSuggestions.onclick = async () => {
       if (!adminLogged) {
-        alert('Primero inicia sesión como admin');
+        await customAlert('Primero inicia sesión como admin');
         return;
       }
       try {
         const res = await fetch(`${API_BASE}/api/song-suggestions/export`);
         if (!res.ok) {
           const text = await res.text();
-          alert('No se pudo exportar sugerencias: ' + text);
+          await customAlert('No se pudo exportar sugerencias: ' + text);
           return;
         }
         const blob = await res.blob();
@@ -1396,7 +1400,7 @@ function setupSuggestionsSection() {
         window.URL.revokeObjectURL(url);
       } catch (e) {
         console.error(e);
-        alert('Error al exportar sugerencias');
+        await customAlert('Error al exportar sugerencias');
       }
     };
   }
@@ -1404,10 +1408,10 @@ function setupSuggestionsSection() {
   if (btnClearSuggestions && suggestionsList) {
     btnClearSuggestions.onclick = async () => {
       if (!adminLogged) {
-        alert('Primero inicia sesión como admin');
+        await customAlert('Primero inicia sesión como admin');
         return;
       }
-      const ok = confirm('¿Seguro que quieres eliminar TODAS las sugerencias?');
+      const ok = await customConfirm('¿Seguro que quieres eliminar TODAS las sugerencias?');
       if (!ok) return;
 
       try {
@@ -1418,17 +1422,17 @@ function setupSuggestionsSection() {
         try {
           data = await res.json();
         } catch (e) {
-          alert('Respuesta inválida del servidor al limpiar sugerencias');
+          await customAlert('Respuesta inválida del servidor al limpiar sugerencias');
           return;
         }
         if (!res.ok || !data.ok) {
-          alert(data.message || 'No se pudieron eliminar las sugerencias');
+          await customAlert(data.message || 'No se pudieron eliminar las sugerencias');
           return;
         }
         suggestionsList.innerHTML = 'No hay sugerencias registradas.';
       } catch (e) {
         console.error(e);
-        alert('No se pudo conectar para limpiar las sugerencias');
+        await customAlert('No se pudo conectar para limpiar las sugerencias');
       }
     };
   }
@@ -1468,11 +1472,11 @@ function setupQueueOpenButtons() {
   if (btnClose) {
     btnClose.onclick = async () => {
       if (!adminLogged) {
-        alert('Primero inicia sesión como admin');
+        await customAlert('Primero inicia sesión como admin');
         return;
       }
 
-      const pass = prompt('Confirma la contraseña de administrador para cerrar registros:');
+      const pass = await customPrompt('Confirma la contraseña de administrador para cerrar registros:');
       if (!pass) return;
 
       let res, data;
@@ -1485,16 +1489,16 @@ function setupQueueOpenButtons() {
         data = await res.json();
       } catch (e) {
         console.error(e);
-        alert('No se pudo conectar para cambiar el estado de registros');
+        await customAlert('No se pudo conectar para cambiar el estado de registros');
         return;
       }
 
       if (!res.ok || !data.ok) {
-        alert(data.message || 'No se pudo cerrar los registros');
+        await customAlert(data.message || 'No se pudo cerrar los registros');
         return;
       }
 
-      alert('Se ha cerrado el registro de canciones.');
+      await customAlert('Se ha cerrado el registro de canciones.');
       refreshQueueOpenStatus();
     };
   }
@@ -1502,11 +1506,11 @@ function setupQueueOpenButtons() {
   if (btnOpen) {
     btnOpen.onclick = async () => {
       if (!adminLogged) {
-        alert('Primero inicia sesión como admin');
+        await customAlert('Primero inicia sesión como admin');
         return;
       }
 
-      const pass = prompt('Confirma la contraseña de administrador para abrir registros:');
+      const pass = await customPrompt('Confirma la contraseña de administrador para abrir registros:');
       if (!pass) return;
 
       let res, data;
@@ -1519,16 +1523,16 @@ function setupQueueOpenButtons() {
         data = await res.json();
       } catch (e) {
         console.error(e);
-        alert('No se pudo conectar para cambiar el estado de registros');
+        await customAlert('No se pudo conectar para cambiar el estado de registros');
         return;
       }
 
       if (!res.ok || !data.ok) {
-        alert(data.message || 'No se pudo abrir los registros');
+        await customAlert(data.message || 'No se pudo abrir los registros');
         return;
       }
 
-      alert('Se ha abierto el registro de canciones.');
+      await customAlert('Se ha abierto el registro de canciones.');
       refreshQueueOpenStatus();
     };
   }
@@ -1600,17 +1604,17 @@ async function loadTablesAdmin() {
     btnSaveMax.style.marginLeft = '6px';
     btnSaveMax.onclick = async () => {
       if (!adminLogged) {
-        alert('Primero inicia sesión como admin');
+        await customAlert('Primero inicia sesión como admin');
         return;
       }
       const val = parseInt(inputMax.value, 10);
       if (Number.isNaN(val) || val < 1) {
-        alert('El número mínimo de canciones por mesa es 1');
+        await customAlert('El número mínimo de canciones por mesa es 1');
         return;
       }
       const valUser = parseInt(inputMaxUser.value, 10);
       if (Number.isNaN(valUser) || valUser < 1) {
-        alert('El número mínimo de canciones por persona es 1');
+        await customAlert('El número mínimo de canciones por persona es 1');
         return;
       }
       try {
@@ -1621,14 +1625,14 @@ async function loadTablesAdmin() {
         });
         const dataPut = await resPut.json();
         if (!resPut.ok || !dataPut.ok) {
-          alert(dataPut.message || 'No se pudo actualizar el límite de canciones');
+          await customAlert(dataPut.message || 'No se pudo actualizar el límite de canciones');
           return;
         }
-        alert('Límites actualizados para la mesa ' + t.tableNumber);
+        await customAlert('Límites actualizados para la mesa ' + t.tableNumber);
         loadTablesAdmin();
       } catch (e) {
         console.error(e);
-        alert('No se pudo conectar para actualizar los límites');
+        await customAlert('No se pudo conectar para actualizar los límites');
       }
     };
     row.appendChild(btnSaveMax);
@@ -1638,7 +1642,7 @@ async function loadTablesAdmin() {
     btnDelete.className   = 'btn-danger btn-queue-admin';
     btnDelete.style.marginLeft = '6px';
     btnDelete.onclick = async () => {
-      const ok = confirm(`¿Seguro que quieres eliminar la mesa ${t.tableNumber}?`);
+      const ok = await customConfirm(`¿Seguro que quieres eliminar la mesa ${t.tableNumber}?`);
       if (!ok) return;
 
       const resDel = await fetch(`${API_BASE}/api/tables/${t.id}`, {
@@ -1649,12 +1653,12 @@ async function loadTablesAdmin() {
       try {
         dataDel = await resDel.json();
       } catch (e) {
-        alert('Respuesta inválida del servidor al eliminar mesa');
+        await customAlert('Respuesta inválida del servidor al eliminar mesa');
         return;
       }
 
       if (!resDel.ok || !dataDel.ok) {
-        alert(dataDel.message || 'No se pudo eliminar la mesa');
+        await customAlert(dataDel.message || 'No se pudo eliminar la mesa');
         return;
       }
 
@@ -1675,7 +1679,7 @@ function setupAddTableButton() {
 
   btnAddTable.onclick = async () => {
     if (!adminLogged) {
-      alert('Primero inicia sesión como admin');
+      await customAlert('Primero inicia sesión como admin');
       return;
     }
 
@@ -1684,7 +1688,7 @@ function setupAddTableButton() {
 
     const value = input.value.trim();
     if (!value) {
-      alert('Escribe el número de mesa');
+      await customAlert('Escribe el número de mesa');
       return;
     }
 
@@ -1720,12 +1724,12 @@ function setupAddTableButton() {
       data = await res.json();
     } catch (e) {
       console.error(e);
-      alert('No se pudo conectar para agregar mesa');
+      await customAlert('No se pudo conectar para agregar mesa');
       return;
     }
 
     if (!res.ok || !data.ok) {
-      alert(data.message || 'No se pudo agregar la mesa');
+      await customAlert(data.message || 'No se pudo agregar la mesa');
       return;
     }
 
@@ -1743,11 +1747,11 @@ function setupClearTablesButton() {
 
   btnClearTables.onclick = async () => {
     if (!adminLogged) {
-      alert('Primero inicia sesión como admin');
+      await customAlert('Primero inicia sesión como admin');
       return;
     }
 
-    const ok = confirm('¿Seguro que quieres eliminar TODAS las mesas?');
+    const ok = await customConfirm('¿Seguro que quieres eliminar TODAS las mesas?');
     if (!ok) return;
 
     let res, data;
@@ -1758,12 +1762,12 @@ function setupClearTablesButton() {
       data = await res.json();
     } catch (e) {
       console.error(e);
-      alert('No se pudo conectar para limpiar las mesas');
+      await customAlert('No se pudo conectar para limpiar las mesas');
       return;
     }
 
     if (!res.ok || !data.ok) {
-      alert(data.message || 'No se pudieron eliminar las mesas');
+      await customAlert(data.message || 'No se pudieron eliminar las mesas');
       return;
     }
 
@@ -1778,11 +1782,11 @@ function setupClearManualQueueButton() {
 
   btnClearManual.onclick = async () => {
     if (!adminLogged) {
-      alert('Primero inicia sesión como admin');
+      await customAlert('Primero inicia sesión como admin');
       return;
     }
 
-    const ok = confirm('¿Seguro que quieres eliminar TODOS los registros de la cola manual?');
+    const ok = await customConfirm('¿Seguro que quieres eliminar TODOS los registros de la cola manual?');
     if (!ok) return;
 
     try {
@@ -1794,12 +1798,12 @@ function setupClearManualQueueButton() {
       try {
         data = await res.json();
       } catch (e) {
-        alert('Respuesta inválida del servidor al limpiar cola manual');
+        await customAlert('Respuesta inválida del servidor al limpiar cola manual');
         return;
       }
 
       if (!res.ok || !data.ok) {
-        alert(data.message || 'No se pudo limpiar la cola manual');
+        await customAlert(data.message || 'No se pudo limpiar la cola manual');
         return;
       }
 
@@ -1807,7 +1811,7 @@ function setupClearManualQueueButton() {
       loadMixedQueueAdmin();
     } catch (e) {
       console.error(e);
-      alert('No se pudo conectar para limpiar la cola manual');
+      await customAlert('No se pudo conectar para limpiar la cola manual');
     }
   };
 }
@@ -1821,9 +1825,9 @@ function setupToggleButtons() {
   if (btnToggleInicio && inicioSection) {
     inicioHidden = true;
     inicioSection.style.display = 'none';
-    btnToggleInicio.onclick = () => {
+    btnToggleInicio.onclick = async () => {
       if (!adminLogged) {
-        alert('Primero inicia sesión como admin');
+        await customAlert('Primero inicia sesión como admin');
         return;
       }
       const visible = !inicioHidden;
@@ -1843,9 +1847,9 @@ function setupToggleButtons() {
   if (btnToggleQueue && queueDiv) {
     queueAdminHidden = true;
     queueDiv.style.display = 'none';
-    btnToggleQueue.onclick = () => {
+    btnToggleQueue.onclick = async () => {
       if (!adminLogged) {
-        alert('Primero inicia sesión como admin');
+        await customAlert('Primero inicia sesión como admin');
         return;
       }
       const visible = !queueAdminHidden;
@@ -1870,9 +1874,9 @@ function setupToggleButtons() {
   if (btnToggleManualQueue && manualQueueDiv) {
     manualQueueAdminHidden = true;
     manualQueueDiv.style.display = 'none';
-    btnToggleManualQueue.onclick = () => {
+    btnToggleManualQueue.onclick = async () => {
       if (!adminLogged) {
-        alert('Primero inicia sesión como admin');
+        await customAlert('Primero inicia sesión como admin');
         return;
       }
       const visible = !manualQueueAdminHidden;
@@ -1897,9 +1901,9 @@ function setupToggleButtons() {
   if (btnToggleMixedQueue && mixedQueueDiv) {
     mixedQueueAdminHidden = true;
     mixedQueueDiv.style.display = 'none';
-    btnToggleMixedQueue.onclick = () => {
+    btnToggleMixedQueue.onclick = async () => {
       if (!adminLogged) {
-        alert('Primero inicia sesión como admin');
+        await customAlert('Primero inicia sesión como admin');
         return;
       }
       const visible = !mixedQueueAdminHidden;
@@ -1924,9 +1928,9 @@ function setupToggleButtons() {
   if (btnToggleTables && tablesDiv) {
     tablesHidden = true;
     tablesDiv.style.display = 'none';
-    btnToggleTables.onclick = () => {
+    btnToggleTables.onclick = async () => {
       if (!adminLogged) {
-        alert('Primero inicia sesión como admin');
+        await customAlert('Primero inicia sesión como admin');
         return;
       }
       const visible = !tablesHidden;
@@ -1968,37 +1972,46 @@ function clearAllIntervals() {
     clearInterval(suggestionsInterval);
     suggestionsInterval = null;
   }
+  if (activeUsersInterval) {
+    clearInterval(activeUsersInterval);
+    activeUsersInterval = null;
+  }
+  if (loginHistoryInterval) {
+    clearInterval(loginHistoryInterval);
+    loginHistoryInterval = null;
+  }
 }
 
 function startAutoRefreshAdmin() {
   clearAllIntervals();
   if (!adminLogged) return;
 
-  if (!queueAdminHidden) {
-    loadQueueAdmin();
-    queueAdminInterval = setInterval(loadQueueAdmin, 5000);
-  }
+  // Actualizar siempre los datos y conteos en segundo plano, sin importar si están ocultos
+  loadQueueAdmin();
+  queueAdminInterval = setInterval(loadQueueAdmin, 5000);
 
-  if (!manualQueueAdminHidden) {
-    loadManualQueueAdmin();
-    manualQueueAdminInterval = setInterval(loadManualQueueAdmin, 5000);
-  }
+  loadManualQueueAdmin();
+  manualQueueAdminInterval = setInterval(loadManualQueueAdmin, 5000);
 
-  if (!mixedQueueAdminHidden) {
-    loadMixedQueueAdmin();
-    mixedQueueAdminInterval = setInterval(loadMixedQueueAdmin, 5000);
-  }
+  loadMixedQueueAdmin();
+  mixedQueueAdminInterval = setInterval(loadMixedQueueAdmin, 5000);
 
-  if (!historyHidden) {
-    const fromInput   = document.getElementById('history-from');
-    const toInput     = document.getElementById('history-to');
-    const fromDateStr = fromInput ? fromInput.value : '';
-    const toDateStr   = toInput   ? toInput.value   : '';
-    loadHistoryAdmin(fromDateStr, toDateStr);
-    historyInterval = setInterval(() => {
-      loadHistoryAdmin(fromDateStr, toDateStr);
-    }, 15000);
-  }
+  const fromInput   = document.getElementById('history-from');
+  const toInput     = document.getElementById('history-to');
+  loadHistoryAdmin(fromInput ? fromInput.value : '', toInput ? toInput.value : '');
+  historyInterval = setInterval(() => {
+    const fInp = document.getElementById('history-from');
+    const tInp = document.getElementById('history-to');
+    loadHistoryAdmin(fInp ? fInp.value : '', tInp ? tInp.value : '');
+  }, 15000);
+
+  loadActiveUsers();
+  activeUsersInterval = setInterval(loadActiveUsers, 8000);
+
+  loadLoginHistory();
+  loginHistoryInterval = setInterval(() => {
+    loadLoginHistory();
+  }, 15000);
 
   if (!suggestionsHidden) {
     loadSongSuggestions();
@@ -2065,7 +2078,7 @@ function setupUserFeaturesControls() {
 
   btnSave.onclick = async () => {
     if (!adminLogged) {
-      alert('Primero inicia sesión como admin');
+      await customAlert('Primero inicia sesión como admin');
       return;
     }
 
@@ -2088,12 +2101,12 @@ function setupUserFeaturesControls() {
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        alert(data.message || 'No se pudieron guardar las opciones de pantalla de usuario');
+        await customAlert(data.message || 'No se pudieron guardar las opciones de pantalla de usuario');
         return;
       }
     } catch (e) {
       console.error(e);
-      alert('No se pudo conectar para guardar las opciones de pantalla de usuario');
+      await customAlert('No se pudo conectar para guardar las opciones de pantalla de usuario');
       return;
     }
 
@@ -2107,17 +2120,17 @@ function setupUserFeaturesControls() {
         });
         const data2 = await res2.json();
         if (!res2.ok || !data2.ok) {
-          alert(data2.message || 'No se pudo guardar la preferencia de recuadros de color');
+          await customAlert(data2.message || 'No se pudo guardar la preferencia de recuadros de color');
           return;
         }
       } catch (e) {
         console.error(e);
-        alert('No se pudo conectar para guardar la preferencia de recuadros de color');
+        await customAlert('No se pudo conectar para guardar la preferencia de recuadros de color');
         return;
       }
     }
 
-    alert('Opciones de pantalla de usuario guardadas.\nLos cambios se aplicarán al recargar la pantalla de usuario.');
+    await customAlert('Opciones de pantalla de usuario guardadas.\nLos cambios se aplicarán al recargar la pantalla de usuario.');
   };
 }
 
@@ -2152,7 +2165,7 @@ function setupManualQueueSettingsControls() {
 
   btnSaveSettings.onclick = async () => {
     if (!adminLogged) {
-      alert('Primero inicia sesión como admin');
+      await customAlert('Primero inicia sesión como admin');
       return;
     }
 
@@ -2164,7 +2177,7 @@ function setupManualQueueSettingsControls() {
 
     const mode = selectMode.value === 'manual' ? 'manual' : 'catalog';
 
-    const pass = prompt('Confirma la contraseña de administrador para guardar estos cambios:');
+    const pass = await customPrompt('Confirma la contraseña de administrador para guardar estos cambios:');
     if (!pass) return;
 
     try {
@@ -2178,7 +2191,7 @@ function setupManualQueueSettingsControls() {
       });
       const dataMax = await resMax.json();
       if (!resMax.ok || !dataMax.ok) {
-        alert(dataMax.message || 'No se pudo guardar el límite de canciones manuales por mesa');
+        await customAlert(dataMax.message || 'No se pudo guardar el límite de canciones manuales por mesa');
         return;
       }
 
@@ -2192,15 +2205,15 @@ function setupManualQueueSettingsControls() {
       });
       const dataMode = await resMode.json();
       if (!resMode.ok || !dataMode.ok) {
-        alert(dataMode.message || 'No se pudo guardar el modo de cola para la pantalla pública');
+        await customAlert(dataMode.message || 'No se pudo guardar el modo de cola para la pantalla pública');
         return;
       }
 
-      alert('Configuración de cola manual y pantalla pública guardada correctamente.');
+      await customAlert('Configuración de cola manual y pantalla pública guardada correctamente.');
       loadManualQueueSettingsAdmin();
     } catch (e) {
       console.error(e);
-      alert('No se pudo conectar para guardar la configuración de cola manual y pantalla pública');
+      await customAlert('No se pudo conectar para guardar la configuración de cola manual y pantalla pública');
     }
   };
 }
@@ -2229,7 +2242,7 @@ function setupPublicQueueDisplayButton() {
 
   btnSave.onclick = async () => {
     if (!adminLogged) {
-      alert('Primero inicia sesión como admin');
+      await customAlert('Primero inicia sesión como admin');
       return;
     }
 
@@ -2247,18 +2260,18 @@ function setupPublicQueueDisplayButton() {
 
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        alert(data.message || 'No se pudo guardar la preferencia');
+        await customAlert(data.message || 'No se pudo guardar la preferencia');
         return;
       }
 
-      alert(`Pantalla pública configurada para mostrar: ${
+      await customAlert(`Pantalla pública configurada para mostrar: ${
         preference === 'catalog' ? 'Cola de catálogo' :
         preference === 'manual' ? 'Cola manual' :
         'Cola mixta'
       }`);
     } catch (e) {
       console.error(e);
-      alert('No se pudo conectar para guardar la preferencia');
+      await customAlert('No se pudo conectar para guardar la preferencia');
     }
   };
 }
@@ -2268,7 +2281,7 @@ function setupPublicQueueDisplayButton() {
 // Cambiar contraseña de administrador
 document.getElementById('btn-change-admin-pass').onclick = async () => {
   if (!adminLogged) {
-    alert('Primero inicia sesión como admin');
+    await customAlert('Primero inicia sesión como admin');
     return;
   }
 
@@ -2276,7 +2289,7 @@ document.getElementById('btn-change-admin-pass').onclick = async () => {
   const newPass = document.getElementById('new-admin-pass').value.trim();
 
   if (!oldPass || !newPass) {
-    alert('Escribe la contraseña actual y la nueva');
+    await customAlert('Escribe la contraseña actual y la nueva');
     return;
   }
 
@@ -2288,11 +2301,11 @@ document.getElementById('btn-change-admin-pass').onclick = async () => {
 
   const data = await res.json();
   if (!res.ok || !data.ok) {
-    alert(data.message || 'No se pudo cambiar la contraseña');
+    await customAlert(data.message || 'No se pudo cambiar la contraseña');
     return;
   }
 
-  alert('Contraseña de administrador cambiada correctamente');
+  await customAlert('Contraseña de administrador cambiada correctamente');
   document.getElementById('old-admin-pass').value = '';
   document.getElementById('new-admin-pass').value = '';
 };
@@ -2300,7 +2313,7 @@ document.getElementById('btn-change-admin-pass').onclick = async () => {
 // Cambiar contraseña de usuario
 document.getElementById('btn-change-user-pass').onclick = async () => {
   if (!adminLogged) {
-    alert('Primero inicia sesión como admin');
+    await customAlert('Primero inicia sesión como admin');
     return;
   }
 
@@ -2310,7 +2323,7 @@ document.getElementById('btn-change-user-pass').onclick = async () => {
   const newUserPass = document.getElementById('new-user-pass').value.trim();
 
   if (!adminPassForChange || !newUserPass) {
-    alert('Escribe la contraseña de administrador y la nueva contraseña de usuario');
+    await customAlert('Escribe la contraseña de administrador y la nueva contraseña de usuario');
     return;
   }
 
@@ -2325,11 +2338,11 @@ document.getElementById('btn-change-user-pass').onclick = async () => {
 
   const data = await res.json();
   if (!res.ok || !data.ok) {
-    alert(data.message || 'No se pudo cambiar la contraseña de usuario');
+    await customAlert(data.message || 'No se pudo cambiar la contraseña de usuario');
     return;
   }
 
-  alert('Contraseña de usuario cambiada correctamente');
+  await customAlert('Contraseña de usuario cambiada correctamente');
 
   document.getElementById('admin-pass-user-change').value = '';
   document.getElementById('new-user-pass').value = '';
@@ -2338,7 +2351,7 @@ document.getElementById('btn-change-user-pass').onclick = async () => {
 // Cambiar título de la aplicación (nombre del bar)
 document.getElementById('btn-change-app-title').onclick = async () => {
   if (!adminLogged) {
-    alert('Primero inicia sesión como admin');
+    await customAlert('Primero inicia sesión como admin');
     return;
   }
 
@@ -2346,7 +2359,7 @@ document.getElementById('btn-change-app-title').onclick = async () => {
   const newTitle  = document.getElementById('new-app-title').value.trim();
 
   if (!adminPass || !newTitle) {
-    alert('Escribe la contraseña de administrador y el nuevo título');
+    await customAlert('Escribe la contraseña de administrador y el nuevo título');
     return;
   }
 
@@ -2363,16 +2376,16 @@ document.getElementById('btn-change-app-title').onclick = async () => {
     data = await res.json();
   } catch (e) {
     console.error(e);
-    alert('No se pudo conectar para cambiar el título');
+    await customAlert('No se pudo conectar para cambiar el título');
     return;
   }
 
   if (!res.ok || !data.ok) {
-    alert(data.message || 'No se pudo cambiar el título');
+    await customAlert(data.message || 'No se pudo cambiar el título');
     return;
   }
 
-  alert('Título actualizado correctamente');
+  await customAlert('Título actualizado correctamente');
 
   document.getElementById('admin-pass-app-title').value = '';
 };
@@ -2380,7 +2393,7 @@ document.getElementById('btn-change-app-title').onclick = async () => {
 // Cambiar mensaje al público (pantalla pública)
 document.getElementById('btn-change-public-message').onclick = async () => {
   if (!adminLogged) {
-    alert('Primero inicia sesión como admin');
+    await customAlert('Primero inicia sesión como admin');
     return;
   }
 
@@ -2388,7 +2401,7 @@ document.getElementById('btn-change-public-message').onclick = async () => {
   const newMessage = document.getElementById('new-public-message').value;
 
   if (!adminPass) {
-    alert('Escribe la contraseña de administrador');
+    await customAlert('Escribe la contraseña de administrador');
     return;
   }
 
@@ -2402,16 +2415,16 @@ document.getElementById('btn-change-public-message').onclick = async () => {
     data = await res.json();
   } catch (e) {
     console.error(e);
-    alert('No se pudo conectar para cambiar el mensaje');
+    await customAlert('No se pudo conectar para cambiar el mensaje');
     return;
   }
 
   if (!res.ok || !data.ok) {
-    alert(data.message || 'No se pudo cambiar el mensaje');
+    await customAlert(data.message || 'No se pudo cambiar el mensaje');
     return;
   }
 
-  alert(newMessage.trim() ? 'Mensaje actualizado correctamente' : 'Mensaje eliminado (no se mostrará)');
+  await customAlert(newMessage.trim() ? 'Mensaje actualizado correctamente' : 'Mensaje eliminado (no se mostrará)');
   document.getElementById('admin-pass-public-message').value = '';
 };
 
@@ -2439,12 +2452,12 @@ function setupMinutesPerTurnControl() {
 
   btnSave.onclick = async () => {
     if (!adminLogged) {
-      alert('Primero inicia sesión como admin');
+      await customAlert('Primero inicia sesión como admin');
       return;
     }
     const val = parseInt(input.value, 10);
     if (Number.isNaN(val) || val < 1) {
-      alert('El número mínimo de minutos por turno es 1');
+      await customAlert('El número mínimo de minutos por turno es 1');
       return;
     }
     try {
@@ -2455,16 +2468,305 @@ function setupMinutesPerTurnControl() {
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        alert(data.message || 'No se pudo guardar');
+        await customAlert(data.message || 'No se pudo guardar');
         return;
       }
       minutesPerTurn = val;
-      alert('Minutos por turno guardados correctamente.');
+      await customAlert('Minutos por turno guardados correctamente.');
     } catch (e) {
       console.error(e);
-      alert('No se pudo conectar para guardar los minutos por turno');
+      await customAlert('No se pudo conectar para guardar los minutos por turno');
     }
   };
+}
+
+// ========= USUARIOS CONECTADOS =========
+async function loadActiveUsers() {
+  const container = document.getElementById('active-users-list');
+  const countBadge = document.getElementById('active-users-count');
+  if (!container || !countBadge) return;
+
+  const prevScrollTop = container.scrollTop;
+
+  let res, data;
+  try {
+    res = await fetch(`${API_BASE}/api/admin/active-users`, { cache: 'no-store' });
+    data = await res.json();
+  } catch (e) {
+    console.error(e);
+    container.textContent = 'No se pudo cargar la lista de usuarios activos.';
+    return;
+  }
+
+  if (!res.ok || !data.ok) {
+    container.textContent = data.message || 'Error al cargar usuarios activos.';
+    return;
+  }
+
+  const users = data.activeUsers || [];
+  countBadge.textContent = users.length;
+
+  if (!users.length) {
+    container.textContent = 'No hay usuarios conectados actualmente.';
+    return;
+  }
+
+  container.innerHTML = '';
+  users.forEach(u => {
+    const card = document.createElement('div');
+    card.className = 'queue-admin-item-line';
+
+    const content = document.createElement('div');
+    content.className = 'queue-admin-item-content';
+
+    const textSpan = document.createElement('span');
+    textSpan.className = 'queue-admin-item-text';
+
+    const loginTime = u.loginAt ? new Date(u.loginAt).toLocaleString('es-MX', { hour: 'numeric', minute: 'numeric', hour12: true }) : '';
+    const now = new Date();
+    const loginDate = u.loginAt ? new Date(u.loginAt) : new Date();
+    const diffMin = Math.floor((now - loginDate) / 60000);
+    const tiempoConexion = isNaN(diffMin) ? '' : (diffMin < 60 ? `${diffMin} min` : `${Math.floor(diffMin / 60)}h ${diffMin % 60}m`);
+    const cancionesStr = u.songsRequested != null ? ` | Canciones registradas: ${u.songsRequested}` : '';
+
+    textSpan.textContent = `Mesa: ${u.tableNumber} | Usuario: ${toUpperNoAccents(u.userName)} | Ingreso: ${loginTime} | T. conectado: ${tiempoConexion}${cancionesStr}`;
+
+    content.appendChild(textSpan);
+    card.appendChild(content);
+    container.appendChild(card);
+  });
+
+  container.scrollTop = prevScrollTop;
+}
+
+function setupActiveUsersButtons() {
+  const btnToggle = document.getElementById('btn-toggle-active-users');
+  const listContainer = document.getElementById('active-users-list');
+  const hint = document.getElementById('active-users-hint');
+
+  if (btnToggle && listContainer) {
+    btnToggle.onclick = async () => {
+      if (!adminLogged) {
+        await customAlert('Primero inicia sesión como admin');
+        return;
+      }
+      activeUsersHidden = !activeUsersHidden;
+      if (!activeUsersHidden) {
+        listContainer.style.display = 'block';
+        if (hint) hint.style.display = 'block';
+        btnToggle.textContent = 'Ocultar usuarios conectados';
+        loadActiveUsers();
+      } else {
+        listContainer.style.display = 'none';
+        if (hint) hint.style.display = 'none';
+        btnToggle.textContent = 'Ver usuarios conectados';
+      }
+      startAutoRefreshAdmin();
+    };
+  }
+}
+
+// ========= HISTORIAL DE REGISTROS =========
+async function loadLoginHistory() {
+  const container = document.getElementById('login-history-list');
+  const countBadge = document.getElementById('login-history-count');
+  if (!container || !countBadge) return;
+
+  const prevScrollTop = container.scrollTop;
+
+  const fromDateStr = document.getElementById('login-history-from').value;
+  const toDateStr = document.getElementById('login-history-to').value;
+
+  let res, data;
+  try {
+    let url = `${API_BASE}/api/admin/login-history`;
+    const params = new URLSearchParams();
+    if (fromDateStr) params.append('from', fromDateStr);
+    if (toDateStr) params.append('to', toDateStr);
+    if (params.toString()) url += `?${params.toString()}`;
+
+    res = await fetch(url, { cache: 'no-store' });
+    data = await res.json();
+  } catch (e) {
+    console.error(e);
+    container.textContent = 'No se pudo cargar el historial de registros.';
+    return;
+  }
+
+  if (!res.ok || !data.ok) {
+    container.textContent = data.message || 'Error al cargar historial de registros.';
+    return;
+  }
+
+  const history = data.history || data.loginHistory || [];
+  countBadge.textContent = history.length;
+
+  if (!history.length) {
+    container.textContent = 'No hay registros en las fechas seleccionadas.';
+    return;
+  }
+
+  container.innerHTML = '';
+  history.forEach(h => {
+    const card = document.createElement('div');
+    card.className = 'queue-admin-item-line';
+
+    const content = document.createElement('div');
+    content.className = 'queue-admin-item-content';
+
+    const textSpan = document.createElement('span');
+    textSpan.className = 'queue-admin-item-text';
+
+    const fechaStr = h.loginAt ? new Date(h.loginAt).toLocaleString('es-MX') : '';
+    const cancionesStr = h.songsRequested != null ? ` | Canciones registradas: ${h.songsRequested}` : '';
+    textSpan.textContent = `Mesa: ${h.tableNumber} | Usuario: ${toUpperNoAccents(h.userName)} | Fecha y hora: ${fechaStr}${cancionesStr}`;
+
+    content.appendChild(textSpan);
+    card.appendChild(content);
+    container.appendChild(card);
+  });
+
+  container.scrollTop = prevScrollTop;
+}
+
+async function exportLoginHistoryCsv() {
+  if (!adminLogged) {
+    await customAlert('Primero inicia sesión como admin');
+    return;
+  }
+
+  const fromDateStr = document.getElementById('login-history-from').value;
+  const toDateStr = document.getElementById('login-history-to').value;
+
+  try {
+    let url = `${API_BASE}/api/admin/login-history`;
+    const params = new URLSearchParams();
+    if (fromDateStr) params.append('from', fromDateStr);
+    if (toDateStr) params.append('to', toDateStr);
+    if (params.toString()) url += `?${params.toString()}`;
+
+    const res = await fetch(url, { cache: 'no-store' });
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      await customAlert(data.message || 'No se pudo cargar el historial para exportar.');
+      return;
+    }
+
+    const history = data.history || data.loginHistory || [];
+    if (!history.length) {
+      await customAlert('No hay registros para exportar.');
+      return;
+    }
+
+    // Generate CSV content
+    const headers = ['Mesa', 'Usuario', 'Fecha y hora de inicio de sesion', 'Canciones registradas'];
+    const rows = history.map(h => {
+      const fechaStr = h.loginAt ? new Date(h.loginAt).toLocaleString('es-MX') : '';
+      return [
+        h.tableNumber,
+        toUpperNoAccents(h.userName),
+        fechaStr,
+        h.songsRequested || 0
+      ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(',');
+    });
+
+    const csvContent = "\uFEFF" + headers.join(',') + "\n" + rows.join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blobUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    const fecha = new Date().toISOString().slice(0, 10);
+    a.download = `historial_registros_${fecha}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(blobUrl);
+
+  } catch (e) {
+    console.error(e);
+    await customAlert('Error al descargar el CSV de registros');
+  }
+}
+
+function setupLoginHistoryButtons() {
+  const btnToggle = document.getElementById('btn-toggle-login-history');
+  const listContainer = document.getElementById('login-history-list');
+  const filters = document.getElementById('login-history-filters');
+  const hint = document.getElementById('login-history-hint');
+  const btnFilter = document.getElementById('btn-filter-login-history');
+  const btnExport = document.getElementById('btn-export-login-history');
+  const btnClear = document.getElementById('btn-clear-login-history');
+
+  if (btnToggle && listContainer) {
+    btnToggle.onclick = async () => {
+      if (!adminLogged) {
+        await customAlert('Primero inicia sesión como admin');
+        return;
+      }
+      loginHistoryHidden = !loginHistoryHidden;
+      if (!loginHistoryHidden) {
+        listContainer.style.display = 'block';
+        if (hint) hint.style.display = 'block';
+        btnToggle.textContent = 'Ocultar historial de registros';
+        loadLoginHistory();
+      } else {
+        listContainer.style.display = 'none';
+        if (hint) hint.style.display = 'none';
+        btnToggle.textContent = 'Ver historial de registros';
+      }
+      startAutoRefreshAdmin();
+    };
+  }
+
+  if (btnFilter) {
+    btnFilter.onclick = async () => {
+      if (!adminLogged) return;
+      loadLoginHistory();
+      startAutoRefreshAdmin();
+    };
+  }
+
+  if (btnExport) {
+    btnExport.onclick = exportLoginHistoryCsv;
+  }
+
+  if (btnClear) {
+    btnClear.onclick = async () => {
+      if (!adminLogged) {
+        await customAlert('Primero inicia sesión como admin');
+        return;
+      }
+
+      const ok = await customConfirm('¿Seguro que quieres eliminar TODO el historial de registros de usuarios?');
+      if (!ok) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/clear-login-history`, {
+          method: 'DELETE'
+        });
+
+        let data;
+        try {
+          data = await res.json();
+        } catch (e) {
+          await customAlert('Respuesta inválida del servidor al limpiar historial de registros');
+          return;
+        }
+
+        if (!res.ok || !data.ok) {
+          await customAlert(data.message || 'No se pudo limpiar el historial');
+          return;
+        }
+
+        document.getElementById('login-history-list').innerHTML = 'Aún no hay historial.';
+        document.getElementById('login-history-count').textContent = '0';
+      } catch (e) {
+        console.error(e);
+        await customAlert('No se pudo conectar para limpiar el historial de registros');
+      }
+    };
+  }
 }
 
 // ========= INICIALIZACIÓN =========
@@ -2476,18 +2778,20 @@ document.addEventListener('DOMContentLoaded', () => {
   setupHistoryButtons();
   setupSuggestionsSection();
   setupPublicQueueDisplayButton();
+  setupActiveUsersButtons();
+  setupLoginHistoryButtons();
 
   const logoForm = document.getElementById('form-upload-logo');
   if (logoForm) {
     logoForm.onsubmit = async (e) => {
       e.preventDefault();
       if (!adminLogged) {
-        alert('Primero inicia sesión como admin');
+        await customAlert('Primero inicia sesión como admin');
         return;
       }
       const fileInput = document.getElementById('logo-file');
       if (!fileInput.files.length) {
-        alert('Selecciona una imagen para el logo');
+        await customAlert('Selecciona una imagen para el logo');
         return;
       }
       const formData = new FormData();
@@ -2500,10 +2804,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const data = await res.json();
         if (!res.ok || !data.ok) {
-          alert(data.message || 'Error al subir el Logo');
+          await customAlert(data.message || 'Error al subir el Logo');
           return;
         }
-        alert('Logo actualizado correctamente.');
+        await customAlert('Logo actualizado correctamente.');
         const img = document.getElementById('current-logo-image');
         if (img) {
           img.src = '/logo/logo.png?t=' + Date.now();
@@ -2511,7 +2815,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } catch (err) {
         console.error(err);
-        alert('Error al subir el logo');
+        await customAlert('Error al subir el logo');
       }
     };
   }

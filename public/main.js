@@ -330,16 +330,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Desplazar el botón de login hacia arriba cuando se abre el teclado
+  // Desplazar el campo seleccionado al centro cuando se abre el teclado
   ['name', 'table-select', 'custom-table-select-trigger', 'table', 'pass'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener('focus', () => {
         setTimeout(() => {
-          const btn = document.getElementById('btn-login');
-          if (btn) {
-            btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 350); // Dar tiempo al teclado virtual para abrirse
       });
     }
@@ -368,7 +365,7 @@ document.getElementById('btn-login').onclick = async () => {
   }
 
   if (!name || !table || !pass) {
-    alert('Llena nombre, mesa y contraseña');
+    await customAlert('Llena nombre, mesa y contraseña');
     return;
   }
 
@@ -383,7 +380,7 @@ document.getElementById('btn-login').onclick = async () => {
     });
   } catch (err) {
     console.error(err);
-    alert('No se pudo conectar con el servidor para iniciar sesión');
+    await customAlert('No se pudo conectar con el servidor para iniciar sesión');
     return;
   }
 
@@ -392,12 +389,12 @@ document.getElementById('btn-login').onclick = async () => {
     data = await res.json();
   } catch (err) {
     console.error(err);
-    alert('Respuesta inválida del servidor al iniciar sesión');
+    await customAlert('Respuesta inválida del servidor al iniciar sesión');
     return;
   }
 
   if (!res.ok || !data.ok) {
-    alert(data.message || 'No se pudo iniciar sesión');
+    await customAlert(data.message || 'No se pudo iniciar sesión');
     return;
   }
 
@@ -408,7 +405,7 @@ document.getElementById('btn-login').onclick = async () => {
 
   history.pushState({ karaoke: true }, '', location.href);
 
-  alert('Ingresaste como ' + name);
+  await customAlert('Ingresaste como ' + name);
 
   const loginCard            = document.getElementById('login-card');
   const userContent          = document.getElementById('user-content');
@@ -485,7 +482,7 @@ document.getElementById('btn-login').onclick = async () => {
 
 const toggleLoginBtn2 = document.getElementById('btn-toggle-login-card');
 if (toggleLoginBtn2) {
-  toggleLoginBtn2.onclick = () => {
+  toggleLoginBtn2.onclick = async () => {
     const loginCard = document.getElementById('login-card');
     if (!loginCard) return;
 
@@ -611,7 +608,7 @@ if (btnSearch2) {
   btnSearch2.style.display = 'none';
   btnSearch2.onclick = async () => {
     if (!loggedUser) {
-      alert('Primero inicia sesión');
+      await customAlert('Primero inicia sesión');
       return;
     }
     performSearch();
@@ -621,7 +618,7 @@ if (btnSearch2) {
 // toggle buscar
 const btnToggleSearchCard2 = document.getElementById('btn-toggle-search-card');
 if (btnToggleSearchCard2) {
-  btnToggleSearchCard2.onclick = () => {
+  btnToggleSearchCard2.onclick = async () => {
     if (btnToggleSearchCard2.dataset.disabled === 'true') return;
 
     const searchCard = document.getElementById('search-card');
@@ -650,7 +647,7 @@ if (btnToggleSearchCard2) {
 // toggle cola catálogo
 const btnToggleQueueCard2 = document.getElementById('btn-toggle-queue-card');
 if (btnToggleQueueCard2) {
-  btnToggleQueueCard2.onclick = () => {
+  btnToggleQueueCard2.onclick = async () => {
     if (btnToggleQueueCard2.dataset.disabled === 'true') return;
 
     const queueCard = getQueueCard();
@@ -673,7 +670,7 @@ if (btnToggleQueueCard2) {
 // toggle registro manual
 const btnToggleManualCard2 = document.getElementById('btn-toggle-manual-card');
 if (btnToggleManualCard2) {
-  btnToggleManualCard2.onclick = () => {
+  btnToggleManualCard2.onclick = async () => {
     if (btnToggleManualCard2.dataset.disabled === 'true') return;
     const manualCard = document.getElementById('manual-card');
     if (!manualCard) return;
@@ -695,7 +692,7 @@ if (btnToggleManualCard2) {
 // toggle cola manual
 const btnToggleManualQueueCard2 = document.getElementById('btn-toggle-manual-queue-card');
 if (btnToggleManualQueueCard2) {
-  btnToggleManualQueueCard2.onclick = () => {
+  btnToggleManualQueueCard2.onclick = async () => {
     if (btnToggleManualQueueCard2.dataset.disabled === 'true') return;
 
     const manualQueueCard = document.getElementById('manual-queue-card');
@@ -718,7 +715,7 @@ if (btnToggleManualQueueCard2) {
 // toggle cola mixta
 const btnToggleMixedQueueCard2 = document.getElementById('btn-toggle-mixed-queue-card');
 if (btnToggleMixedQueueCard2) {
-  btnToggleMixedQueueCard2.onclick = () => {
+  btnToggleMixedQueueCard2.onclick = async () => {
     if (btnToggleMixedQueueCard2.dataset.disabled === 'true') return;
 
     const mixedQueueCard = document.getElementById('mixed-queue-card');
@@ -741,7 +738,7 @@ if (btnToggleMixedQueueCard2) {
 // toggle sugerencias
 const btnToggleSuggestCard2 = document.getElementById('btn-toggle-suggest-card');
 if (btnToggleSuggestCard2) {
-  btnToggleSuggestCard2.onclick = () => {
+  btnToggleSuggestCard2.onclick = async () => {
     if (btnToggleSuggestCard2.dataset.disabled === 'true') return;
 
     const suggestCard = document.getElementById('suggest-card');
@@ -760,8 +757,19 @@ if (btnToggleSuggestCard2) {
 
 const btnLogout = document.getElementById('btn-logout');
 if (btnLogout) {
-  btnLogout.onclick = () => {
-    if (!confirm('¿Seguro que quieres cerrar sesión?')) return;
+  btnLogout.onclick = async () => {
+    if (!await customConfirm('¿Seguro que quieres cerrar sesión?')) return;
+    if (loggedUser) {
+      try {
+        await fetch(`${API_BASE}/api/user/logout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: loggedUser.name, table: loggedUser.table })
+        });
+      } catch (e) {
+        console.error('Logout error', e);
+      }
+    }
     doLogout();
   };
 }
@@ -914,13 +922,13 @@ if (manualArtistInput) {
 
 async function chooseSong(songLabel) {
   if (!loggedUser) {
-    alert('Primero inicia sesión');
+    await customAlert('Primero inicia sesión');
     return;
   }
 
   const singerName = window.currentSingerName || loggedUser.name;
 
-  const confirmar = confirm(
+  const confirmar = await customConfirm(
     `¿Confirmas que quieres registrar esta canción para:\n\nMesa ${loggedUser.table} - ${singerName}\n\n${songLabel}`
   );
   if (!confirmar) return;
@@ -933,12 +941,13 @@ async function chooseSong(songLabel) {
       body: JSON.stringify({
         userName: singerName,
         tableNumber: loggedUser.table,
-        songTitle: songLabel
+        songTitle: songLabel,
+        sessionUser: loggedUser.name
       })
     });
   } catch (err) {
     console.error(err);
-    alert('No se pudo conectar para registrar la canción');
+    await customAlert('No se pudo conectar para registrar la canción');
     return;
   }
 
@@ -947,7 +956,7 @@ async function chooseSong(songLabel) {
     data = await res.json();
   } catch (err) {
     console.error(err);
-    alert('Respuesta inválida del servidor al registrar');
+    await customAlert('Respuesta inválida del servidor al registrar');
     return;
   }
 
@@ -960,7 +969,7 @@ async function chooseSong(songLabel) {
   if (songsDiv)    songsDiv.innerHTML = '';
 
   if (!res.ok || !data.ok) {
-    alert(data.message || 'No se pudo registrar');
+    await customAlert(data.message || 'No se pudo registrar');
 
     const resultsCard = getResultsCard();
     if (resultsCard) resultsCard.style.display = 'none';
@@ -988,7 +997,7 @@ async function chooseSong(songLabel) {
   await loadMixedQueue();
 
   if (data.message) {
-    alert(data.message);
+    await customAlert(data.message);
   }
 
   if (
@@ -1341,7 +1350,7 @@ const btnSendSuggestion = document.getElementById('btn-send-suggestion');
 if (btnSendSuggestion) {
   btnSendSuggestion.onclick = async () => {
     if (!loggedUser) {
-      alert('Primero inicia sesión');
+      await customAlert('Primero inicia sesión');
       return;
     }
 
@@ -1357,7 +1366,7 @@ if (btnSendSuggestion) {
       console.error(err);
       if (titleInput) titleInput.value = '';
       if (artistInput) artistInput.value = '';
-      alert('No se pudo verificar tu estado en la cola');
+      await customAlert('No se pudo verificar tu estado en la cola');
       return;
     }
 
@@ -1368,14 +1377,14 @@ if (btnSendSuggestion) {
       console.error(err);
       if (titleInput) titleInput.value = '';
       if (artistInput) artistInput.value = '';
-      alert('Respuesta inválida al verificar la cola');
+      await customAlert('Respuesta inválida al verificar la cola');
       return;
     }
 
     if (!resQueue.ok || !dataQueue.ok) {
       if (titleInput) titleInput.value = '';
       if (artistInput) artistInput.value = '';
-      alert('No se pudo verificar la cola actualmente');
+      await customAlert('No se pudo verificar la cola actualmente');
       return;
     }
 
@@ -1399,7 +1408,7 @@ if (btnSendSuggestion) {
     if (!isUserInQueueNow) {
       if (titleInput) titleInput.value = '';
       if (artistInput) artistInput.value = '';
-      alert(
+      await customAlert(
         'Solo puedes hacer una sugerencia cuando estás en la cola de participantes.'
       );
       return;
@@ -1408,7 +1417,7 @@ if (btnSendSuggestion) {
     if (hasSuggestedWhileInQueue) {
       if (titleInput) titleInput.value = '';
       if (artistInput) artistInput.value = '';
-      alert(
+      await customAlert(
         'Ya hiciste una sugerencia mientras estás en esta cola. Espera a que termine tu turno para sugerir de manera opcional otra.'
       );
       return;
@@ -1418,7 +1427,7 @@ if (btnSendSuggestion) {
     const artist = artistInput.value.trim();
 
     if (!title || !artist) {
-      alert('Escribe título e intérprete para la sugerencia');
+      await customAlert('Escribe título e intérprete para la sugerencia');
       return;
     }
 
@@ -1436,17 +1445,17 @@ if (btnSendSuggestion) {
 
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        alert(data.message || 'No se pudo enviar la sugerencia');
+        await customAlert(data.message || 'No se pudo enviar la sugerencia');
         return;
       }
 
       titleInput.value = '';
       artistInput.value = '';
       hasSuggestedWhileInQueue = true;
-      alert('¡Gracias! Tu sugerencia quedó registrada para revisión.');
+      await customAlert('¡Gracias! Tu sugerencia quedó registrada para revisión.');
     } catch (e) {
       console.error(e);
-      alert('No se pudo conectar para enviar la sugerencia');
+      await customAlert('No se pudo conectar para enviar la sugerencia');
     }
   };
 }
@@ -1457,7 +1466,7 @@ const btnSendManual = document.getElementById('btn-send-manual');
 if (btnSendManual) {
   btnSendManual.onclick = async () => {
     if (!loggedUser) {
-      alert('Primero inicia sesión');
+      await customAlert('Primero inicia sesión');
       return;
     }
 
@@ -1468,7 +1477,7 @@ if (btnSendManual) {
     let artist = artistInput ? artistInput.value.trim() : '';
 
     if (!title || !artist) {
-      alert('Escribe título e intérprete para registrar la canción');
+      await customAlert('Escribe título e intérprete para registrar la canción');
       return;
     }
 
@@ -1490,7 +1499,8 @@ if (btnSendManual) {
           tableNumber: loggedUser.table,
           songTitle: title,
           manualSongTitle:  title,
-          manualSongArtist: artist
+          manualSongArtist: artist,
+          sessionUser: loggedUser.name
         })
       });
 
@@ -1498,12 +1508,12 @@ if (btnSendManual) {
       console.log('Respuesta /api/manual-queue:', data);
 
       if (!res.ok || !data.ok) {
-        alert(data.message || 'No se pudo registrar la canción manual');
+        await customAlert(data.message || 'No se pudo registrar la canción manual');
         return;
       }
     } catch (e) {
       console.error(e);
-      alert('No se pudo conectar para registrar la canción manual');
+      await customAlert('No se pudo conectar para registrar la canción manual');
       return;
     }
 
@@ -1513,9 +1523,9 @@ if (btnSendManual) {
     await loadMixedQueue();
 
     if (data.message) {
-      alert(data.message);
+      await customAlert(data.message);
     } else {
-      alert('Canción manual registrada correctamente.');
+      await customAlert('Canción manual registrada correctamente.');
     }
 
     if (window.__extraManualSingerName) {
@@ -1558,23 +1568,21 @@ async function preguntarOtraPersonaParaMesa(maxSongs) {
 
     const remaining = maxSongs - countForTable;
 
-    const wantAnother = confirm(
+    const wantAnother = await customConfirm(
       `La mesa ${loggedUser.table} puede registrar hasta ${maxSongs} canción(es).\n` +
         `Actualmente tiene ${countForTable} canción(es) registradas.\n\n` +
         `¿Quieres registrar OTRA canción para OTRA persona de esta misma mesa?\n` +
-        `Quedan ${remaining} lugar(es)\n\n` +
-        `Pulsa "Aceptar" para SÍ.\n` +
-        `Pulsa "Cancelar" para NO.`
+        `Quedan ${remaining} lugar(es)`
     );
     if (!wantAnother) {
       return;
     }
 
-    const newNameRaw = prompt(
+    const newNameRaw = await customPrompt(
       'Escribe el nombre de la otra persona de esta mesa que cantará:'
     );
     if (!newNameRaw) {
-      alert(
+      await customAlert(
         'No se ingresó nombre. El registro se mantiene con las canciones actuales.'
       );
       return;
@@ -1582,7 +1590,7 @@ async function preguntarOtraPersonaParaMesa(maxSongs) {
 
     let newName = removeAccents(newNameRaw.toString().trim()).toUpperCase();
     if (!newName) {
-      alert('El nombre no puede quedar vacío.');
+      await customAlert('El nombre no puede quedar vacío.');
       return;
     }
 
@@ -1592,7 +1600,7 @@ async function preguntarOtraPersonaParaMesa(maxSongs) {
         removeAccents(newName).toLowerCase()
     );
     if (nameExists) {
-      alert(
+      await customAlert(
         `En la mesa ${loggedUser.table}, la persona "${newName}" ya tiene canción (es) registrada(s). ` +
           'Si no ha rebasado su límite permitido puede seguir registrando .'
       );
@@ -1601,7 +1609,7 @@ async function preguntarOtraPersonaParaMesa(maxSongs) {
 
     const extraSingerName = newName;
 
-    alert(
+    await customAlert(
       `Perfecto, ahora registra otra canción para:\n` +
         `Mesa ${loggedUser.table} - ${extraSingerName}`
     );
@@ -1644,23 +1652,21 @@ async function preguntarOtraPersonaParaMesaManual(maxSongs) {
 
     const remaining = maxSongs - countForTable;
 
-    const wantAnother = confirm(
+    const wantAnother = await customConfirm(
       `La mesa ${loggedUser.table} puede registrar hasta ${maxSongs} canción(es).\n` +
         `Actualmente tiene ${countForTable} canción(es) registradas.\n\n` +
         `¿Quieres registrar OTRA canción para OTRA persona de esta misma mesa?\n` +
-        `Quedan ${remaining} lugar(es)\n\n` +
-        `Pulsa "Aceptar" para SÍ.\n` +
-        `Pulsa "Cancelar" para NO.`
+        `Quedan ${remaining} lugar(es)`
     );
     if (!wantAnother) {
       return;
     }
 
-    const newNameRaw = prompt(
+    const newNameRaw = await customPrompt(
       'Escribe el nombre de la otra persona de esta mesa que cantará:'
     );
     if (!newNameRaw) {
-      alert(
+      await customAlert(
         'No se ingresó nombre. El registro se mantiene con las canciones actuales.'
       );
       return;
@@ -1668,7 +1674,7 @@ async function preguntarOtraPersonaParaMesaManual(maxSongs) {
 
     let newName = removeAccents(newNameRaw.toString().trim()).toUpperCase();
     if (!newName) {
-      alert('El nombre no puede quedar vacío.');
+      await customAlert('El nombre no puede quedar vacío.');
       return;
     }
 
@@ -1678,7 +1684,7 @@ async function preguntarOtraPersonaParaMesaManual(maxSongs) {
         removeAccents(newName).toLowerCase()
     );
     if (nameExists) {
-      alert(
+      await customAlert(
         `En la mesa ${loggedUser.table}, la persona "${newName}" ya tiene canción (es) registrada(s). ` +
           'Si no ha rebasado su límite permitido puede seguir registrando .'
       );
@@ -1687,7 +1693,7 @@ async function preguntarOtraPersonaParaMesaManual(maxSongs) {
 
     const extraSingerName = newName;
 
-    alert(
+    await customAlert(
       `Perfecto, ahora registra la siguiente canción para:\n` +
         `Mesa ${loggedUser.table} - ${extraSingerName}`
     );
@@ -1907,7 +1913,12 @@ function areFeaturesDifferent(a, b) {
 
 setInterval(async () => {
   try {
-    const res  = await fetch(`${API_BASE}/api/public-info`, {
+    let url = `${API_BASE}/api/public-info`;
+    if (typeof loggedUser !== 'undefined' && loggedUser) {
+      const qs = new URLSearchParams({ name: loggedUser.name, table: loggedUser.table }).toString();
+      url += `?${qs}`;
+    }
+    const res  = await fetch(url, {
       cache: 'no-store'
     });
     const data = await res.json();

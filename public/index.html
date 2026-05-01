@@ -376,21 +376,6 @@
         .toUpperCase();
     }
     document.addEventListener('DOMContentLoaded', () => {
-      const loginCard = document.getElementById('login-card');
-      const loginInputs = ['name', 'table', 'pass']
-        .map(id => document.getElementById(id))
-        .filter(Boolean);
-      loginInputs.forEach(inp => {
-        inp.addEventListener('focus', () => {
-          if (!loginCard) return;
-          setTimeout(() => {
-            loginCard.scrollTo({
-              top: loginCard.scrollHeight,
-              behavior: 'smooth'
-            });
-          }, 200);
-        });
-      });
     });
   </script>
 </head>
@@ -546,6 +531,7 @@
   </div>
 
   <div id="back-toast"></div>
+  <script src="dialogs.js"></script>
   <script src="main.js"></script>
 </body>
 </html>

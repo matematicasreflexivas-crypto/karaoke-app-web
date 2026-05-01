@@ -334,6 +334,80 @@
     <!-- Panel admin (se muestra solo si está logueado) -->
     <div id="admin-panel" style="display:none;">
 
+      <!-- Usuarios Conectados -->
+      <div class="card" id="active-users-card">
+        <h3 style="margin-top: 8px;">Usuarios Conectados <span class="badge" id="active-users-count" style="font-size:0.85rem; margin-left:8px;">0</span></h3>
+
+        <div class="section-title-row" style="margin-top: 8px; margin-bottom: 8px;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button id="btn-toggle-active-users" class="btn-primary">
+              Ver usuarios conectados
+            </button>
+          </div>
+        </div>
+
+        <p class="hint" id="active-users-hint" style="display:none;">
+          Aquí se muestran los participantes que están actualmente conectados a la aplicación.
+        </p>
+
+        <div id="active-users-list" style="
+          margin-top: 8px;
+          max-height: 30vh;
+          overflow-y: auto;
+          overflow-x: auto;
+          white-space: nowrap;
+          font-size: 0.85rem;
+          display: none;
+        "></div>
+      </div>
+
+      <!-- Historial de Registros -->
+      <div class="card" id="login-history-card">
+        <h3 style="margin-top: 8px;">Historial de Registros <span class="badge" id="login-history-count" style="font-size:0.85rem; margin-left:8px;">0</span></h3>
+
+        <div class="section-title-row" style="margin-top: 8px; margin-bottom: 8px;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button id="btn-toggle-login-history" class="btn-primary">
+              Ver historial de registros
+            </button>
+            <button id="btn-export-login-history" class="btn-primary">
+              Exportar historial (CSV)
+            </button>
+            <button id="btn-clear-login-history" class="btn-danger">
+              Eliminar historial
+            </button>
+          </div>
+        </div>
+
+        <div class="history-filters" id="login-history-filters">
+          <label>
+            Desde:
+            <input type="date" id="login-history-from" />
+          </label>
+          <label>
+            Hasta:
+            <input type="date" id="login-history-to" />
+          </label>
+          <button id="btn-filter-login-history" class="btn-secondary">
+            Aplicar filtro
+          </button>
+        </div>
+
+        <p class="hint" id="login-history-hint" style="display:none;">
+          Aquí se mostrará el historial completo de las sesiones de los usuarios.
+        </p>
+
+        <div id="login-history-list" style="
+          margin-top: 8px;
+          max-height: 30vh;
+          overflow-y: auto;
+          overflow-x: auto;
+          white-space: nowrap;
+          font-size: 0.85rem;
+          display: none;
+        "></div>
+      </div>
+
       <!-- Botón para mostrar/ocultar secciones de inicio (contraseñas) -->
       <div class="card">
         <h2>Inicio</h2>
@@ -863,6 +937,7 @@
   </div>
 
   <div id="admin-back-toast"></div>
+  <script src="dialogs.js"></script>
   <script src="admin.js"></script>
 </body>
 </html>

@@ -77,6 +77,26 @@ db.exec(`
   );
 `);
 
+// NUEVAS TABLAS: usuarios conectados e historial de registros
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    userName TEXT NOT NULL,
+    tableNumber TEXT NOT NULL,
+    loginAt TEXT DEFAULT (datetime('now', 'localtime')),
+    lastActiveAt TEXT DEFAULT (datetime('now', 'localtime'))
+  );
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS login_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    userName TEXT NOT NULL,
+    tableNumber TEXT NOT NULL,
+    loginAt TEXT DEFAULT (datetime('now', 'localtime'))
+  );
+`);
+
 // Migraciones: agregar columna highlightColor si no existe
 try { db.exec(`ALTER TABLE queue ADD COLUMN highlightColor TEXT`); } catch (e) { /* ya existe */ }
 try { db.exec(`ALTER TABLE manual_queue ADD COLUMN highlightColor TEXT`); } catch (e) { /* ya existe */ }
@@ -89,6 +109,10 @@ try { db.exec(`ALTER TABLE history ADD COLUMN manualPosition INTEGER`); } catch 
 try { db.exec(`ALTER TABLE history ADD COLUMN manualTotal INTEGER`); } catch (e) { /* ya existe */ }
 try { db.exec(`ALTER TABLE history ADD COLUMN mixedPosition INTEGER`); } catch (e) { /* ya existe */ }
 try { db.exec(`ALTER TABLE history ADD COLUMN mixedTotal INTEGER`); } catch (e) { /* ya existe */ }
+
+// Migraciones: agregar contador de canciones
+try { db.exec(`ALTER TABLE user_sessions ADD COLUMN songsRequested INTEGER DEFAULT 0`); } catch (e) { /* ya existe */ }
+try { db.exec(`ALTER TABLE login_history ADD COLUMN songsRequested INTEGER DEFAULT 0`); } catch (e) { /* ya existe */ }
 
 // ===== FIN SQLITE =====
 
@@ -217,6 +241,15 @@ function saveAdminConfig() {
 
 // Info pública del día
 app.get('/api/public-info', (req, res) => {
+  const { name, table } = req.query;
+  if (name && table) {
+    try {
+      db.prepare(`UPDATE user_sessions SET lastActiveAt = datetime('now', 'localtime') WHERE userName = ? AND tableNumber = ?`).run(name, table);
+    } catch (e) {
+      console.error('Error actualizando lastActiveAt', e);
+    }
+  }
+
   res.json({
     ok: true,
     userPassword: adminConfig.userPassword,
@@ -829,6 +862,31 @@ app.post('/api/user/login', (req, res) => {
     });
   }
 
+  try {
+    const existing = db.prepare(`SELECT id FROM user_sessions WHERE userName = ? AND tableNumber = ?`).get(name, table);
+    if (existing) {
+      db.prepare(`UPDATE user_sessions SET loginAt = datetime('now', 'localtime'), lastActiveAt = datetime('now', 'localtime') WHERE id = ?`).run(existing.id);
+    } else {
+      db.prepare(`INSERT INTO user_sessions (userName, tableNumber) VALUES (?, ?)`).run(name, table);
+    }
+    db.prepare(`INSERT INTO login_history (userName, tableNumber) VALUES (?, ?)`).run(name, table);
+  } catch (e) {
+    console.error('Error guardando sesion de usuario:', e);
+  }
+
+  return res.json({ ok: true });
+});
+
+// ========== LOGOUT USUARIO ==========
+app.post('/api/user/logout', (req, res) => {
+  const { name, table } = req.body;
+  if (name && table) {
+    try {
+      db.prepare(`DELETE FROM user_sessions WHERE userName = ? AND tableNumber = ?`).run(name, table);
+    } catch (e) {
+      console.error('Error eliminando sesión de usuario', e);
+    }
+  }
   return res.json({ ok: true });
 });
 
@@ -925,6 +983,19 @@ app.post('/api/songs/upload', upload.single('excel'), (req, res) => {
 });
 
 // ========== COLA / HISTORIAL (SQLite) ==========
+function incrementUserSongsRequested(userName, tableNumber) {
+  try {
+    console.log(`Incrementing songsRequested for user: "${userName}", table: "${tableNumber}"`);
+    db.prepare(`UPDATE user_sessions SET songsRequested = songsRequested + 1 WHERE userName = ? AND tableNumber = ?`).run(userName, tableNumber);
+    const latest = db.prepare(`SELECT id FROM login_history WHERE userName = ? AND tableNumber = ? ORDER BY loginAt DESC LIMIT 1`).get(userName, tableNumber);
+    if (latest) {
+      db.prepare(`UPDATE login_history SET songsRequested = songsRequested + 1 WHERE id = ?`).run(latest.id);
+    }
+  } catch (e) {
+    console.error('Error incrementando songsRequested', e);
+  }
+}
+
 function readQueueFromDb() {
   const stmt = db.prepare(`
     SELECT id, userName, tableNumber, songTitle, createdAt, highlightColor
@@ -934,12 +1005,13 @@ function readQueueFromDb() {
   return stmt.all();
 }
 
-function insertQueueItem(userName, tableNumber, songTitle) {
+function insertQueueItem(userName, tableNumber, songTitle, sessionUser) {
   const stmt = db.prepare(`
     INSERT INTO queue (userName, tableNumber, songTitle)
     VALUES (?, ?, ?)
   `);
   const info = stmt.run(userName, tableNumber, songTitle);
+  incrementUserSongsRequested(sessionUser || userName, tableNumber);
   return info.lastInsertRowid;
 }
 
@@ -1046,7 +1118,8 @@ function insertManualQueueItem(
   tableNumber,
   songTitle,
   manualSongTitle,
-  manualSongArtist
+  manualSongArtist,
+  sessionUser
 ) {
   const stmt = db.prepare(`
     INSERT INTO manual_queue (
@@ -1065,6 +1138,7 @@ function insertManualQueueItem(
     manualSongTitle || null,
     manualSongArtist || null
   );
+  incrementUserSongsRequested(sessionUser || userName, tableNumber);
   return info.lastInsertRowid;
 }
 
@@ -1267,7 +1341,7 @@ app.post('/api/queue', (req, res) => {
     });
   }
 
-  const { userName, tableNumber, songTitle } = req.body;
+  const { userName, tableNumber, songTitle, sessionUser } = req.body;
   if (!userName || !tableNumber || !songTitle) {
     return res.status(400).json({ ok: false, message: 'Faltan datos' });
   }
@@ -1316,7 +1390,8 @@ app.post('/api/queue', (req, res) => {
     });
   }
 
-  const id = insertQueueItem(userNameStr, mesaStr, songTitle);
+  const sessionUserStr = sessionUser ? String(sessionUser).trim() : null;
+  const id = insertQueueItem(userNameStr, mesaStr, songTitle, sessionUserStr);
 
   // recalc total para mensaje amigable
   const totalAfterInsert = getTotalActiveForTable(mesaStr);
@@ -1379,7 +1454,8 @@ app.post('/api/manual-queue', (req, res) => {
     tableNumber,
     songTitle,
     manualSongTitle,
-    manualSongArtist
+    manualSongArtist,
+    sessionUser
   } = req.body;
 
   if (!userName || !tableNumber || !songTitle) {
@@ -1455,12 +1531,14 @@ app.post('/api/manual-queue', (req, res) => {
   const manualTitleStr  = manualSongTitle  ? String(manualSongTitle).trim()  : null;
   const manualArtistStr = manualSongArtist ? String(manualSongArtist).trim() : null;
 
+  const sessionUserStr = sessionUser ? String(sessionUser).trim() : null;
   const id = insertManualQueueItem(
     userNameStr,
     mesaStr,
     songTitleStr,
     manualTitleStr,
-    manualArtistStr
+    manualArtistStr,
+    sessionUserStr
   );
 
   // recalc total para mensaje amigable
@@ -1787,6 +1865,95 @@ app.get('/api/song-suggestions/export', (req, res) => {
     res
       .status(500)
       .json({ ok: false, message: 'Error al exportar sugerencias' });
+  }
+});
+
+// ========== ENDPOINTS DE USUARIOS ACTIVOS E HISTORIAL DE LOGIN ==========
+
+app.get('/api/admin/active-users', (req, res) => {
+  try {
+    // Consider active if lastActiveAt is within the last 2 minutes
+    const stmt = db.prepare(`
+      SELECT id, userName, tableNumber, loginAt, lastActiveAt, songsRequested
+      FROM user_sessions
+      WHERE lastActiveAt >= datetime('now', 'localtime', '-2 minutes')
+      ORDER BY lastActiveAt DESC
+    `);
+    const users = stmt.all();
+    return res.json({ ok: true, activeUsers: users });
+  } catch (e) {
+    console.error('Error obteniendo usuarios activos:', e);
+    return res.status(500).json({ ok: false, message: 'Error al obtener usuarios activos' });
+  }
+});
+
+app.get('/api/admin/login-history', (req, res) => {
+  const { from, to } = req.query;
+  try {
+    let sql = `SELECT id, userName, tableNumber, loginAt, songsRequested FROM login_history WHERE 1=1`;
+    const params = [];
+    if (from) {
+      sql += ` AND date(loginAt) >= date(?)`;
+      params.push(from);
+    }
+    if (to) {
+      sql += ` AND date(loginAt) <= date(?)`;
+      params.push(to);
+    }
+    sql += ` ORDER BY loginAt DESC`;
+    
+    const stmt = db.prepare(sql);
+    const history = stmt.all(...params);
+    return res.json({ ok: true, history });
+  } catch (e) {
+    console.error('Error obteniendo historial de login:', e);
+    return res.status(500).json({ ok: false, message: 'Error al obtener historial de login' });
+  }
+});
+
+app.delete('/api/admin/clear-login-history', (req, res) => {
+  try {
+    db.prepare(`DELETE FROM login_history`).run();
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('Error limpiando historial de login:', e);
+    return res.status(500).json({ ok: false, message: 'Error al limpiar historial de login' });
+  }
+});
+
+app.get('/api/admin/login-history/export', (req, res) => {
+  try {
+    const { from, to } = req.query;
+    let sql = `SELECT id, userName, tableNumber, loginAt, songsRequested FROM login_history WHERE 1=1`;
+    const params = [];
+    if (from) {
+      sql += ` AND date(loginAt) >= date(?)`;
+      params.push(from);
+    }
+    if (to) {
+      sql += ` AND date(loginAt) <= date(?)`;
+      params.push(to);
+    }
+    sql += ` ORDER BY loginAt DESC`;
+    
+    const rows = db.prepare(sql).all(...params);
+
+    let csv = 'id,userName,tableNumber,loginAt,songsRequested\n';
+    for (const r of rows) {
+      const id = r.id != null ? r.id : '';
+      const userName = (r.userName || '').replace(/"/g, '""');
+      const tableNum = (r.tableNumber || '').replace(/"/g, '""');
+      const loginAt = (r.loginAt || '').replace(/"/g, '""');
+      const songsRequested = r.songsRequested || 0;
+      csv += `${id},"${userName}","${tableNum}","${loginAt}",${songsRequested}\n`;
+    }
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="historial_registros.csv"');
+    res.send(csv);
+  } catch (e) {
+    console.error('Error exportando historial de login', e);
+    res.status(500).json({ ok: false, message: 'Error al exportar historial' });
   }
 });
 
