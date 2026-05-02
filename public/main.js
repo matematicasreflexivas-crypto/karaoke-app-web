@@ -562,11 +562,11 @@ async function performSearch() {
   div.innerHTML = '';
 
   if (resultsCard) {
-    resultsCard.style.display = songs.length ? 'block' : 'none';
+    resultsCard.style.display = 'block';
   }
 
   if (!songs.length) {
-    div.textContent = 'No se encontraron canciones';
+    div.textContent = 'El intérprete o canción que busca no se halla en el catálogo. Si está habilitada la opción de registro manual, puede registrarla directamente o de lo contrario busque otra selección del catálogo';
     return;
   }
 
