@@ -3,14 +3,14 @@
   "userPassword": "usuario",
   "qrImageFile": "qr.png",
   "logoImageFile": "logo.png",
-  "appTitle": "AQUÍ TODOS CANTAN",
+  "appTitle": "MÉXICO EN...CANTA !!",
   "isQueueOpen": true,
   "userFeatures": {
     "search": true,
     "queue": false,
     "suggestion": false,
     "manualQueue": false,
-    "manualRegister": true,
+    "manualRegister": false,
     "mixedQueue": true
   },
   "manualMaxSongsPerTable": 1000,
@@ -18,5 +18,5 @@
   "publicQueueDisplay": "mixed",
   "minutesPerTurn": 4,
   "publicMessage": "Cantar es increíble!!!",
-  "showColorDots": false
+  "showColorDots": true
 }

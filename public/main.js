@@ -1924,6 +1924,11 @@ setInterval(async () => {
     const data = await res.json();
     if (!res.ok || !data.ok) return;
 
+    const title = data.appTitle || 'Karaoke';
+    document.title = `${title} - Usuario`;
+    const h1 = document.querySelector('h1');
+    if (h1) h1.textContent = title;
+
     window.__showColorDots = data.showColorDots !== false;
 
     const newFeatures = data.userFeatures || {};
