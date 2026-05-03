@@ -405,7 +405,11 @@ document.getElementById('btn-login').onclick = async () => {
 
   history.pushState({ karaoke: true }, '', location.href);
 
-  await customAlert('Ingresaste como ' + name);
+  const maxSongsPerUser = data.maxSongsPerUser || 1;
+  const maxSongsTable = data.maxSongs || 1;
+  const textPerUser = maxSongsPerUser === 1 ? '1 canción' : `${maxSongsPerUser} canciones`;
+  const textTable = maxSongsTable === 1 ? '1 canción' : `${maxSongsTable} canciones`;
+  await customAlert(`Ingresaste como ${name}.\nUna misma persona puede cantar hasta ${textPerUser}. El límite para esta mesa es de ${textTable}.`);
 
   const loginCard            = document.getElementById('login-card');
   const userContent          = document.getElementById('user-content');
@@ -567,6 +571,8 @@ async function performSearch() {
 
   if (!songs.length) {
     div.textContent = 'El intérprete o canción que busca no se halla en el catálogo. Si está habilitada la opción de registro manual, puede registrarla directamente o de lo contrario busque otra selección del catálogo';
+    artistInput.value = '';
+    titleInput.value = '';
     return;
   }
 

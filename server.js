@@ -874,7 +874,11 @@ app.post('/api/user/login', (req, res) => {
     console.error('Error guardando sesion de usuario:', e);
   }
 
-  return res.json({ ok: true });
+  const tableConfig = getTableConfig(table);
+  const maxSongsPerUser = tableConfig && tableConfig.maxSongsPerUser != null ? tableConfig.maxSongsPerUser : 1;
+  const maxSongs = tableConfig && tableConfig.maxSongs != null ? tableConfig.maxSongs : 1;
+
+  return res.json({ ok: true, maxSongsPerUser, maxSongs });
 });
 
 // ========== LOGOUT USUARIO ==========
